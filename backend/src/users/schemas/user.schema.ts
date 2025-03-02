@@ -19,7 +19,7 @@ export class User {
     enum: ['admin', 'teacher', 'student'],
     default: 'student',
   })
-  role: string;
+  role: 'admin' | 'teacher' | 'student';
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

@@ -1,6 +1,18 @@
-export interface CreateUserDto {
+import { IsString, IsEmail, IsOptional, IsEnum } from 'class-validator';
+
+export class CreateUserDto {
+  @IsEmail()
   email: string;
+
+  @IsString()
   password: string;
+
+  @IsString()
   name: string;
-  role?: string; // Опциональное, по умолчанию 'student'
+
+  @IsOptional()
+  @IsEnum(['admin', 'teacher', 'student'], {
+    message: 'Role must be one of: admin, teacher, student',
+  })
+  role?: 'admin' | 'teacher' | 'student';
 }

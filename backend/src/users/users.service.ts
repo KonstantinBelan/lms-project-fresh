@@ -13,7 +13,7 @@ export class UsersService {
     email: string,
     password: string,
     name: string,
-    role?: string,
+    role?: 'admin' | 'teacher' | 'student',
   ): Promise<User> {
     const saltRounds = 10;
     const hashedPassword = await bcrypt.hash(password, saltRounds);
@@ -31,6 +31,6 @@ export class UsersService {
   }
 
   async findById(id: string): Promise<User | null> {
-    return this.userModel.findById(id).exec();
+    return this.userModel.findById(id).select('-password').exec(); // Исключаем пароль из ответа
   }
 }
