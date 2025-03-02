@@ -8,8 +8,12 @@ import {
   Delete,
   UsePipes,
   ValidationPipe,
+  UseGuards,
+  SetMetadata,
 } from '@nestjs/common';
-import { CoursesService } from './courses.service'; // Импортируем класс
+import { AuthGuard } from '@nestjs/passport';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { CoursesService } from './courses.service';
 import { CreateCourseDto } from './dto/create-course.dto';
 import { UpdateCourseDto } from './dto/update-course.dto';
 import { CreateModuleDto } from './dto/create-module.dto';
@@ -20,6 +24,8 @@ export class CoursesController {
   constructor(private readonly coursesService: CoursesService) {}
 
   @Post()
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @SetMetadata('roles', ['teacher', 'admin']) // Доступ только для учителей и администраторов
   @UsePipes(new ValidationPipe())
   async create(@Body() createCourseDto: CreateCourseDto) {
     return this.coursesService.createCourse(
@@ -29,16 +35,22 @@ export class CoursesController {
   }
 
   @Get()
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @SetMetadata('roles', ['student', 'teacher', 'admin']) // Доступ для всех ролей
   async findAll() {
     return this.coursesService.findAllCourses();
   }
 
   @Get(':id')
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @SetMetadata('roles', ['student', 'teacher', 'admin']) // Доступ для всех ролей
   async findOne(@Param('id') id: string) {
     return this.coursesService.findCourseById(id);
   }
 
   @Put(':id')
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @SetMetadata('roles', ['teacher', 'admin']) // Доступ только для учителей и администраторов
   @UsePipes(new ValidationPipe())
   async update(
     @Param('id') id: string,
@@ -50,11 +62,15 @@ export class CoursesController {
   }
 
   @Delete(':id')
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @SetMetadata('roles', ['admin']) // Доступ только для администраторов
   async delete(@Param('id') id: string) {
     return this.coursesService.deleteCourse(id);
   }
 
   @Post(':courseId/modules')
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @SetMetadata('roles', ['teacher', 'admin']) // Доступ только для учителей и администраторов
   @UsePipes(new ValidationPipe())
   async addModule(
     @Param('courseId') courseId: string,
@@ -64,6 +80,8 @@ export class CoursesController {
   }
 
   @Post(':courseId/modules/:moduleId/lessons')
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @SetMetadata('roles', ['teacher', 'admin']) // Доступ только для учителей и администраторов
   @UsePipes(new ValidationPipe())
   async addLesson(
     @Param('courseId') courseId: string,

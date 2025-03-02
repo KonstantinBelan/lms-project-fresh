@@ -4,18 +4,20 @@ import { Course, CourseSchema } from './schemas/course.schema';
 import {
   Module as ModuleSchema,
   ModuleSchema as ModuleSchemaDefinition,
-} from './schemas/module.schema'; // Алиас для Module
+} from './schemas/module.schema';
 import { Lesson, LessonSchema } from './schemas/lesson.schema';
 import { CoursesController } from './courses.controller';
 import { CoursesService } from './courses.service';
+import { AuthModule } from '../auth/auth.module'; // Добавляем AuthModule
 
 @Module({
   imports: [
     MongooseModule.forFeature([
       { name: Course.name, schema: CourseSchema },
-      { name: ModuleSchema.name, schema: ModuleSchemaDefinition }, // Используем алиас
+      { name: ModuleSchema.name, schema: ModuleSchemaDefinition },
       { name: Lesson.name, schema: LessonSchema },
     ]),
+    AuthModule, // Импортируем для RolesGuard
   ],
   controllers: [CoursesController],
   providers: [CoursesService],
