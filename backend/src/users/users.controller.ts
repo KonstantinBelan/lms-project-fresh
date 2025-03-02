@@ -11,7 +11,7 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from '../auth/guards/roles.guard';
-import { UsersService } from './users.service';
+import { UsersService } from './users.service'; // Импортируем класс, а не интерфейс
 import { User } from './schemas/user.schema';
 import { CreateUserDto } from './dto/create-user.dto';
 

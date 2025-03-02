@@ -4,9 +4,11 @@ import { Model } from 'mongoose';
 import { User, UserDocument } from './schemas/user.schema';
 import { CreateUserDto } from './dto/create-user.dto';
 import * as bcrypt from 'bcrypt';
+import { IUsersService } from './users.service.interface'; // Обновлённый импорт
 
 @Injectable()
-export class UsersService {
+export class UsersService implements IUsersService {
+  // Изменили на IUsersService
   constructor(@InjectModel(User.name) private userModel: Model<UserDocument>) {}
 
   async create(
@@ -31,6 +33,10 @@ export class UsersService {
   }
 
   async findById(id: string): Promise<User | null> {
-    return this.userModel.findById(id).select('-password').exec(); // Исключаем пароль из ответа
+    return this.userModel.findById(id).select('-password').exec();
+  }
+
+  async findAll(): Promise<User[]> {
+    return this.userModel.find().select('-password').exec();
   }
 }
