@@ -1,6 +1,6 @@
 import { Enrollment } from './schemas/enrollment.schema';
 
-export interface EnrollmentsService {
+export interface IEnrollmentsService {
   createEnrollment(studentId: string, courseId: string): Promise<Enrollment>;
   findEnrollmentsByStudent(studentId: string): Promise<Enrollment[]>;
   findEnrollmentById(enrollmentId: string): Promise<Enrollment | null>;

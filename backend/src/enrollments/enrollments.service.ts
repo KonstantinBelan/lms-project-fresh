@@ -2,12 +2,13 @@ import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Enrollment, EnrollmentDocument } from './schemas/enrollment.schema';
-import { EnrollmentsService } from './enrollments.service.interface';
+import { IEnrollmentsService } from './enrollments.service.interface'; // Обновлённый импорт
 import { UsersService } from '../users/users.service';
 import { CoursesService } from '../courses/courses.service';
 
 @Injectable()
-export class EnrollmentsService implements EnrollmentsService {
+export class EnrollmentsService implements IEnrollmentsService {
+  // Изменили на IEnrollmentsService
   constructor(
     @InjectModel(Enrollment.name)
     private enrollmentModel: Model<EnrollmentDocument>,

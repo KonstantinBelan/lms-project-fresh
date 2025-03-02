@@ -9,7 +9,7 @@ import {
   UsePipes,
   ValidationPipe,
 } from '@nestjs/common';
-import { EnrollmentsService } from './enrollments.service';
+import { EnrollmentsService } from './enrollments.service'; // Импортируем класс
 import { CreateEnrollmentDto } from './dto/create-enrollment.dto';
 import { UpdateProgressDto } from './dto/update-progress.dto';
 import { CompleteCourseDto } from './dto/complete-course.dto';
