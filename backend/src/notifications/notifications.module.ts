@@ -15,7 +15,7 @@ import { UsersModule } from '../users/users.module';
       { name: Notification.name, schema: NotificationSchema },
     ]),
     forwardRef(() => EnrollmentsModule),
-    UsersModule,
+    UsersModule, // Добавляем UsersModule
   ],
   controllers: [NotificationsController],
   providers: [NotificationsService],
