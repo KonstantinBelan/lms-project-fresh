@@ -6,7 +6,7 @@ import { IEnrollmentsService } from './enrollments.service.interface';
 import { UsersService } from '../users/users.service';
 import { CoursesService } from '../courses/courses.service';
 import { NotificationsService } from '../notifications/notifications.service';
-import { AlreadyEnrolledException } from './exceptions/already-enrolled.exception'; // Импортируем исключение
+import { AlreadyEnrolledException } from './exceptions/already-enrolled.exception';
 
 @Injectable()
 export class EnrollmentsService implements IEnrollmentsService {
@@ -26,7 +26,16 @@ export class EnrollmentsService implements IEnrollmentsService {
   async createEnrollment(
     studentId: string,
     courseId: string,
+    deadline?: Date,
   ): Promise<Enrollment> {
+    console.log(
+      'Creating enrollment for studentId:',
+      studentId,
+      'courseId:',
+      courseId,
+      'deadline:',
+      deadline,
+    );
     const student = await this.usersService.findById(studentId);
     const course = await this.coursesService.findCourseById(courseId);
 
@@ -38,16 +47,39 @@ export class EnrollmentsService implements IEnrollmentsService {
       .findOne({ studentId, courseId })
       .exec();
     if (existingEnrollment) {
-      throw new AlreadyEnrolledException(); // Используем кастомное исключение
+      throw new AlreadyEnrolledException();
     }
 
-    const newEnrollment = new this.enrollmentModel({ studentId, courseId });
+    const newEnrollment = new this.enrollmentModel({
+      studentId,
+      courseId,
+      deadline,
+    });
     const savedEnrollment = await newEnrollment.save();
     await this.notificationsService.notifyNewCourse(
       studentId,
       courseId,
       course.title,
     );
+
+    // Проверка дедлайна при создании
+    if (deadline) {
+      const daysLeft = Math.ceil(
+        (deadline.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24),
+      );
+      if (daysLeft <= 7 && daysLeft > 0) {
+        const enrollmentId = savedEnrollment._id?.toString(); // Безопасный доступ с опциональной цепочкой
+        if (!enrollmentId) {
+          throw new Error('Enrollment ID is undefined');
+        }
+        await this.notificationsService.notifyDeadline(
+          enrollmentId,
+          daysLeft,
+          course.title,
+        );
+      }
+    }
+
     return savedEnrollment;
   }
 
@@ -85,6 +117,27 @@ export class EnrollmentsService implements IEnrollmentsService {
       moduleId,
       lessonId,
     );
+
+    // Проверка дедлайна при обновлении прогресса
+    if (updatedEnrollment.deadline) {
+      const daysLeft = Math.ceil(
+        (updatedEnrollment.deadline.getTime() - new Date().getTime()) /
+          (1000 * 60 * 60 * 24),
+      );
+      if (daysLeft <= 7 && daysLeft > 0) {
+        const course = await this.coursesService.findCourseById(
+          updatedEnrollment.courseId.toString(),
+        );
+        if (course) {
+          await this.notificationsService.notifyDeadline(
+            enrollmentId,
+            daysLeft,
+            course.title,
+          );
+        }
+      }
+    }
+
     return updatedEnrollment;
   }
 
@@ -130,6 +183,9 @@ export class EnrollmentsService implements IEnrollmentsService {
           ) || 0,
         grade: enrollment.grade,
         isCompleted: enrollment.isCompleted,
+        deadline: enrollment.deadline
+          ? enrollment.deadline.toISOString()
+          : null,
       };
     });
     return { studentId, progress };
@@ -168,6 +224,9 @@ export class EnrollmentsService implements IEnrollmentsService {
         totalLessons,
         grade: enrollment.grade,
         isCompleted: enrollment.isCompleted,
+        deadline: enrollment.deadline
+          ? enrollment.deadline.toISOString()
+          : null,
       };
     });
     return { studentId, progress };

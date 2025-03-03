@@ -1,7 +1,11 @@
 import { Enrollment } from './schemas/enrollment.schema';
 
 export interface IEnrollmentsService {
-  createEnrollment(studentId: string, courseId: string): Promise<Enrollment>;
+  createEnrollment(
+    studentId: string,
+    courseId: string,
+    deadline?: Date,
+  ): Promise<Enrollment>;
   findEnrollmentsByStudent(studentId: string): Promise<Enrollment[]>;
   findEnrollmentById(enrollmentId: string): Promise<Enrollment | null>;
   updateProgress(
@@ -15,7 +19,7 @@ export interface IEnrollmentsService {
   ): Promise<Enrollment | null>;
   deleteEnrollment(enrollmentId: string): Promise<void>;
   getStudentProgress(studentId: string): Promise<any>;
-  getDetailedStudentProgress(studentId: string): Promise<any>; // Добавляем новый метод
+  getDetailedStudentProgress(studentId: string): Promise<any>;
   notifyProgress(
     enrollmentId: string,
     moduleId: string,

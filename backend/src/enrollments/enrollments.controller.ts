@@ -20,7 +20,7 @@ import { EnrollmentsService } from './enrollments.service';
 import { CreateEnrollmentDto } from './dto/create-enrollment.dto';
 import { UpdateProgressDto } from './dto/update-progress.dto';
 import { CompleteCourseDto } from './dto/complete-course.dto';
-import { AlreadyEnrolledException } from './exceptions/already-enrolled.exception'; // Импортируем исключение
+import { AlreadyEnrolledException } from './exceptions/already-enrolled.exception';
 
 @Controller('enrollments')
 @Catch(AlreadyEnrolledException)
@@ -33,13 +33,17 @@ export class EnrollmentsController {
   @UsePipes(new ValidationPipe())
   async create(@Body() createEnrollmentDto: CreateEnrollmentDto) {
     try {
+      const deadline = createEnrollmentDto.deadline
+        ? new Date(createEnrollmentDto.deadline)
+        : undefined;
       return await this.enrollmentsService.createEnrollment(
         createEnrollmentDto.studentId,
         createEnrollmentDto.courseId,
+        deadline,
       );
     } catch (error) {
       if (error instanceof AlreadyEnrolledException) {
-        throw error; // Перебрасываем кастомное исключение
+        throw error;
       }
       throw new HttpException(
         'Internal server error',

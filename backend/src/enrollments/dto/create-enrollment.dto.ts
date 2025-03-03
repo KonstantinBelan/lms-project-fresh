@@ -1,9 +1,20 @@
-import { IsString } from 'class-validator';
+import {
+  IsNotEmpty,
+  IsMongoId,
+  IsOptional,
+  IsDateString,
+} from 'class-validator';
 
 export class CreateEnrollmentDto {
-  @IsString()
+  @IsNotEmpty()
+  @IsMongoId()
   studentId: string;
 
-  @IsString()
+  @IsNotEmpty()
+  @IsMongoId()
   courseId: string;
+
+  @IsOptional()
+  @IsDateString()
+  deadline?: string;
 }
