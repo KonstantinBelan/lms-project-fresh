@@ -8,6 +8,7 @@ import { AuthModule } from './auth/auth.module';
 import { CoursesModule } from './courses/courses.module';
 import { EnrollmentsModule } from './enrollments/enrollments.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { AnalyticsModule } from './analytics/analytics.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { NotificationsModule } from './notifications/notifications.module';
     CoursesModule,
     EnrollmentsModule,
     NotificationsModule,
+    AnalyticsModule, // Добавляем AnalyticsModule
   ],
   controllers: [AppController],
   providers: [AppService],
@@ -38,6 +40,7 @@ export class AppModule {
       'CoursesModule',
       'EnrollmentsModule',
       'NotificationsModule',
+      'AnalyticsModule',
     ]);
   }
 }
