@@ -6,17 +6,25 @@ export type UserDocument = User & Document;
 
 @Schema()
 export class User {
-  @Prop({ required: true, unique: true })
+  @Prop({ required: true, unique: true, index: true })
   email: string;
 
   @Prop({ required: true, select: false }) // Добавляем select: false, чтобы по умолчанию не возвращать пароль
   password: string;
 
-  @Prop()
+  @Prop({ index: true })
   name?: string;
 
-  @Prop({ type: [String], enum: Object.values(Role), default: [Role.STUDENT] }) // Массив ролей
+  @Prop({
+    type: [String],
+    enum: Object.values(Role),
+    default: [Role.STUDENT],
+    index: true,
+  }) // Индекс для roles
   roles: Role[];
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);
+UserSchema.index({ email: 1 }, { unique: true }); // Явно создаём уникальный индекс для email
+UserSchema.index({ roles: 1 }); // Индекс для roles
+UserSchema.index({ name: 1 }); // Индекс для name (опционально)

@@ -144,13 +144,25 @@ export class EnrollmentsService implements IEnrollmentsService {
   }
 
   async findEnrollmentsByStudent(studentId: string): Promise<Enrollment[]> {
+    // return this.enrollmentModel
+    //   .find({ studentId: new Types.ObjectId(studentId) })
+    //   .exec();
     return this.enrollmentModel
       .find({ studentId: new Types.ObjectId(studentId) })
-      .exec();
+      .lean()
+      .exec(); // Используем .lean()
+  }
+
+  async findEnrollmentsByCourse(courseId: string): Promise<Enrollment[]> {
+    return this.enrollmentModel
+      .find({ courseId: new Types.ObjectId(courseId) })
+      .lean()
+      .exec(); // Используем .lean()
   }
 
   async findEnrollmentById(enrollmentId: string): Promise<Enrollment | null> {
-    return this.enrollmentModel.findById(enrollmentId).exec();
+    // return this.enrollmentModel.findById(enrollmentId).exec();
+    return this.enrollmentModel.findById(enrollmentId).lean().exec(); // Используем .lean()
   }
 
   async updateProgress(
@@ -158,7 +170,11 @@ export class EnrollmentsService implements IEnrollmentsService {
     moduleId: string,
     lessonId: string,
   ): Promise<Enrollment | null> {
-    const enrollment = await this.enrollmentModel.findById(enrollmentId).exec();
+    // const enrollment = await this.enrollmentModel.findById(enrollmentId).exec();
+    const enrollment = await this.enrollmentModel
+      .findById(enrollmentId)
+      .lean()
+      .exec(); // Используем .lean()
     if (!enrollment) {
       throw new Error('Enrollment not found');
     }

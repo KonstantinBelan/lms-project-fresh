@@ -46,11 +46,13 @@ export class CoursesService implements ICoursesService {
   }
 
   async findAllCourses(): Promise<Course[]> {
-    return this.courseModel.find().exec();
+    // return this.courseModel.find().exec();
+    return this.courseModel.find().lean().exec(); // Используем .lean()
   }
 
   async findCourseById(courseId: string): Promise<Course | null> {
-    return this.courseModel.findById(courseId).exec();
+    // return this.courseModel.findById(courseId).exec();
+    return this.courseModel.findById(courseId).lean().exec(); // Используем .lean()
   }
 
   async updateCourse(
@@ -119,9 +121,13 @@ export class CoursesService implements ICoursesService {
 
   async findCourseByLesson(lessonId: string): Promise<any> {
     // Замени any на конкретный тип, если известен
+    // const course = await this.courseModel
+    //   .findOne({ 'modules.lessons': new Types.ObjectId(lessonId) })
+    //   .exec();
     const course = await this.courseModel
       .findOne({ 'modules.lessons': new Types.ObjectId(lessonId) })
-      .exec();
+      .lean()
+      .exec(); // Используем .lean()
     return course;
   }
 

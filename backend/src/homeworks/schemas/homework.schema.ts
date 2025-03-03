@@ -19,7 +19,7 @@ export class Homework {
   })
   category: string;
 
-  @Prop()
+  @Prop({ index: true })
   deadline?: Date;
 
   @Prop({ default: false })
@@ -35,3 +35,5 @@ HomeworkSchema.pre('save', function (next) {
   console.log('Saving homework with lessonId:', this.lessonId);
   next();
 });
+HomeworkSchema.index({ lessonId: 1 }); // Индекс для lessonId
+HomeworkSchema.index({ deadline: 1 }); // Индекс для deadline (опционально)

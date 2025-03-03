@@ -32,6 +32,7 @@ export class UsersController {
   @Get('me')
   @UseGuards(AuthGuard('jwt'))
   async getMe(@Request() req) {
+    console.log('User from JWT:', req.user); // Логируем req.user для диагностики
     return this.usersService.findById(req.user.sub); // Используем sub из JWT payload
   }
 

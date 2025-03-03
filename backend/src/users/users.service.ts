@@ -34,7 +34,8 @@ export class UsersService implements IUsersService {
   }
 
   async findById(id: string): Promise<User | null> {
-    return this.userModel.findById(id).exec();
+    // return this.userModel.findById(id).exec();
+    return this.userModel.findById(id).lean().exec(); // Используем .lean() для производительности
   }
 
   async findByEmail(email: string): Promise<User | null> {
@@ -42,13 +43,14 @@ export class UsersService implements IUsersService {
     const user = await this.userModel
       .findOne({ email })
       .select('+password')
-      .lean() // Добавляем метод lean перед exec()
+      .lean() // Используем .lean() для производительности
       .exec();
     console.log('User found in DB:', user);
     return user;
   }
 
   async findAll(): Promise<User[]> {
-    return this.userModel.find().exec();
+    // return this.userModel.find().exec();
+    return this.userModel.find().lean().exec(); // Используем .lean() для производительности
   }
 }

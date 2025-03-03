@@ -48,13 +48,15 @@ export class HomeworksService {
   }
 
   async findHomeworkById(id: string): Promise<Homework | null> {
-    return this.homeworkModel.findById(id).exec();
+    // return this.homeworkModel.findById(id).exec();
+    return this.homeworkModel.findById(id).lean().exec(); // Используем .lean()
   }
 
   async findHomeworksByLesson(lessonId: string): Promise<Homework[]> {
     const objectId = new Types.ObjectId(lessonId); // Явно создаём ObjectId
     console.log('Searching homeworks for lessonId:', { lessonId, objectId });
-    return this.homeworkModel.find({ lessonId: objectId }).exec();
+    // return this.homeworkModel.find({ lessonId: objectId }).exec();
+    return this.homeworkModel.find({ lessonId: objectId }).lean().exec();
   }
 
   async createSubmission(
@@ -81,7 +83,8 @@ export class HomeworksService {
   }
 
   async findSubmissionById(id: string): Promise<Submission | null> {
-    return this.submissionModel.findById(id).exec();
+    // return this.submissionModel.findById(id).exec();
+    return this.submissionModel.findById(id).lean().exec(); // Используем .lean()
   }
 
   async findSubmissionsByHomework(homeworkId: string): Promise<Submission[]> {
@@ -90,12 +93,14 @@ export class HomeworksService {
       homeworkId,
       objectId,
     });
-    return this.submissionModel.find({ homeworkId: objectId }).exec();
+    // return this.submissionModel.find({ homeworkId: objectId }).exec();
+    return this.submissionModel.find({ homeworkId: objectId }).lean().exec(); // Используем .lean()
   }
 
   async findSubmissionsByStudent(studentId: string): Promise<Submission[]> {
     const objectId = new Types.ObjectId(studentId); // Явно создаём ObjectId
-    return this.submissionModel.find({ studentId: objectId }).exec();
+    // return this.submissionModel.find({ studentId: objectId }).exec();
+    return this.submissionModel.find({ studentId: objectId }).lean().exec(); // Используем .lean()
   }
 
   async checkDeadlines(): Promise<void> {
