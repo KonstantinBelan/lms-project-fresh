@@ -19,4 +19,5 @@ export interface ICoursesService {
     content: string,
     media?: string,
   ): Promise<Lesson>;
+  getCourseStatistics(courseId: string): Promise<any>;
 }

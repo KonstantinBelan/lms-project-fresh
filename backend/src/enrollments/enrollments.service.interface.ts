@@ -14,4 +14,5 @@ export interface IEnrollmentsService {
     grade: number,
   ): Promise<Enrollment | null>;
   deleteEnrollment(enrollmentId: string): Promise<void>;
+  getStudentProgress(studentId: string): Promise<any>;
 }

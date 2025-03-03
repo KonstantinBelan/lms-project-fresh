@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { Course, CourseSchema } from './schemas/course.schema';
 import {
@@ -8,7 +8,8 @@ import {
 import { Lesson, LessonSchema } from './schemas/lesson.schema';
 import { CoursesController } from './courses.controller';
 import { CoursesService } from './courses.service';
-import { AuthModule } from '../auth/auth.module'; // Добавляем AuthModule
+import { AuthModule } from '../auth/auth.module';
+import { EnrollmentsModule } from '../enrollments/enrollments.module';
 
 @Module({
   imports: [
@@ -17,10 +18,19 @@ import { AuthModule } from '../auth/auth.module'; // Добавляем AuthModu
       { name: ModuleSchema.name, schema: ModuleSchemaDefinition },
       { name: Lesson.name, schema: LessonSchema },
     ]),
-    AuthModule, // Импортируем для RolesGuard
+    AuthModule,
+    forwardRef(() => EnrollmentsModule),
   ],
   controllers: [CoursesController],
   providers: [CoursesService],
-  exports: [CoursesService],
+  exports: [CoursesService, MongooseModule],
 })
-export class CoursesModule {}
+export class CoursesModule {
+  constructor() {
+    console.log('CoursesModule initialized, imports:', [
+      'MongooseModule',
+      'AuthModule',
+      'EnrollmentsModule',
+    ]);
+  }
+}

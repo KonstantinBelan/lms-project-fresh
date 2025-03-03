@@ -24,7 +24,7 @@ export class EnrollmentsController {
 
   @Post()
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @SetMetadata('roles', ['student', 'teacher', 'admin']) // Доступ для всех ролей
+  @SetMetadata('roles', ['student', 'teacher', 'admin'])
   @UsePipes(new ValidationPipe())
   async create(@Body() createEnrollmentDto: CreateEnrollmentDto) {
     return this.enrollmentsService.createEnrollment(
@@ -35,21 +35,21 @@ export class EnrollmentsController {
 
   @Get('student/:studentId')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @SetMetadata('roles', ['student', 'teacher', 'admin']) // Доступ для всех ролей
+  @SetMetadata('roles', ['student', 'teacher', 'admin'])
   async findByStudent(@Param('studentId') studentId: string) {
     return this.enrollmentsService.findEnrollmentsByStudent(studentId);
   }
 
   @Get(':id')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @SetMetadata('roles', ['student', 'teacher', 'admin']) // Доступ для всех ролей
+  @SetMetadata('roles', ['student', 'teacher', 'admin'])
   async findOne(@Param('id') id: string) {
     return this.enrollmentsService.findEnrollmentById(id);
   }
 
   @Put(':id/progress')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @SetMetadata('roles', ['student']) // Только для студентов
+  @SetMetadata('roles', ['student'])
   @UsePipes(new ValidationPipe())
   async updateProgress(
     @Param('id') id: string,
@@ -64,7 +64,7 @@ export class EnrollmentsController {
 
   @Put(':id/complete')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @SetMetadata('roles', ['teacher', 'admin']) // Только для учителей и администраторов
+  @SetMetadata('roles', ['teacher', 'admin'])
   @UsePipes(new ValidationPipe())
   async completeCourse(
     @Param('id') id: string,
@@ -75,8 +75,15 @@ export class EnrollmentsController {
 
   @Delete(':id')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @SetMetadata('roles', ['admin']) // Только для администраторов
+  @SetMetadata('roles', ['admin'])
   async delete(@Param('id') id: string) {
     return this.enrollmentsService.deleteEnrollment(id);
+  }
+
+  @Get('student/:studentId/progress')
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @SetMetadata('roles', ['student', 'teacher', 'admin']) // Доступ для всех ролей
+  async getStudentProgress(@Param('studentId') studentId: string) {
+    return this.enrollmentsService.getStudentProgress(studentId);
   }
 }

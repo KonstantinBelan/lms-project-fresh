@@ -2,19 +2,25 @@ import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Enrollment, EnrollmentDocument } from './schemas/enrollment.schema';
-import { IEnrollmentsService } from './enrollments.service.interface'; // Обновлённый импорт
+import { IEnrollmentsService } from './enrollments.service.interface';
 import { UsersService } from '../users/users.service';
 import { CoursesService } from '../courses/courses.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class EnrollmentsService implements IEnrollmentsService {
-  // Изменили на IEnrollmentsService
   constructor(
     @InjectModel(Enrollment.name)
     private enrollmentModel: Model<EnrollmentDocument>,
     private usersService: UsersService,
     private coursesService: CoursesService,
-  ) {}
+    private notificationsService: NotificationsService,
+  ) {
+    console.log(
+      'EnrollmentsService initialized, notificationsService:',
+      this.notificationsService,
+    );
+  }
 
   async createEnrollment(
     studentId: string,
@@ -66,7 +72,13 @@ export class EnrollmentsService implements IEnrollmentsService {
       enrollment.completedLessons.push(lessonId);
     }
 
-    return enrollment.save();
+    const updatedEnrollment = await enrollment.save();
+    await this.notificationsService.notifyProgress(
+      enrollmentId,
+      moduleId,
+      lessonId,
+    );
+    return updatedEnrollment;
   }
 
   async completeCourse(
@@ -89,5 +101,29 @@ export class EnrollmentsService implements IEnrollmentsService {
 
   async deleteEnrollment(enrollmentId: string): Promise<void> {
     await this.enrollmentModel.findByIdAndDelete(enrollmentId).exec();
+  }
+
+  async getStudentProgress(studentId: string): Promise<any> {
+    const enrollments = await this.findEnrollmentsByStudent(studentId);
+    const progress = enrollments.map((enrollment) => {
+      const course = enrollment.courseId as any; // Типизация для популированного courseId
+      const courseDoc = course?._doc || {}; // Безопасный доступ к _doc
+
+      return {
+        courseId: course?._id?.toString() || 'Unknown',
+        courseTitle: courseDoc.title || 'Unknown',
+        completedModules: enrollment.completedModules.length,
+        totalModules: courseDoc.modules?.length || 0, // Проверка на undefined для modules
+        completedLessons: enrollment.completedLessons.length,
+        totalLessons:
+          courseDoc.modules?.reduce(
+            (sum: number, module: any) => sum + (module?.lessons?.length || 0),
+            0,
+          ) || 0, // Проверка на undefined для lessons
+        grade: enrollment.grade,
+        isCompleted: enrollment.isCompleted,
+      };
+    });
+    return { studentId, progress };
   }
 }

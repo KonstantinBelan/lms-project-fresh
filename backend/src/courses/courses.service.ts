@@ -4,16 +4,22 @@ import { Model } from 'mongoose';
 import { Course, CourseDocument } from './schemas/course.schema';
 import { Module, ModuleDocument } from './schemas/module.schema';
 import { Lesson, LessonDocument } from './schemas/lesson.schema';
-import { ICoursesService } from './courses.service.interface'; // Обновлённый импорт
+import { ICoursesService } from './courses.service.interface';
+import { Enrollment } from '../enrollments/schemas/enrollment.schema';
 
 @Injectable()
 export class CoursesService implements ICoursesService {
-  // Изменили на ICoursesService
   constructor(
     @InjectModel(Course.name) private courseModel: Model<CourseDocument>,
     @InjectModel(Module.name) private moduleModel: Model<ModuleDocument>,
     @InjectModel(Lesson.name) private lessonModel: Model<LessonDocument>,
-  ) {}
+    @InjectModel(Enrollment.name) private enrollmentModel: Model<Enrollment>,
+  ) {
+    console.log(
+      'CoursesService initialized, enrollmentModel:',
+      this.enrollmentModel,
+    );
+  }
 
   async createCourse(title: string, description: string): Promise<Course> {
     const newCourse = new this.courseModel({ title, description });
@@ -79,5 +85,26 @@ export class CoursesService implements ICoursesService {
       )
       .exec();
     return savedLesson;
+  }
+
+  async getCourseStatistics(courseId: string): Promise<any> {
+    const enrollments = await this.enrollmentModel
+      .find({ courseId })
+      .populate('studentId')
+      .exec();
+    const totalStudents = enrollments.length;
+    const completedStudents = enrollments.filter((e) => e.isCompleted).length;
+    const averageGrade =
+      enrollments.length > 0
+        ? enrollments.reduce((sum, e) => sum + (e.grade || 0), 0) /
+          enrollments.length
+        : 0;
+
+    return {
+      courseId,
+      totalStudents,
+      completedStudents,
+      averageGrade: Number(averageGrade.toFixed(2)),
+    };
   }
 }

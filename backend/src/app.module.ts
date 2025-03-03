@@ -3,10 +3,11 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { UsersModule } from './users/users.module'; // Корректный путь
-import { AuthModule } from './auth/auth.module'; // Корректный путь
+import { UsersModule } from './users/users.module';
+import { AuthModule } from './auth/auth.module';
 import { CoursesModule } from './courses/courses.module';
 import { EnrollmentsModule } from './enrollments/enrollments.module';
+import { NotificationsModule } from './notifications/notifications.module';
 
 @Module({
   imports: [
@@ -22,8 +23,21 @@ import { EnrollmentsModule } from './enrollments/enrollments.module';
     AuthModule,
     CoursesModule,
     EnrollmentsModule,
+    NotificationsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule {} // Убедись, что AppModule экспортируется
+export class AppModule {
+  constructor() {
+    console.log('AppModule initialized, imports:', [
+      'ConfigModule',
+      'MongooseModule',
+      'UsersModule',
+      'AuthModule',
+      'CoursesModule',
+      'EnrollmentsModule',
+      'NotificationsModule',
+    ]);
+  }
+}
