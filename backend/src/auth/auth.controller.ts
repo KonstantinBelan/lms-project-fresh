@@ -1,6 +1,15 @@
-import { Controller, Post, Body, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  UseGuards,
+  UsePipes,
+  ValidationPipe,
+} from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { AuthService } from './auth.service';
+import { Role } from './roles.enum';
+import { CreateUserDto } from '../users/dto/create-user.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -16,5 +25,15 @@ export class AuthController {
       throw new Error('Invalid credentials');
     }
     return this.authService.login(user);
+  }
+
+  @Post('signup')
+  @UsePipes(new ValidationPipe())
+  async signup(@Body() createUserDto: CreateUserDto) {
+    return this.authService.signUp(
+      createUserDto.email,
+      createUserDto.password,
+      createUserDto.roles ? createUserDto.roles[0] : Role.STUDENT, // Используем первую роль или STUDENT по умолчанию
+    );
   }
 }
