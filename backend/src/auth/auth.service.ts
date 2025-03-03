@@ -59,6 +59,7 @@ export class AuthService {
   }
 
   async login(user: any) {
+    console.log('Logging in user:', user); // Логируем user для диагностики
     const payload = { email: user.email, sub: user._id, roles: user.roles };
     return {
       access_token: this.jwtService.sign(payload),

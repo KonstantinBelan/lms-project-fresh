@@ -34,8 +34,12 @@ export class UsersService implements IUsersService {
   }
 
   async findById(id: string): Promise<User | null> {
+    console.log('Finding user by ID:', { id });
     // return this.userModel.findById(id).exec();
-    return this.userModel.findById(id).lean().exec(); // Используем .lean() для производительности
+    // return this.userModel.findById(id).lean().exec(); // Используем .lean() для производительности
+    const user = await this.userModel.findById(id).lean().exec();
+    console.log('User found in DB:', user);
+    return user;
   }
 
   async findByEmail(email: string): Promise<User | null> {
