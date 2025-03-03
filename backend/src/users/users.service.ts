@@ -14,16 +14,19 @@ export class UsersService implements IUsersService {
     email,
     password,
     roles,
+    name,
   }: {
     email: string;
     password: string;
     roles?: Role[];
+    name?: string;
   }): Promise<User> {
     const hashedPassword = await bcrypt.hash(password, 10);
     const newUser = new this.userModel({
       email,
       password: hashedPassword,
       roles: roles || [Role.STUDENT],
+      name,
     });
     return newUser.save();
   }

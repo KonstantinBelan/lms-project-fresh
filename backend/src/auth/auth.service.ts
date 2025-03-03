@@ -24,13 +24,15 @@ export class AuthService {
   async signUp(
     email: string,
     password: string,
-    role: Role = Role.STUDENT,
+    roles: Role[] = [Role.STUDENT],
+    name?: string,
   ): Promise<User> {
     const hashedPassword = await bcrypt.hash(password, 10);
     const newUser = await this.usersService.create({
       email,
       password: hashedPassword,
-      roles: [role],
+      roles,
+      name,
     });
     return newUser;
   }

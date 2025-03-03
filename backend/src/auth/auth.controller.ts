@@ -33,7 +33,8 @@ export class AuthController {
     return this.authService.signUp(
       createUserDto.email,
       createUserDto.password,
-      createUserDto.roles ? createUserDto.roles[0] : Role.STUDENT, // Используем первую роль или STUDENT по умолчанию
+      createUserDto.roles || [Role.STUDENT], // Используем массив roles или STUDENT по умолчанию
+      createUserDto.name, // Передаём name
     );
   }
 }
