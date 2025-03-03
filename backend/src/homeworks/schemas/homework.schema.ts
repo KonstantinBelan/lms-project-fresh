@@ -2,31 +2,31 @@ import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
 import { Lesson } from '../../courses/schemas/lesson.schema';
 
-export type HomeworkDocument = Homework & Document;
+export type HomeworkDocument = Homework & Document; // Убедимся, что это определение корректно
 
-@Schema({ collection: 'homeworks', timestamps: true }) // Добавляем timestamps для создания и обновления
+@Schema({ collection: 'homeworks', timestamps: true })
 export class Homework {
-  @Prop({ required: true, type: Types.ObjectId, ref: 'Lesson', index: true }) // Ссылка на урок
+  @Prop({ required: true, type: Types.ObjectId, ref: 'Lesson', index: true })
   lessonId: Types.ObjectId;
 
-  @Prop({ required: true }) // Текст или описание задания
+  @Prop({ required: true })
   description: string;
 
   @Prop({
     required: true,
     enum: ['theory', 'practice', 'project'],
     default: 'practice',
-  }) // Категория задания
+  })
   category: string;
 
-  @Prop() // Дедлайн (опционально)
+  @Prop()
   deadline?: Date;
 
-  @Prop({ default: false }) // Статус активности задания
+  @Prop({ default: false })
   isActive: boolean;
 
   __v: number;
 }
 
 export const HomeworkSchema = SchemaFactory.createForClass(Homework);
-HomeworkSchema.index({ lessonId: 1 }); // Индекс для быстрого поиска по уроку
+HomeworkSchema.index({ lessonId: 1 });

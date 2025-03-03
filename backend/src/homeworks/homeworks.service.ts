@@ -18,7 +18,7 @@ export class HomeworksService {
     @InjectModel(Submission.name)
     private submissionModel: Model<SubmissionDocument>,
     private notificationsService: NotificationsService,
-    private coursesService: CoursesService, // Инжектируем CoursesService
+    private coursesService: CoursesService,
   ) {}
 
   async createHomework(
@@ -102,13 +102,15 @@ export class HomeworksService {
         (homework.deadline.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
       );
       const lesson = await this.findHomeworkById(homework.lessonId.toString());
+      if (!lesson) continue;
+
       const course = await this.coursesService.findCourseByLesson(
         lesson.lessonId.toString(),
       );
 
       if (daysLeft <= 7 && daysLeft > 0) {
         await this.notificationsService.notifyDeadline(
-          homework._id.toString(),
+          (homework._id as Types.ObjectId).toString(), // Явно кастим _id как Types.ObjectId
           daysLeft,
           `Homework for ${course?.title || 'Unknown Course'}: ${homework.description}`,
         );

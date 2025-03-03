@@ -1,4 +1,4 @@
-import { PartialType } from '@nestjs/class-transformer';
+import { PartialType } from '@nestjs/mapped-types';
 import { CreateSubmissionDto } from './create-submission.dto';
 import { IsOptional, IsString, IsNumber, Min, Max } from 'class-validator';
 
