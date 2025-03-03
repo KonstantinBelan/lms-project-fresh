@@ -1,4 +1,5 @@
 import { Enrollment } from './schemas/enrollment.schema';
+import { BatchEnrollmentDto } from './dto/batch-enrollment.dto';
 
 export interface IEnrollmentsService {
   createEnrollment(
@@ -6,6 +7,9 @@ export interface IEnrollmentsService {
     courseId: string,
     deadline?: Date,
   ): Promise<Enrollment>;
+  createBatchEnrollments(
+    batchEnrollmentDto: BatchEnrollmentDto,
+  ): Promise<Enrollment[]>;
   findEnrollmentsByStudent(studentId: string): Promise<Enrollment[]>;
   findEnrollmentById(enrollmentId: string): Promise<Enrollment | null>;
   updateProgress(
@@ -25,4 +29,5 @@ export interface IEnrollmentsService {
     moduleId: string,
     lessonId: string,
   ): Promise<void>;
+  exportEnrollmentsToCsv(): Promise<string>;
 }

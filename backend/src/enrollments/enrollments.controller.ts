@@ -13,6 +13,7 @@ import {
   Catch,
   HttpException,
   HttpStatus,
+  Res,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -21,6 +22,8 @@ import { CreateEnrollmentDto } from './dto/create-enrollment.dto';
 import { UpdateProgressDto } from './dto/update-progress.dto';
 import { CompleteCourseDto } from './dto/complete-course.dto';
 import { AlreadyEnrolledException } from './exceptions/already-enrolled.exception';
+import { BatchEnrollmentDto } from './dto/batch-enrollment.dto';
+import { Response } from 'express';
 
 @Controller('enrollments')
 @Catch(AlreadyEnrolledException)
@@ -50,6 +53,14 @@ export class EnrollmentsController {
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
+  }
+
+  @Post('batch')
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @SetMetadata('roles', ['admin'])
+  @UsePipes(new ValidationPipe())
+  async createBatch(@Body() batchEnrollmentDto: BatchEnrollmentDto) {
+    return this.enrollmentsService.createBatchEnrollments(batchEnrollmentDto);
   }
 
   @Get('student/:studentId')
@@ -111,5 +122,15 @@ export class EnrollmentsController {
   @SetMetadata('roles', ['admin'])
   async delete(@Param('id') id: string) {
     return this.enrollmentsService.deleteEnrollment(id);
+  }
+
+  @Get('export/csv')
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @SetMetadata('roles', ['admin'])
+  async exportCsv(@Res() res: Response) {
+    const csv = await this.enrollmentsService.exportEnrollmentsToCsv();
+    res.set('Content-Type', 'text/csv'); // Используем set вместо header
+    res.set('Content-Disposition', 'attachment; filename=enrollments.csv');
+    res.send(csv);
   }
 }

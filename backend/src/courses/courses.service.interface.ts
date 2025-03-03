@@ -5,9 +5,11 @@ import { CreateCourseDto } from './dto/create-course.dto';
 import { UpdateCourseDto } from './dto/update-course.dto';
 import { CreateModuleDto } from './dto/create-module.dto';
 import { CreateLessonDto } from './dto/create-lesson.dto';
+import { BatchCourseDto } from './dto/batch-course.dto';
 
 export interface ICoursesService {
   createCourse(createCourseDto: CreateCourseDto): Promise<Course>;
+  createBatchCourses(batchCourseDto: BatchCourseDto): Promise<Course[]>;
   findAllCourses(): Promise<Course[]>;
   findCourseById(courseId: string): Promise<Course | null>;
   updateCourse(

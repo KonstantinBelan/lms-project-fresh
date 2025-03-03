@@ -3,14 +3,15 @@ import { Document, Types } from 'mongoose';
 import { User } from '../../users/schemas/user.schema';
 import { Course } from '../../courses/schemas/course.schema';
 
-export type EnrollmentDocument = Enrollment & Document;
+export type EnrollmentDocument = Enrollment &
+  Document & { _id: Types.ObjectId };
 
 @Schema()
 export class Enrollment extends Document {
-  @Prop({ required: true, type: String, ref: 'User' })
+  @Prop({ required: true, type: Types.ObjectId, ref: 'User' })
   studentId: string;
 
-  @Prop({ required: true, type: String, ref: 'Course' })
+  @Prop({ required: true, type: Types.ObjectId, ref: 'Course' })
   courseId: Types.ObjectId; // Оставляем как ObjectId, без populate
 
   @Prop({ type: [String], default: [] })

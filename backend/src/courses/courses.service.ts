@@ -9,6 +9,7 @@ import { CreateCourseDto } from './dto/create-course.dto';
 import { UpdateCourseDto } from './dto/update-course.dto';
 import { CreateModuleDto } from './dto/create-module.dto';
 import { CreateLessonDto } from './dto/create-lesson.dto';
+import { BatchCourseDto } from './dto/batch-course.dto';
 import { Types } from 'mongoose';
 
 @Injectable()
@@ -22,6 +23,26 @@ export class CoursesService implements ICoursesService {
   async createCourse(createCourseDto: CreateCourseDto): Promise<Course> {
     const newCourse = new this.courseModel(createCourseDto);
     return newCourse.save();
+  }
+
+  async createBatchCourses(batchCourseDto: BatchCourseDto): Promise<Course[]> {
+    console.log('Creating batch courses:', batchCourseDto);
+    const courses: Course[] = [];
+
+    for (const courseData of batchCourseDto.courses) {
+      try {
+        const course = await this.createCourse({
+          title: courseData.title,
+          description: courseData.description,
+        });
+        courses.push(course);
+      } catch (error) {
+        console.error(`Failed to create course ${courseData.title}:`, error);
+        // Можно продолжить с остальными, если ошибка не критична
+      }
+    }
+
+    return courses;
   }
 
   async findAllCourses(): Promise<Course[]> {

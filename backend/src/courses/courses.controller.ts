@@ -18,6 +18,7 @@ import { CreateCourseDto } from './dto/create-course.dto';
 import { UpdateCourseDto } from './dto/update-course.dto';
 import { CreateModuleDto } from './dto/create-module.dto';
 import { CreateLessonDto } from './dto/create-lesson.dto';
+import { BatchCourseDto } from './dto/batch-course.dto';
 
 @Controller('courses')
 export class CoursesController {
@@ -29,6 +30,14 @@ export class CoursesController {
   @UsePipes(new ValidationPipe())
   async create(@Body() createCourseDto: CreateCourseDto) {
     return this.coursesService.createCourse(createCourseDto);
+  }
+
+  @Post('batch')
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @SetMetadata('roles', ['admin'])
+  @UsePipes(new ValidationPipe())
+  async createBatch(@Body() batchCourseDto: BatchCourseDto) {
+    return this.coursesService.createBatchCourses(batchCourseDto);
   }
 
   @Get()

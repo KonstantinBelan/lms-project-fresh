@@ -1,12 +1,14 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { Enrollment, EnrollmentDocument } from './schemas/enrollment.schema';
 import { IEnrollmentsService } from './enrollments.service.interface';
 import { UsersService } from '../users/users.service';
 import { CoursesService } from '../courses/courses.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { AlreadyEnrolledException } from './exceptions/already-enrolled.exception';
+import { BatchEnrollmentDto, DateStringDto } from './dto/batch-enrollment.dto';
+import { stringify } from 'csv-stringify/sync';
 
 @Injectable()
 export class EnrollmentsService implements IEnrollmentsService {
@@ -51,29 +53,24 @@ export class EnrollmentsService implements IEnrollmentsService {
     }
 
     const newEnrollment = new this.enrollmentModel({
-      studentId,
-      courseId,
+      studentId: new Types.ObjectId(studentId), // Преобразуем строку в ObjectId
+      courseId: new Types.ObjectId(courseId), // Преобразуем строку в ObjectId
       deadline,
     });
-    const savedEnrollment = await newEnrollment.save();
+    const savedEnrollment: EnrollmentDocument = await newEnrollment.save();
     await this.notificationsService.notifyNewCourse(
       studentId,
       courseId,
       course.title,
     );
 
-    // Проверка дедлайна при создании
     if (deadline) {
       const daysLeft = Math.ceil(
         (deadline.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24),
       );
       if (daysLeft <= 7 && daysLeft > 0) {
-        const enrollmentId = savedEnrollment._id?.toString(); // Безопасный доступ с опциональной цепочкой
-        if (!enrollmentId) {
-          throw new Error('Enrollment ID is undefined');
-        }
         await this.notificationsService.notifyDeadline(
-          enrollmentId,
+          savedEnrollment._id.toString(),
           daysLeft,
           course.title,
         );
@@ -83,12 +80,77 @@ export class EnrollmentsService implements IEnrollmentsService {
     return savedEnrollment;
   }
 
+  async createBatchEnrollments(
+    batchEnrollmentDto: BatchEnrollmentDto,
+  ): Promise<Enrollment[]> {
+    console.log(
+      'Creating batch enrollments:',
+      JSON.stringify(batchEnrollmentDto, null, 2),
+    );
+    const { studentIds, courseIds, deadlines } = batchEnrollmentDto;
+
+    if (studentIds.length !== courseIds.length) {
+      throw new Error('Number of studentIds must match number of courseIds');
+    }
+
+    const enrollments: Enrollment[] = [];
+
+    for (let i = 0; i < studentIds.length; i++) {
+      const studentId = studentIds[i];
+      const courseId = courseIds[i];
+      const deadlineStr: string | undefined = deadlines?.[i];
+      let deadline: Date | undefined;
+
+      console.log('Processing deadline:', {
+        index: i,
+        deadlineStr,
+        type: typeof deadlineStr,
+      });
+
+      if (deadlineStr) {
+        try {
+          deadline = new Date(deadlineStr);
+          if (isNaN(deadline.getTime())) {
+            console.warn(
+              `Invalid date format for deadline ${deadlineStr} at index ${i}, skipping...`,
+            );
+            deadline = undefined;
+          }
+        } catch (error) {
+          console.error(
+            `Failed to parse deadline ${deadlineStr} at index ${i}:`,
+            error,
+          );
+          deadline = undefined;
+        }
+      }
+
+      try {
+        const enrollment = await this.createEnrollment(
+          studentId,
+          courseId,
+          deadline,
+        );
+        enrollments.push(enrollment);
+      } catch (error) {
+        console.error(
+          `Failed to create enrollment for student ${studentId} and course ${courseId}:`,
+          error,
+        );
+      }
+    }
+
+    return enrollments;
+  }
+
   async findEnrollmentsByStudent(studentId: string): Promise<Enrollment[]> {
-    return this.enrollmentModel.find({ studentId }).populate('courseId').exec();
+    return this.enrollmentModel
+      .find({ studentId: new Types.ObjectId(studentId) })
+      .exec();
   }
 
   async findEnrollmentById(enrollmentId: string): Promise<Enrollment | null> {
-    return this.enrollmentModel.findById(enrollmentId).exec(); // Убираем populate, чтобы courseId был ObjectId
+    return this.enrollmentModel.findById(enrollmentId).exec();
   }
 
   async updateProgress(
@@ -108,14 +170,13 @@ export class EnrollmentsService implements IEnrollmentsService {
       enrollment.completedLessons.push(lessonId);
     }
 
-    const updatedEnrollment = await enrollment.save();
+    const updatedEnrollment: EnrollmentDocument = await enrollment.save();
     await this.notificationsService.notifyProgress(
       enrollmentId,
       moduleId,
       lessonId,
     );
 
-    // Проверка дедлайна при обновлении прогресса
     if (updatedEnrollment.deadline) {
       const daysLeft = Math.ceil(
         (updatedEnrollment.deadline.getTime() - new Date().getTime()) /
@@ -153,7 +214,7 @@ export class EnrollmentsService implements IEnrollmentsService {
 
     enrollment.isCompleted = true;
     enrollment.grade = grade;
-    const updatedEnrollment = await enrollment.save();
+    const updatedEnrollment: EnrollmentDocument = await enrollment.save();
     return updatedEnrollment;
   }
 
@@ -164,20 +225,36 @@ export class EnrollmentsService implements IEnrollmentsService {
   async getStudentProgress(studentId: string): Promise<any> {
     const enrollments = await this.findEnrollmentsByStudent(studentId);
     const progress = enrollments.map((enrollment) => {
-      const course = enrollment.courseId as any;
-      const courseDoc = course?._doc || {};
+      const course = enrollment.courseId.toString(); // Теперь это ObjectId, преобразуем в строку
 
       return {
-        courseId: course?._id?.toString() || 'Unknown',
-        courseTitle: courseDoc.title || 'Unknown',
+        courseId: course,
+        courseTitle: (async () => {
+          const courseObj = await this.coursesService.findCourseById(course);
+          return courseObj?.title || 'Unknown';
+        })(),
         completedModules: enrollment.completedModules.length,
-        totalModules: courseDoc.modules?.length || 0,
+        totalModules: (async () => {
+          const courseObj = await this.coursesService.findCourseById(course);
+          return courseObj?.modules.length || 0;
+        })(),
         completedLessons: enrollment.completedLessons.length,
-        totalLessons:
-          courseDoc.modules?.reduce(
-            (sum: number, module: any) => sum + (module?.lessons?.length || 0),
-            0,
-          ) || 0,
+        totalLessons: (async () => {
+          const courseObj = await this.coursesService.findCourseById(course);
+          const total =
+            courseObj?.modules.reduce((sum, moduleId) => {
+              return (
+                sum +
+                ((async () => {
+                  const module = await this.coursesService.findModuleById(
+                    moduleId.toString(),
+                  );
+                  return module?.lessons.length || 0;
+                })() as any)
+              );
+            }, 0) || 0;
+          return total;
+        })(),
         grade: enrollment.grade,
         isCompleted: enrollment.isCompleted,
         deadline: enrollment.deadline
@@ -185,40 +262,75 @@ export class EnrollmentsService implements IEnrollmentsService {
           : null,
       };
     });
-    return { studentId, progress };
+    return {
+      studentId,
+      progress: await Promise.all(
+        progress.map(async (p) => ({
+          ...p,
+          courseTitle: await p.courseTitle,
+          totalModules: await p.totalModules,
+          totalLessons: await p.totalLessons,
+        })),
+      ),
+    };
   }
 
   async getDetailedStudentProgress(studentId: string): Promise<any> {
     const enrollments = await this.findEnrollmentsByStudent(studentId);
     const progress = enrollments.map((enrollment) => {
-      const course = enrollment.courseId as any;
-      const courseDoc = course?._doc || {};
-
-      const totalModules = courseDoc.modules?.length || 0;
-      const completedModules = enrollment.completedModules.length;
-      const totalLessons =
-        courseDoc.modules?.reduce(
-          (sum: number, module: any) => sum + (module?.lessons?.length || 0),
-          0,
-        ) || 0;
-      const completedLessons = enrollment.completedLessons.length;
-
-      const completionPercentage =
-        totalModules > 0 ? (completedModules / totalModules) * 100 : 0;
-      const lessonCompletionPercentage =
-        totalLessons > 0 ? (completedLessons / totalLessons) * 100 : 0;
+      const course = enrollment.courseId.toString(); // Теперь это ObjectId, преобразуем в строку
 
       return {
-        courseId: course?._id?.toString() || 'Unknown',
-        courseTitle: courseDoc.title || 'Unknown',
-        completionPercentage: Number(completionPercentage.toFixed(2)),
-        lessonCompletionPercentage: Number(
-          lessonCompletionPercentage.toFixed(2),
-        ),
-        completedModules,
-        totalModules,
-        completedLessons,
-        totalLessons,
+        courseId: course,
+        courseTitle: (async () => {
+          const courseObj = await this.coursesService.findCourseById(course);
+          return courseObj?.title || 'Unknown';
+        })(),
+        completionPercentage: (async () => {
+          const courseObj = await this.coursesService.findCourseById(course);
+          const completedModules = enrollment.completedModules.length;
+          const totalModules = courseObj?.modules.length || 0;
+          return totalModules > 0 ? (completedModules / totalModules) * 100 : 0;
+        })(),
+        lessonCompletionPercentage: (async () => {
+          const courseObj = await this.coursesService.findCourseById(course);
+          const completedLessons = enrollment.completedLessons.length;
+          const totalLessons =
+            courseObj?.modules.reduce((sum, moduleId) => {
+              return (
+                sum +
+                ((async () => {
+                  const module = await this.coursesService.findModuleById(
+                    moduleId.toString(),
+                  );
+                  return module?.lessons.length || 0;
+                })() as any)
+              );
+            }, 0) || 0;
+          return totalLessons > 0 ? (completedLessons / totalLessons) * 100 : 0;
+        })(),
+        completedModules: enrollment.completedModules.length,
+        totalModules: (async () => {
+          const courseObj = await this.coursesService.findCourseById(course);
+          return courseObj?.modules.length || 0;
+        })(),
+        completedLessons: enrollment.completedLessons.length,
+        totalLessons: (async () => {
+          const courseObj = await this.coursesService.findCourseById(course);
+          const total =
+            courseObj?.modules.reduce((sum, moduleId) => {
+              return (
+                sum +
+                ((async () => {
+                  const module = await this.coursesService.findModuleById(
+                    moduleId.toString(),
+                  );
+                  return module?.lessons.length || 0;
+                })() as any)
+              );
+            }, 0) || 0;
+          return total;
+        })(),
         grade: enrollment.grade,
         isCompleted: enrollment.isCompleted,
         deadline: enrollment.deadline
@@ -226,7 +338,23 @@ export class EnrollmentsService implements IEnrollmentsService {
           : null,
       };
     });
-    return { studentId, progress };
+    return {
+      studentId,
+      progress: await Promise.all(
+        progress.map(async (p) => ({
+          ...p,
+          courseTitle: await p.courseTitle,
+          completionPercentage: Number(
+            (await p.completionPercentage).toFixed(2),
+          ),
+          lessonCompletionPercentage: Number(
+            (await p.lessonCompletionPercentage).toFixed(2),
+          ),
+          totalModules: await p.totalModules,
+          totalLessons: await p.totalLessons,
+        })),
+      ),
+    };
   }
 
   async notifyProgress(
@@ -239,5 +367,40 @@ export class EnrollmentsService implements IEnrollmentsService {
       moduleId,
       lessonId,
     );
+  }
+
+  async exportEnrollmentsToCsv(): Promise<string> {
+    console.log('Exporting enrollments to CSV');
+    const enrollments = (await this.enrollmentModel
+      .find()
+      .exec()) as EnrollmentDocument[];
+
+    const csvData = await Promise.all(
+      enrollments.map(async (enrollment) => {
+        const student = await this.usersService.findById(
+          enrollment.studentId.toString(),
+        );
+        const course = await this.coursesService.findCourseById(
+          enrollment.courseId.toString(),
+        );
+
+        return {
+          enrollmentId: enrollment._id.toString(),
+          studentId: enrollment.studentId.toString(),
+          studentEmail: student?.email || 'Unknown',
+          courseId: enrollment.courseId.toString(),
+          courseTitle: course?.title || 'Unknown',
+          completedModules: enrollment.completedModules.join(','),
+          completedLessons: enrollment.completedLessons.join(','),
+          isCompleted: enrollment.isCompleted,
+          grade: enrollment.grade || 'N/A',
+          deadline: enrollment.deadline
+            ? enrollment.deadline.toISOString()
+            : 'N/A',
+        };
+      }),
+    );
+
+    return stringify(csvData, { header: true });
   }
 }
