@@ -18,7 +18,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
     ]),
     forwardRef(() => EnrollmentsModule),
     UsersModule,
-    CoursesModule, // Добавляем CoursesModule
+    forwardRef(() => CoursesModule), // Добавляем forwardRef для CoursesModule
     ConfigModule,
   ],
   controllers: [NotificationsController],

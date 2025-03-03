@@ -16,6 +16,7 @@ import { config } from '../config/config';
 import { Course } from '../courses/schemas/course.schema'; // Импортируем Course
 import { Module } from '../courses/schemas/module.schema'; // Импортируем Module
 import { Lesson } from '../courses/schemas/lesson.schema'; // Импортируем Lesson
+import { Types } from 'mongoose';
 
 @Injectable()
 export class NotificationsService implements INotificationsService {
@@ -104,21 +105,25 @@ export class NotificationsService implements INotificationsService {
       await this.enrollmentsService.findEnrollmentById(enrollmentId);
     if (!enrollment) throw new Error('Enrollment not found');
 
-    // Получаем курс
+    // Извлекаем courseId как ObjectId и преобразуем в строку
+    const courseId = enrollment.courseId.toString();
+    if (!courseId) throw new Error('Course ID not found in enrollment');
+
+    // Получаем курс по ID
     const course = (await this.coursesService.findCourseById(
-      enrollment.courseId.toString(),
+      courseId,
     )) as Course;
     if (!course) throw new Error('Course not found');
 
-    // Получаем модуль по ID
-    const module = course.modules.find(
-      (m: Module) => m._id.toString() === moduleId,
+    // Получаем модуль по ID, проверяем, что modules существует
+    const module = course.modules?.find(
+      (m: Module) => m._id?.toString() === moduleId,
     );
     const moduleTitle = module?.title || moduleId;
 
-    // Получаем урок по ID
+    // Получаем урок по ID, проверяем, что lessons существует
     const lesson = module?.lessons?.find(
-      (l: Lesson) => l._id.toString() === lessonId,
+      (l: Lesson) => l._id?.toString() === lessonId,
     );
     const lessonTitle = lesson?.title || lessonId;
 

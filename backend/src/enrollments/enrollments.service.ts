@@ -88,10 +88,7 @@ export class EnrollmentsService implements IEnrollmentsService {
   }
 
   async findEnrollmentById(enrollmentId: string): Promise<Enrollment | null> {
-    return this.enrollmentModel
-      .findById(enrollmentId)
-      .populate('courseId')
-      .exec();
+    return this.enrollmentModel.findById(enrollmentId).exec(); // Убираем populate, чтобы courseId был ObjectId
   }
 
   async updateProgress(

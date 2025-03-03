@@ -1,35 +1,34 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document } from 'mongoose';
+import { Document, Types } from 'mongoose';
 import { User } from '../../users/schemas/user.schema';
 import { Course } from '../../courses/schemas/course.schema';
 
 export type EnrollmentDocument = Enrollment & Document;
 
 @Schema()
-export class Enrollment {
-  @Prop({ type: String, ref: 'User', required: true })
-  studentId: string; // Ссылка на пользователя (студента)
+export class Enrollment extends Document {
+  @Prop({ required: true, type: String, ref: 'User' })
+  studentId: string;
 
-  @Prop({ type: String, ref: 'Course', required: true })
-  courseId: string; // Ссылка на курс
+  @Prop({ required: true, type: String, ref: 'Course' })
+  courseId: Types.ObjectId; // Оставляем как ObjectId, без populate
 
-  @Prop({ type: [String], ref: 'Module', default: [] }) // Прогресс по модулям
+  @Prop({ type: [String], default: [] })
   completedModules: string[];
 
-  @Prop({ type: [String], ref: 'Lesson', default: [] }) // Прогресс по урокам
+  @Prop({ type: [String], default: [] })
   completedLessons: string[];
 
-  @Prop({ type: Number, default: 0 }) // Общая оценка (0-100)
-  grade: number;
-
-  @Prop({ type: Boolean, default: false }) // Завершён ли курс
+  @Prop({ type: Boolean, default: false })
   isCompleted: boolean;
 
-  @Prop({ type: Date, default: Date.now }) // Дата записи
-  enrollmentDate: Date;
+  @Prop({ type: Number, min: 0, max: 100 })
+  grade?: number;
 
   @Prop({ type: Date })
   deadline?: Date;
+
+  __v: number; // Mongoose version key
 }
 
 export const EnrollmentSchema = SchemaFactory.createForClass(Enrollment);
