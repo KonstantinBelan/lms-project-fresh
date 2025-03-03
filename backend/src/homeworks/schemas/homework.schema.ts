@@ -30,3 +30,8 @@ export class Homework {
 
 export const HomeworkSchema = SchemaFactory.createForClass(Homework);
 HomeworkSchema.index({ lessonId: 1 });
+
+HomeworkSchema.pre('save', function (next) {
+  console.log('Saving homework with lessonId:', this.lessonId);
+  next();
+});

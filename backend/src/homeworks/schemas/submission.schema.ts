@@ -7,10 +7,10 @@ export type SubmissionDocument = Submission & Document;
 
 @Schema({ collection: 'submissions', timestamps: true })
 export class Submission {
-  @Prop({ required: true, type: Types.ObjectId, ref: 'Homework', index: true }) // Ссылка на домашнее задание
+  @Prop({ required: true, type: Types.ObjectId, ref: 'Homework', index: true })
   homeworkId: Types.ObjectId;
 
-  @Prop({ required: true, type: Types.ObjectId, ref: 'User', index: true }) // Ссылка на студента
+  @Prop({ required: true, type: Types.ObjectId, ref: 'User', index: true })
   studentId: Types.ObjectId;
 
   @Prop({ required: true }) // Решение (текст, ссылка, или путь к файлу)
@@ -31,3 +31,11 @@ export class Submission {
 export const SubmissionSchema = SchemaFactory.createForClass(Submission);
 SubmissionSchema.index({ homeworkId: 1 }); // Индекс для homeworkId
 SubmissionSchema.index({ studentId: 1 }); // Индекс для studentId
+
+SubmissionSchema.pre('save', function (next) {
+  console.log('Saving submission with homeworkId and studentId:', {
+    homeworkId: this.homeworkId,
+    studentId: this.studentId,
+  });
+  next();
+});

@@ -24,7 +24,10 @@ export class HomeworksService {
   async createHomework(
     createHomeworkDto: CreateHomeworkDto,
   ): Promise<Homework> {
-    const newHomework = new this.homeworkModel(createHomeworkDto);
+    const newHomework = new this.homeworkModel({
+      ...createHomeworkDto,
+      lessonId: new Types.ObjectId(createHomeworkDto.lessonId), // Явно преобразовываем lessonId в ObjectId
+    });
     return newHomework.save();
   }
 
@@ -49,15 +52,19 @@ export class HomeworksService {
   }
 
   async findHomeworksByLesson(lessonId: string): Promise<Homework[]> {
-    return this.homeworkModel
-      .find({ lessonId: new Types.ObjectId(lessonId) })
-      .exec();
+    const objectId = new Types.ObjectId(lessonId); // Явно создаём ObjectId
+    console.log('Searching homeworks for lessonId:', { lessonId, objectId });
+    return this.homeworkModel.find({ lessonId: objectId }).exec();
   }
 
   async createSubmission(
     createSubmissionDto: CreateSubmissionDto,
   ): Promise<Submission> {
-    const newSubmission = new this.submissionModel(createSubmissionDto);
+    const newSubmission = new this.submissionModel({
+      ...createSubmissionDto,
+      homeworkId: new Types.ObjectId(createSubmissionDto.homeworkId), // Явно преобразовываем homeworkId в ObjectId
+      studentId: new Types.ObjectId(createSubmissionDto.studentId), // Явно преобразовываем studentId в ObjectId
+    });
     return newSubmission.save();
   }
 
@@ -78,15 +85,17 @@ export class HomeworksService {
   }
 
   async findSubmissionsByHomework(homeworkId: string): Promise<Submission[]> {
-    return this.submissionModel
-      .find({ homeworkId: new Types.ObjectId(homeworkId) })
-      .exec();
+    const objectId = new Types.ObjectId(homeworkId); // Явно создаём ObjectId
+    console.log('Searching submissions for homeworkId:', {
+      homeworkId,
+      objectId,
+    });
+    return this.submissionModel.find({ homeworkId: objectId }).exec();
   }
 
   async findSubmissionsByStudent(studentId: string): Promise<Submission[]> {
-    return this.submissionModel
-      .find({ studentId: new Types.ObjectId(studentId) })
-      .exec();
+    const objectId = new Types.ObjectId(studentId); // Явно создаём ObjectId
+    return this.submissionModel.find({ studentId: objectId }).exec();
   }
 
   async checkDeadlines(): Promise<void> {
@@ -110,7 +119,7 @@ export class HomeworksService {
 
       if (daysLeft <= 7 && daysLeft > 0) {
         await this.notificationsService.notifyDeadline(
-          (homework._id as Types.ObjectId).toString(), // Явно кастим _id как Types.ObjectId
+          (homework._id as Types.ObjectId).toString(),
           daysLeft,
           `Homework for ${course?.title || 'Unknown Course'}: ${homework.description}`,
         );
