@@ -10,4 +10,14 @@ export interface INotificationsService {
     moduleId: string,
     lessonId: string,
   ): Promise<void>;
+  notifyNewCourse(
+    studentId: string,
+    courseId: string,
+    courseTitle: string,
+  ): Promise<void>;
+  notifyDeadline(
+    enrollmentId: string,
+    daysLeft: number,
+    courseTitle: string,
+  ): Promise<void>;
 }

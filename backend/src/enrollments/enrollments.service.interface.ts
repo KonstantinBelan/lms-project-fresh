@@ -15,4 +15,10 @@ export interface IEnrollmentsService {
   ): Promise<Enrollment | null>;
   deleteEnrollment(enrollmentId: string): Promise<void>;
   getStudentProgress(studentId: string): Promise<any>;
+  getDetailedStudentProgress(studentId: string): Promise<any>; // Добавляем новый метод
+  notifyProgress(
+    enrollmentId: string,
+    moduleId: string,
+    lessonId: string,
+  ): Promise<void>;
 }

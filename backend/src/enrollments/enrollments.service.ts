@@ -6,6 +6,7 @@ import { IEnrollmentsService } from './enrollments.service.interface';
 import { UsersService } from '../users/users.service';
 import { CoursesService } from '../courses/courses.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { AlreadyEnrolledException } from './exceptions/already-enrolled.exception'; // Импортируем исключение
 
 @Injectable()
 export class EnrollmentsService implements IEnrollmentsService {
@@ -37,11 +38,17 @@ export class EnrollmentsService implements IEnrollmentsService {
       .findOne({ studentId, courseId })
       .exec();
     if (existingEnrollment) {
-      throw new Error('Student is already enrolled in this course');
+      throw new AlreadyEnrolledException(); // Используем кастомное исключение
     }
 
     const newEnrollment = new this.enrollmentModel({ studentId, courseId });
-    return newEnrollment.save();
+    const savedEnrollment = await newEnrollment.save();
+    await this.notificationsService.notifyNewCourse(
+      studentId,
+      courseId,
+      course.title,
+    );
+    return savedEnrollment;
   }
 
   async findEnrollmentsByStudent(studentId: string): Promise<Enrollment[]> {
@@ -96,7 +103,8 @@ export class EnrollmentsService implements IEnrollmentsService {
 
     enrollment.isCompleted = true;
     enrollment.grade = grade;
-    return enrollment.save();
+    const updatedEnrollment = await enrollment.save();
+    return updatedEnrollment;
   }
 
   async deleteEnrollment(enrollmentId: string): Promise<void> {
@@ -106,24 +114,74 @@ export class EnrollmentsService implements IEnrollmentsService {
   async getStudentProgress(studentId: string): Promise<any> {
     const enrollments = await this.findEnrollmentsByStudent(studentId);
     const progress = enrollments.map((enrollment) => {
-      const course = enrollment.courseId as any; // Типизация для популированного courseId
-      const courseDoc = course?._doc || {}; // Безопасный доступ к _doc
+      const course = enrollment.courseId as any;
+      const courseDoc = course?._doc || {};
 
       return {
         courseId: course?._id?.toString() || 'Unknown',
         courseTitle: courseDoc.title || 'Unknown',
         completedModules: enrollment.completedModules.length,
-        totalModules: courseDoc.modules?.length || 0, // Проверка на undefined для modules
+        totalModules: courseDoc.modules?.length || 0,
         completedLessons: enrollment.completedLessons.length,
         totalLessons:
           courseDoc.modules?.reduce(
             (sum: number, module: any) => sum + (module?.lessons?.length || 0),
             0,
-          ) || 0, // Проверка на undefined для lessons
+          ) || 0,
         grade: enrollment.grade,
         isCompleted: enrollment.isCompleted,
       };
     });
     return { studentId, progress };
+  }
+
+  async getDetailedStudentProgress(studentId: string): Promise<any> {
+    const enrollments = await this.findEnrollmentsByStudent(studentId);
+    const progress = enrollments.map((enrollment) => {
+      const course = enrollment.courseId as any;
+      const courseDoc = course?._doc || {};
+
+      const totalModules = courseDoc.modules?.length || 0;
+      const completedModules = enrollment.completedModules.length;
+      const totalLessons =
+        courseDoc.modules?.reduce(
+          (sum: number, module: any) => sum + (module?.lessons?.length || 0),
+          0,
+        ) || 0;
+      const completedLessons = enrollment.completedLessons.length;
+
+      const completionPercentage =
+        totalModules > 0 ? (completedModules / totalModules) * 100 : 0;
+      const lessonCompletionPercentage =
+        totalLessons > 0 ? (completedLessons / totalLessons) * 100 : 0;
+
+      return {
+        courseId: course?._id?.toString() || 'Unknown',
+        courseTitle: courseDoc.title || 'Unknown',
+        completionPercentage: Number(completionPercentage.toFixed(2)),
+        lessonCompletionPercentage: Number(
+          lessonCompletionPercentage.toFixed(2),
+        ),
+        completedModules,
+        totalModules,
+        completedLessons,
+        totalLessons,
+        grade: enrollment.grade,
+        isCompleted: enrollment.isCompleted,
+      };
+    });
+    return { studentId, progress };
+  }
+
+  async notifyProgress(
+    enrollmentId: string,
+    moduleId: string,
+    lessonId: string,
+  ): Promise<void> {
+    await this.notificationsService.notifyProgress(
+      enrollmentId,
+      moduleId,
+      lessonId,
+    );
   }
 }

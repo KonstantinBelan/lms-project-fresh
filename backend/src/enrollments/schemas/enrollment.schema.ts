@@ -27,6 +27,9 @@ export class Enrollment {
 
   @Prop({ type: Date, default: Date.now }) // Дата записи
   enrollmentDate: Date;
+
+  @Prop({ type: Date })
+  deadline?: Date;
 }
 
 export const EnrollmentSchema = SchemaFactory.createForClass(Enrollment);

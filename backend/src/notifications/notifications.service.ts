@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Inject, forwardRef } from '@nestjs/common'; // Убедились, что forwardRef импортирован
+import { Inject, forwardRef } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import {
@@ -74,6 +74,27 @@ export class NotificationsService implements INotificationsService {
       await this.enrollmentsService.findEnrollmentById(enrollmentId);
     if (!enrollment) throw new Error('Enrollment not found');
     const message = `You completed lesson "${lessonId}" in module "${moduleId}" of course "${enrollment.courseId}"`;
+    await this.createNotification(enrollment.studentId, message);
+  }
+
+  async notifyNewCourse(
+    studentId: string,
+    courseId: string,
+    courseTitle: string,
+  ): Promise<void> {
+    const message = `New course available: "${courseTitle}" (ID: ${courseId})`;
+    await this.createNotification(studentId, message);
+  }
+
+  async notifyDeadline(
+    enrollmentId: string,
+    daysLeft: number,
+    courseTitle: string,
+  ): Promise<void> {
+    const enrollment =
+      await this.enrollmentsService.findEnrollmentById(enrollmentId);
+    if (!enrollment) throw new Error('Enrollment not found');
+    const message = `You have ${daysLeft} days left to complete "${courseTitle}"`;
     await this.createNotification(enrollment.studentId, message);
   }
 }
