@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, OnModuleInit } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AppController } from './app.controller';
@@ -9,6 +9,7 @@ import { CoursesModule } from './courses/courses.module';
 import { EnrollmentsModule } from './enrollments/enrollments.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { AnalyticsModule } from './analytics/analytics.module';
+import { HomeworksModule } from './homeworks/homeworks.module';
 
 @Module({
   imports: [
@@ -25,7 +26,8 @@ import { AnalyticsModule } from './analytics/analytics.module';
     CoursesModule,
     EnrollmentsModule,
     NotificationsModule,
-    AnalyticsModule, // Добавляем AnalyticsModule
+    AnalyticsModule,
+    HomeworksModule,
   ],
   controllers: [AppController],
   providers: [AppService],
@@ -41,6 +43,17 @@ export class AppModule {
       'EnrollmentsModule',
       'NotificationsModule',
       'AnalyticsModule',
+      'HomeworksModule',
     ]);
+  }
+}
+export class AppModule implements OnModuleInit {
+  constructor(private homeworksService: HomeworksService) {}
+
+  onModuleInit() {
+    setInterval(
+      () => this.homeworksService.checkDeadlines(),
+      24 * 60 * 60 * 1000,
+    ); // Запуск раз в сутки
   }
 }
