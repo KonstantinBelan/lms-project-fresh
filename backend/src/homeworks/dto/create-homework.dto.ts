@@ -5,6 +5,7 @@ import {
   IsOptional,
   IsEnum,
   IsDateString,
+  ValidationOptions,
 } from 'class-validator';
 import { Role } from '../../auth/roles.enum';
 
@@ -24,10 +25,13 @@ export class CreateHomeworkDto {
   category?: string;
 
   @IsOptional()
-  @IsDateString({
-    message:
-      'Deadline must be a valid ISO date string (e.g., "2025-03-15T00:00:00Z")',
-  })
+  @IsDateString(
+    {},
+    {
+      message:
+        'Deadline must be a valid ISO date string (e.g., "2025-03-15T00:00:00Z")',
+    },
+  )
   deadline?: string;
 
   @IsOptional()

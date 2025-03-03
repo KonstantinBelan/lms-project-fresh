@@ -10,6 +10,7 @@ import { EnrollmentsModule } from './enrollments/enrollments.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { HomeworksModule } from './homeworks/homeworks.module';
+import { HomeworksService } from './homeworks/homeworks.service';
 
 @Module({
   imports: [
@@ -32,8 +33,8 @@ import { HomeworksModule } from './homeworks/homeworks.module';
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule {
-  constructor() {
+export class AppModule implements OnModuleInit {
+  constructor(private homeworksService: HomeworksService) {
     console.log('AppModule initialized, imports:', [
       'ConfigModule',
       'MongooseModule',
@@ -46,9 +47,6 @@ export class AppModule {
       'HomeworksModule',
     ]);
   }
-}
-export class AppModule implements OnModuleInit {
-  constructor(private homeworksService: HomeworksService) {}
 
   onModuleInit() {
     setInterval(

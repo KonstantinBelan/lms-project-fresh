@@ -8,6 +8,7 @@ import { UpdateHomeworkDto } from './dto/update-homework.dto';
 import { CreateSubmissionDto } from './dto/create-submission.dto';
 import { UpdateSubmissionDto } from './dto/update-submission.dto';
 import { NotificationsService } from '../notifications/notifications.service';
+import { CoursesService } from '../courses/courses.service';
 import { Types } from 'mongoose';
 
 @Injectable()
@@ -17,6 +18,7 @@ export class HomeworksService {
     @InjectModel(Submission.name)
     private submissionModel: Model<SubmissionDocument>,
     private notificationsService: NotificationsService,
+    private coursesService: CoursesService, // Инжектируем CoursesService
   ) {}
 
   async createHomework(
@@ -93,16 +95,16 @@ export class HomeworksService {
       .exec();
     const now = new Date();
 
-    for (const homework of homeworks) {
+    for (const homework of homeworks as HomeworkDocument[]) {
       if (!homework.deadline) continue;
 
       const daysLeft = Math.ceil(
         (homework.deadline.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
       );
-      const lesson = await this.homeworksService.findHomeworkById(
-        homework.lessonId.toString(),
-      ); // Предполагаем, что нужно получить урок
-      const course = await this.coursesService.findCourseByLesson(lessonId); // Предполагаем, что есть метод в CoursesService
+      const lesson = await this.findHomeworkById(homework.lessonId.toString());
+      const course = await this.coursesService.findCourseByLesson(
+        lesson.lessonId.toString(),
+      );
 
       if (daysLeft <= 7 && daysLeft > 0) {
         await this.notificationsService.notifyDeadline(

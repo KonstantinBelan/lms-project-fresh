@@ -117,6 +117,14 @@ export class CoursesService implements ICoursesService {
     return this.lessonModel.findById(lessonId).exec();
   }
 
+  async findCourseByLesson(lessonId: string): Promise<any> {
+    // Замени any на конкретный тип, если известен
+    const course = await this.courseModel
+      .findOne({ 'modules.lessons': new Types.ObjectId(lessonId) })
+      .exec();
+    return course;
+  }
+
   async getCourseStatistics(courseId: string): Promise<any> {
     const course = (await this.courseModel.findById(
       courseId,
