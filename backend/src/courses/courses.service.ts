@@ -5,7 +5,11 @@ import { Course, CourseDocument } from './schemas/course.schema';
 import { Module, ModuleDocument } from './schemas/module.schema';
 import { Lesson, LessonDocument } from './schemas/lesson.schema';
 import { ICoursesService } from './courses.service.interface';
-import { Enrollment } from '../enrollments/schemas/enrollment.schema';
+import { CreateCourseDto } from './dto/create-course.dto';
+import { UpdateCourseDto } from './dto/update-course.dto';
+import { CreateModuleDto } from './dto/create-module.dto';
+import { CreateLessonDto } from './dto/create-lesson.dto';
+import { Types } from 'mongoose';
 
 @Injectable()
 export class CoursesService implements ICoursesService {
@@ -13,16 +17,10 @@ export class CoursesService implements ICoursesService {
     @InjectModel(Course.name) private courseModel: Model<CourseDocument>,
     @InjectModel(Module.name) private moduleModel: Model<ModuleDocument>,
     @InjectModel(Lesson.name) private lessonModel: Model<LessonDocument>,
-    @InjectModel(Enrollment.name) private enrollmentModel: Model<Enrollment>,
-  ) {
-    console.log(
-      'CoursesService initialized, enrollmentModel:',
-      this.enrollmentModel,
-    );
-  }
+  ) {}
 
-  async createCourse(title: string, description: string): Promise<Course> {
-    const newCourse = new this.courseModel({ title, description });
+  async createCourse(createCourseDto: CreateCourseDto): Promise<Course> {
+    const newCourse = new this.courseModel(createCourseDto);
     return newCourse.save();
   }
 
@@ -30,81 +28,94 @@ export class CoursesService implements ICoursesService {
     return this.courseModel.find().exec();
   }
 
-  async findCourseById(id: string): Promise<Course | null> {
-    return this.courseModel.findById(id).populate('modules').exec();
+  async findCourseById(courseId: string): Promise<Course | null> {
+    return this.courseModel.findById(courseId).exec();
   }
 
   async updateCourse(
-    id: string,
-    title: string,
-    description: string,
+    courseId: string,
+    updateCourseDto: UpdateCourseDto,
   ): Promise<Course | null> {
     return this.courseModel
-      .findByIdAndUpdate(
-        id,
-        { title, description },
-        { new: true, runValidators: true },
-      )
+      .findByIdAndUpdate(courseId, updateCourseDto, { new: true })
       .exec();
   }
 
-  async deleteCourse(id: string): Promise<void> {
-    await this.courseModel.findByIdAndDelete(id).exec();
+  async deleteCourse(courseId: string): Promise<void> {
+    await this.courseModel.findByIdAndDelete(courseId).exec();
   }
 
-  async addModule(courseId: string, moduleTitle: string): Promise<Module> {
-    const newModule = new this.moduleModel({ title: moduleTitle });
-    const savedModule = await newModule.save();
-    await this.courseModel
-      .findByIdAndUpdate(
-        courseId,
-        { $push: { modules: savedModule._id } },
-        { new: true },
-      )
-      .exec();
+  async createModule(
+    courseId: string,
+    createModuleDto: CreateModuleDto,
+  ): Promise<Module> {
+    const course = (await this.courseModel.findById(
+      courseId,
+    )) as CourseDocument;
+    if (!course) throw new Error('Course not found');
+
+    const newModule = new this.moduleModel({
+      ...createModuleDto,
+      courseId: course._id,
+    });
+    const savedModule = (await newModule.save()) as ModuleDocument;
+
+    course.modules.push(savedModule._id); // Теперь добавляем Types.ObjectId
+    await course.save();
+
     return savedModule;
   }
 
-  async addLesson(
+  async findModuleById(moduleId: string): Promise<Module | null> {
+    return this.moduleModel.findById(moduleId).exec();
+  }
+
+  async createLesson(
+    courseId: string,
     moduleId: string,
-    lessonTitle: string,
-    content: string,
-    media?: string,
+    createLessonDto: CreateLessonDto,
   ): Promise<Lesson> {
+    const module = (await this.moduleModel.findById(
+      moduleId,
+    )) as ModuleDocument;
+    if (!module) throw new Error('Module not found');
+
     const newLesson = new this.lessonModel({
-      title: lessonTitle,
-      content,
-      media,
+      ...createLessonDto,
+      moduleId: module._id,
     });
-    const savedLesson = await newLesson.save();
-    await this.moduleModel
-      .findByIdAndUpdate(
-        moduleId,
-        { $push: { lessons: savedLesson._id } },
-        { new: true },
-      )
-      .exec();
+    const savedLesson = (await newLesson.save()) as LessonDocument;
+
+    module.lessons.push(savedLesson._id); // Теперь добавляем Types.ObjectId
+    await module.save();
+
     return savedLesson;
   }
 
+  async findLessonById(lessonId: string): Promise<Lesson | null> {
+    return this.lessonModel.findById(lessonId).exec();
+  }
+
   async getCourseStatistics(courseId: string): Promise<any> {
-    const enrollments = await this.enrollmentModel
-      .find({ courseId })
-      .populate('studentId')
+    const course = (await this.courseModel.findById(
+      courseId,
+    )) as CourseDocument;
+    if (!course) throw new Error('Course not found');
+
+    const totalModules = course.modules.length || 0;
+    const totalLessons = await this.moduleModel
+      .aggregate([
+        { $match: { _id: { $in: course.modules } } },
+        { $unwind: '$lessons' },
+        { $group: { _id: null, total: { $sum: 1 } } },
+      ])
       .exec();
-    const totalStudents = enrollments.length;
-    const completedStudents = enrollments.filter((e) => e.isCompleted).length;
-    const averageGrade =
-      enrollments.length > 0
-        ? enrollments.reduce((sum, e) => sum + (e.grade || 0), 0) /
-          enrollments.length
-        : 0;
 
     return {
-      courseId,
-      totalStudents,
-      completedStudents,
-      averageGrade: Number(averageGrade.toFixed(2)),
+      courseId: course._id.toString(),
+      courseTitle: course.title,
+      totalModules,
+      totalLessons: totalLessons.length > 0 ? totalLessons[0].total : 0,
     };
   }
 }

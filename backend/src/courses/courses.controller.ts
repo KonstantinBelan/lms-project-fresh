@@ -28,10 +28,7 @@ export class CoursesController {
   @SetMetadata('roles', ['teacher', 'admin'])
   @UsePipes(new ValidationPipe())
   async create(@Body() createCourseDto: CreateCourseDto) {
-    return this.coursesService.createCourse(
-      createCourseDto.title,
-      createCourseDto.description,
-    );
+    return this.coursesService.createCourse(createCourseDto);
   }
 
   @Get()
@@ -56,9 +53,7 @@ export class CoursesController {
     @Param('id') id: string,
     @Body() updateCourseDto: UpdateCourseDto,
   ) {
-    const title = updateCourseDto.title ?? '';
-    const description = updateCourseDto.description ?? '';
-    return this.coursesService.updateCourse(id, title, description);
+    return this.coursesService.updateCourse(id, updateCourseDto);
   }
 
   @Delete(':id')
@@ -72,33 +67,63 @@ export class CoursesController {
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @SetMetadata('roles', ['teacher', 'admin'])
   @UsePipes(new ValidationPipe())
-  async addModule(
+  async createModule(
     @Param('courseId') courseId: string,
     @Body() createModuleDto: CreateModuleDto,
   ) {
-    return this.coursesService.addModule(courseId, createModuleDto.title);
+    return this.coursesService.createModule(courseId, createModuleDto);
+  }
+
+  @Get(':courseId/modules/:moduleId')
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @SetMetadata('roles', ['student', 'teacher', 'admin'])
+  async findModule(
+    @Param('courseId') courseId: string,
+    @Param('moduleId') moduleId: string,
+  ) {
+    const course = await this.coursesService.findCourseById(courseId);
+    if (!course) throw new Error('Course not found');
+    const module = await this.coursesService.findModuleById(moduleId);
+    if (!module) throw new Error('Module not found');
+    return module;
   }
 
   @Post(':courseId/modules/:moduleId/lessons')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @SetMetadata('roles', ['teacher', 'admin'])
   @UsePipes(new ValidationPipe())
-  async addLesson(
+  async createLesson(
     @Param('courseId') courseId: string,
     @Param('moduleId') moduleId: string,
     @Body() createLessonDto: CreateLessonDto,
   ) {
-    return this.coursesService.addLesson(
+    return this.coursesService.createLesson(
+      courseId,
       moduleId,
-      createLessonDto.title,
-      createLessonDto.content,
-      createLessonDto.media,
+      createLessonDto,
     );
+  }
+
+  @Get(':courseId/modules/:moduleId/lessons/:lessonId')
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @SetMetadata('roles', ['student', 'teacher', 'admin'])
+  async findLesson(
+    @Param('courseId') courseId: string,
+    @Param('moduleId') moduleId: string,
+    @Param('lessonId') lessonId: string,
+  ) {
+    const course = await this.coursesService.findCourseById(courseId);
+    if (!course) throw new Error('Course not found');
+    const module = await this.coursesService.findModuleById(moduleId);
+    if (!module) throw new Error('Module not found');
+    const lesson = await this.coursesService.findLessonById(lessonId);
+    if (!lesson) throw new Error('Lesson not found');
+    return lesson;
   }
 
   @Get(':id/statistics')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @SetMetadata('roles', ['teacher', 'admin']) // Доступ только для учителей и администраторов
+  @SetMetadata('roles', ['teacher', 'admin'])
   async getCourseStatistics(@Param('id') courseId: string) {
     return this.coursesService.getCourseStatistics(courseId);
   }

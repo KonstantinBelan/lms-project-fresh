@@ -13,7 +13,7 @@ export class Module {
   // lessons: string[];
 
   @Prop({ type: [{ type: Types.ObjectId, ref: 'Lesson' }] })
-  lessons: Lesson[]; // Явно указываем тип Lesson[]
+  lessons: Types.ObjectId[]; // Явно указываем тип Lesson[]
 
   _id: Types.ObjectId;
 

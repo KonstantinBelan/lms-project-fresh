@@ -12,10 +12,10 @@ export class Course {
   @Prop({ required: true })
   description: string;
 
-  // @Prop({ type: [String], ref: 'Module', default: [] }) // Ссылка на модули
-  // modules: string[];
   @Prop({ type: [{ type: Types.ObjectId, ref: 'Module' }] })
-  modules: Module[];
+  modules: Types.ObjectId[];
+
+  _id: Types.ObjectId;
 
   __v: number;
 }
