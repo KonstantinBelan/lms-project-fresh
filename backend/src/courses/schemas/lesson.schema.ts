@@ -1,5 +1,5 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document } from 'mongoose';
+import { Document, Types } from 'mongoose';
 
 export type LessonDocument = Lesson & Document;
 
@@ -13,6 +13,10 @@ export class Lesson {
 
   @Prop({ type: String, default: null }) // Опциональное поле для мультимедиа
   media?: string;
+
+  _id: Types.ObjectId;
+
+  __v: number;
 }
 
 export const LessonSchema = SchemaFactory.createForClass(Lesson);

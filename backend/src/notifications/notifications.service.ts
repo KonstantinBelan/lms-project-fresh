@@ -9,9 +9,13 @@ import {
 import { INotificationsService } from './notifications.service.interface';
 import { EnrollmentsService } from '../enrollments/enrollments.service';
 import { UsersService } from '../users/users.service';
+import { CoursesService } from '../courses/courses.service';
 import * as nodemailer from 'nodemailer';
 import * as TelegramBot from 'node-telegram-bot-api';
 import { config } from '../config/config';
+import { Course } from '../courses/schemas/course.schema'; // Импортируем Course
+import { Module } from '../courses/schemas/module.schema'; // Импортируем Module
+import { Lesson } from '../courses/schemas/lesson.schema'; // Импортируем Lesson
 
 @Injectable()
 export class NotificationsService implements INotificationsService {
@@ -23,7 +27,8 @@ export class NotificationsService implements INotificationsService {
     private notificationModel: Model<NotificationDocument>,
     @Inject(forwardRef(() => EnrollmentsService))
     private enrollmentsService: EnrollmentsService,
-    private usersService: UsersService, // Инжектируем UsersService напрямую
+    private usersService: UsersService,
+    private coursesService: CoursesService,
   ) {
     console.log(
       'NotificationsService initialized, enrollmentsService:',
@@ -33,13 +38,13 @@ export class NotificationsService implements INotificationsService {
     this.transporter = nodemailer.createTransport({
       host: config.email.host,
       port: config.email.port,
-      secure: false, // true для 465, false для других портов
+      secure: false,
       auth: {
         user: config.email.user,
         pass: config.email.pass,
       },
       tls: {
-        rejectUnauthorized: false, // Игнорировать ошибки сертификатов (для тестов, убери в продакшене)
+        rejectUnauthorized: false, // Для тестов, убери в продакшене
       },
     });
 
@@ -98,7 +103,26 @@ export class NotificationsService implements INotificationsService {
     const enrollment =
       await this.enrollmentsService.findEnrollmentById(enrollmentId);
     if (!enrollment) throw new Error('Enrollment not found');
-    const message = `You completed lesson "${lessonId}" in module "${moduleId}" of course "${enrollment.courseId}"`;
+
+    // Получаем курс
+    const course = (await this.coursesService.findCourseById(
+      enrollment.courseId.toString(),
+    )) as Course;
+    if (!course) throw new Error('Course not found');
+
+    // Получаем модуль по ID
+    const module = course.modules.find(
+      (m: Module) => m._id.toString() === moduleId,
+    );
+    const moduleTitle = module?.title || moduleId;
+
+    // Получаем урок по ID
+    const lesson = module?.lessons?.find(
+      (l: Lesson) => l._id.toString() === lessonId,
+    );
+    const lessonTitle = lesson?.title || lessonId;
+
+    const message = `You completed lesson "${lessonTitle}" in module "${moduleTitle}" of course "${course.title}"`;
     await this.createNotification(enrollment.studentId, message);
     await this.sendEmail(enrollment.studentId, message);
     await this.sendTelegram(message);
@@ -130,11 +154,18 @@ export class NotificationsService implements INotificationsService {
   }
 
   private async sendEmail(userId: string, message: string): Promise<void> {
-    const user = await this.usersService.findById(userId); // Используем UsersService напрямую
+    const user = await this.usersService.findById(userId);
     if (!user || !user.email) {
       console.warn('User or email not found for ID:', userId);
       return;
     }
+
+    console.log(
+      'Attempting to send email to:',
+      user.email,
+      'with message:',
+      message,
+    );
 
     const mailOptions = {
       from: config.email.user,
@@ -145,7 +176,7 @@ export class NotificationsService implements INotificationsService {
 
     try {
       await this.transporter.sendMail(mailOptions);
-      console.log('Email sent to:', user.email, 'with message:', message);
+      console.log('Email sent successfully to:', user.email);
     } catch (error) {
       console.error('Failed to send email:', error);
       throw new Error('Failed to send email notification');

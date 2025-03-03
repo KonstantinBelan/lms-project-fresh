@@ -8,6 +8,8 @@ import { NotificationsController } from './notifications.controller';
 import { NotificationsService } from './notifications.service';
 import { EnrollmentsModule } from '../enrollments/enrollments.module';
 import { UsersModule } from '../users/users.module';
+import { CoursesModule } from '../courses/courses.module';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 
 @Module({
   imports: [
@@ -15,10 +17,12 @@ import { UsersModule } from '../users/users.module';
       { name: Notification.name, schema: NotificationSchema },
     ]),
     forwardRef(() => EnrollmentsModule),
-    UsersModule, // Добавляем UsersModule
+    UsersModule,
+    CoursesModule, // Добавляем CoursesModule
+    ConfigModule,
   ],
   controllers: [NotificationsController],
-  providers: [NotificationsService],
+  providers: [NotificationsService, ConfigService],
   exports: [NotificationsService, MongooseModule],
 })
 export class NotificationsModule {
@@ -27,6 +31,8 @@ export class NotificationsModule {
       'MongooseModule',
       'EnrollmentsModule',
       'UsersModule',
+      'CoursesModule',
+      'ConfigModule',
     ]);
   }
 }
