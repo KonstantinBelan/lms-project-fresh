@@ -2,9 +2,9 @@ import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { User, UserDocument } from './schemas/user.schema';
-import { IUsersService } from './users.service.interface';
 import * as bcrypt from 'bcrypt';
-import { Role } from '../auth/roles.enum';
+import { IUsersService } from './users.service.interface';
+import { Role } from '../auth/roles.enum'; // Импортируем Role
 
 @Injectable()
 export class UsersService implements IUsersService {
@@ -21,7 +21,9 @@ export class UsersService implements IUsersService {
     roles?: Role[];
     name?: string;
   }): Promise<User> {
+    console.log('Hashing password:', { email, saltRounds: 10 });
     const hashedPassword = await bcrypt.hash(password, 10);
+    console.log('Hashed password:', hashedPassword);
     const newUser = new this.userModel({
       email,
       password: hashedPassword,
@@ -36,7 +38,14 @@ export class UsersService implements IUsersService {
   }
 
   async findByEmail(email: string): Promise<User | null> {
-    return this.userModel.findOne({ email }).exec();
+    console.log('Finding user by email:', { email });
+    const user = await this.userModel
+      .findOne({ email })
+      .select('+password')
+      .lean() // Добавляем метод lean перед exec()
+      .exec();
+    console.log('User found in DB:', user);
+    return user;
   }
 
   async findAll(): Promise<User[]> {

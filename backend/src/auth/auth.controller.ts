@@ -17,11 +17,14 @@ export class AuthController {
 
   @Post('login')
   async login(@Body() loginDto: { email: string; password: string }) {
+    console.log('Login attempt:', loginDto);
     const user = await this.authService.validateUser(
       loginDto.email,
       loginDto.password,
     );
+    console.log('Login request body:', JSON.stringify(loginDto, null, 2));
     if (!user) {
+      console.error('Login failed: Invalid credentials for', loginDto.email);
       throw new Error('Invalid credentials');
     }
     return this.authService.login(user);
@@ -30,11 +33,12 @@ export class AuthController {
   @Post('signup')
   @UsePipes(new ValidationPipe())
   async signup(@Body() createUserDto: CreateUserDto) {
+    console.log('Signing up user:', createUserDto);
     return this.authService.signUp(
       createUserDto.email,
       createUserDto.password,
-      createUserDto.roles || [Role.STUDENT], // Используем массив roles или STUDENT по умолчанию
-      createUserDto.name, // Передаём name
+      createUserDto.roles || [Role.STUDENT],
+      createUserDto.name,
     );
   }
 }

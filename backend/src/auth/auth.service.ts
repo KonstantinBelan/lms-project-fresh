@@ -13,11 +13,32 @@ export class AuthService {
   ) {}
 
   async validateUser(email: string, pass: string): Promise<any> {
+    console.log('Validating user:', { email, pass });
+    console.log('Bcrypt version:', bcrypt.version);
     const user = await this.usersService.findByEmail(email);
-    if (user && (await bcrypt.compare(pass, user.password))) {
+    console.log('User found:', user);
+
+    if (!user) {
+      console.error('User not found:', { email });
+      return null;
+    }
+
+    const passwordMatch = await bcrypt.compare(pass, user.password);
+    console.log('Password comparison result (detailed):', {
+      match: passwordMatch,
+      input: pass,
+      stored: user.password,
+    });
+
+    if (passwordMatch) {
       const { password, ...result } = user;
       return result;
     }
+    console.error('Invalid password for user:', {
+      email,
+      inputPass: pass,
+      storedPass: user.password,
+    });
     return null;
   }
 
@@ -27,10 +48,10 @@ export class AuthService {
     roles: Role[] = [Role.STUDENT],
     name?: string,
   ): Promise<User> {
-    const hashedPassword = await bcrypt.hash(password, 10);
+    console.log('Processing signup:', { email, roles, name });
     const newUser = await this.usersService.create({
       email,
-      password: hashedPassword,
+      password,
       roles,
       name,
     });
