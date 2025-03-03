@@ -1,4 +1,12 @@
-import { IsString, IsEmail, IsOptional, IsEnum } from 'class-validator';
+import {
+  IsString,
+  IsEmail,
+  IsOptional,
+  IsEnum,
+  ArrayMinSize,
+  ArrayUnique,
+} from 'class-validator';
+import { Role } from '../../auth/roles.enum';
 
 export class CreateUserDto {
   @IsEmail()
@@ -11,8 +19,8 @@ export class CreateUserDto {
   name: string;
 
   @IsOptional()
-  @IsEnum(['admin', 'teacher', 'student'], {
-    message: 'Role must be one of: admin, teacher, student',
-  })
-  role?: 'admin' | 'teacher' | 'student';
+  @IsEnum(Role, { each: true })
+  @ArrayMinSize(1)
+  @ArrayUnique()
+  roles?: Role[];
 }

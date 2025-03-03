@@ -1,6 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { UsersService } from '../users/users.service';
+import { User } from '../users/schemas/user.schema';
+import { Role } from './roles.enum';
 import * as bcrypt from 'bcrypt';
 
 @Injectable()
@@ -10,27 +12,31 @@ export class AuthService {
     private jwtService: JwtService,
   ) {}
 
-  async validateUser(email: string, password: string): Promise<any> {
-    console.log('Validating user with email:', email);
+  async validateUser(email: string, pass: string): Promise<any> {
     const user = await this.usersService.findByEmail(email);
-    console.log('Found user:', user);
-    if (user && (await bcrypt.compare(password, user.password))) {
-      console.log('Password matches');
+    if (user && (await bcrypt.compare(pass, user.password))) {
       const { password, ...result } = user;
-      return { ...result, role: user.role }; // Убедились, что возвращаем email, _id, role
+      return result;
     }
-    console.log('Invalid credentials: user or password mismatch');
     return null;
   }
 
+  async signUp(
+    email: string,
+    password: string,
+    role: Role = Role.STUDENT,
+  ): Promise<User> {
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const newUser = await this.usersService.create({
+      email,
+      password: hashedPassword,
+      roles: [role],
+    });
+    return newUser;
+  }
+
   async login(user: any) {
-    console.log('Logging in user:', user); // Для отладки
-    const payload = {
-      email: user._doc?.email || user.email, // Используем _doc, если доступен, или напрямую email
-      sub: user._doc?._id?.toString() || user._id?.toString(), // Преобразуем _id в строку
-      role: user.role, // role уже доступен напрямую
-    };
-    console.log('Payload for token:', payload); // Для отладки
+    const payload = { email: user.email, sub: user._id, roles: user.roles };
     return {
       access_token: this.jwtService.sign(payload),
     };

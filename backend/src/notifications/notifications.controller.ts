@@ -15,6 +15,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { NotificationsService } from './notifications.service';
 import { CreateNotificationDto } from './dto/create-notification.dto';
+import { Role } from '../auth/roles.enum';
 
 @Controller('notifications')
 export class NotificationsController {
@@ -22,7 +23,7 @@ export class NotificationsController {
 
   @Post()
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @SetMetadata('roles', ['student']) // Доступ только для студентов
+  @SetMetadata('roles', [Role.STUDENT, Role.TEACHER, Role.ADMIN, Role.MANAGER])
   @UsePipes(new ValidationPipe())
   async create(@Body() createNotificationDto: CreateNotificationDto) {
     return this.notificationsService.createNotification(
@@ -33,14 +34,26 @@ export class NotificationsController {
 
   @Get('user/:userId')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @SetMetadata('roles', ['student']) // Доступ только для студентов
+  @SetMetadata('roles', [
+    Role.STUDENT,
+    Role.TEACHER,
+    Role.ADMIN,
+    Role.MANAGER,
+    Role.ASSISTANT,
+  ])
   async findByUser(@Param('userId') userId: string) {
     return this.notificationsService.findNotificationsByUser(userId);
   }
 
   @Put(':id/read')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @SetMetadata('roles', ['student']) // Доступ только для студентов
+  @SetMetadata('roles', [
+    Role.STUDENT,
+    Role.TEACHER,
+    Role.ADMIN,
+    Role.MANAGER,
+    Role.ASSISTANT,
+  ])
   @UsePipes(new ValidationPipe())
   async markAsRead(@Param('id') id: string) {
     return this.notificationsService.markAsRead(id);
@@ -48,7 +61,7 @@ export class NotificationsController {
 
   @Delete(':id')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @SetMetadata('roles', ['student']) // Доступ только для студентов
+  @SetMetadata('roles', [Role.STUDENT, Role.ADMIN, Role.MANAGER])
   async delete(@Param('id') id: string) {
     return this.notificationsService.deleteNotification(id);
   }

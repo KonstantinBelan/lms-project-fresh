@@ -19,6 +19,7 @@ import { UpdateCourseDto } from './dto/update-course.dto';
 import { CreateModuleDto } from './dto/create-module.dto';
 import { CreateLessonDto } from './dto/create-lesson.dto';
 import { BatchCourseDto } from './dto/batch-course.dto';
+import { Role } from '../auth/roles.enum';
 
 @Controller('courses')
 export class CoursesController {
@@ -26,7 +27,7 @@ export class CoursesController {
 
   @Post()
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @SetMetadata('roles', ['teacher', 'admin'])
+  @SetMetadata('roles', [Role.TEACHER, Role.ADMIN, Role.MANAGER])
   @UsePipes(new ValidationPipe())
   async create(@Body() createCourseDto: CreateCourseDto) {
     return this.coursesService.createCourse(createCourseDto);
@@ -34,7 +35,7 @@ export class CoursesController {
 
   @Post('batch')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @SetMetadata('roles', ['admin'])
+  @SetMetadata('roles', [Role.ADMIN, Role.MANAGER])
   @UsePipes(new ValidationPipe())
   async createBatch(@Body() batchCourseDto: BatchCourseDto) {
     return this.coursesService.createBatchCourses(batchCourseDto);
@@ -42,21 +43,33 @@ export class CoursesController {
 
   @Get()
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @SetMetadata('roles', ['student', 'teacher', 'admin'])
+  @SetMetadata('roles', [
+    Role.STUDENT,
+    Role.TEACHER,
+    Role.ADMIN,
+    Role.MANAGER,
+    Role.ASSISTANT,
+  ])
   async findAll() {
     return this.coursesService.findAllCourses();
   }
 
   @Get(':id')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @SetMetadata('roles', ['student', 'teacher', 'admin'])
+  @SetMetadata('roles', [
+    Role.STUDENT,
+    Role.TEACHER,
+    Role.ADMIN,
+    Role.MANAGER,
+    Role.ASSISTANT,
+  ])
   async findOne(@Param('id') id: string) {
     return this.coursesService.findCourseById(id);
   }
 
   @Put(':id')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @SetMetadata('roles', ['teacher', 'admin'])
+  @SetMetadata('roles', [Role.TEACHER, Role.ADMIN, Role.MANAGER])
   @UsePipes(new ValidationPipe())
   async update(
     @Param('id') id: string,
@@ -67,14 +80,14 @@ export class CoursesController {
 
   @Delete(':id')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @SetMetadata('roles', ['admin'])
+  @SetMetadata('roles', [Role.ADMIN, Role.MANAGER])
   async delete(@Param('id') id: string) {
     return this.coursesService.deleteCourse(id);
   }
 
   @Post(':courseId/modules')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @SetMetadata('roles', ['teacher', 'admin'])
+  @SetMetadata('roles', [Role.TEACHER, Role.ADMIN, Role.MANAGER])
   @UsePipes(new ValidationPipe())
   async createModule(
     @Param('courseId') courseId: string,
@@ -85,7 +98,13 @@ export class CoursesController {
 
   @Get(':courseId/modules/:moduleId')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @SetMetadata('roles', ['student', 'teacher', 'admin'])
+  @SetMetadata('roles', [
+    Role.STUDENT,
+    Role.TEACHER,
+    Role.ADMIN,
+    Role.MANAGER,
+    Role.ASSISTANT,
+  ])
   async findModule(
     @Param('courseId') courseId: string,
     @Param('moduleId') moduleId: string,
@@ -99,7 +118,12 @@ export class CoursesController {
 
   @Post(':courseId/modules/:moduleId/lessons')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @SetMetadata('roles', ['teacher', 'admin'])
+  @SetMetadata('roles', [
+    Role.TEACHER,
+    Role.ADMIN,
+    Role.MANAGER,
+    Role.ASSISTANT,
+  ])
   @UsePipes(new ValidationPipe())
   async createLesson(
     @Param('courseId') courseId: string,
@@ -115,7 +139,13 @@ export class CoursesController {
 
   @Get(':courseId/modules/:moduleId/lessons/:lessonId')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @SetMetadata('roles', ['student', 'teacher', 'admin'])
+  @SetMetadata('roles', [
+    Role.STUDENT,
+    Role.TEACHER,
+    Role.ADMIN,
+    Role.MANAGER,
+    Role.ASSISTANT,
+  ])
   async findLesson(
     @Param('courseId') courseId: string,
     @Param('moduleId') moduleId: string,
@@ -132,7 +162,7 @@ export class CoursesController {
 
   @Get(':id/statistics')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @SetMetadata('roles', ['teacher', 'admin'])
+  @SetMetadata('roles', [Role.TEACHER, Role.ADMIN, Role.MANAGER])
   async getCourseStatistics(@Param('id') courseId: string) {
     return this.coursesService.getCourseStatistics(courseId);
   }

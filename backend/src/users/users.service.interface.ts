@@ -1,12 +1,16 @@
 import { User } from './schemas/user.schema';
+import { Role } from '../auth/roles.enum';
 
 export interface IUsersService {
-  create(
-    email: string,
-    password: string,
-    name: string,
-    role?: 'admin' | 'teacher' | 'student',
-  ): Promise<User>;
+  create({
+    email,
+    password,
+    roles,
+  }: {
+    email: string;
+    password: string;
+    roles?: Role[];
+  }): Promise<User>;
   findByEmail(email: string): Promise<User | null>;
   findById(id: string): Promise<User | null>;
   findAll(): Promise<User[]>;

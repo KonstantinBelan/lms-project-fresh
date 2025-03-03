@@ -24,6 +24,7 @@ import { CompleteCourseDto } from './dto/complete-course.dto';
 import { AlreadyEnrolledException } from './exceptions/already-enrolled.exception';
 import { BatchEnrollmentDto } from './dto/batch-enrollment.dto';
 import { Response } from 'express';
+import { Role } from '../auth/roles.enum';
 
 @Controller('enrollments')
 @Catch(AlreadyEnrolledException)
@@ -32,7 +33,7 @@ export class EnrollmentsController {
 
   @Post()
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @SetMetadata('roles', ['student', 'teacher', 'admin'])
+  @SetMetadata('roles', [Role.STUDENT, Role.TEACHER, Role.ADMIN, Role.MANAGER])
   @UsePipes(new ValidationPipe())
   async create(@Body() createEnrollmentDto: CreateEnrollmentDto) {
     try {
@@ -57,7 +58,7 @@ export class EnrollmentsController {
 
   @Post('batch')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @SetMetadata('roles', ['admin'])
+  @SetMetadata('roles', [Role.ADMIN, Role.MANAGER])
   @UsePipes(new ValidationPipe())
   async createBatch(@Body() batchEnrollmentDto: BatchEnrollmentDto) {
     return this.enrollmentsService.createBatchEnrollments(batchEnrollmentDto);
@@ -65,35 +66,59 @@ export class EnrollmentsController {
 
   @Get('student/:studentId')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @SetMetadata('roles', ['student', 'teacher', 'admin'])
+  @SetMetadata('roles', [
+    Role.STUDENT,
+    Role.TEACHER,
+    Role.ADMIN,
+    Role.MANAGER,
+    Role.ASSISTANT,
+  ])
   async findByStudent(@Param('studentId') studentId: string) {
     return this.enrollmentsService.findEnrollmentsByStudent(studentId);
   }
 
   @Get('student/:studentId/progress')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @SetMetadata('roles', ['student', 'teacher', 'admin'])
+  @SetMetadata('roles', [
+    Role.STUDENT,
+    Role.TEACHER,
+    Role.ADMIN,
+    Role.MANAGER,
+    Role.ASSISTANT,
+  ])
   async getStudentProgress(@Param('studentId') studentId: string) {
     return this.enrollmentsService.getStudentProgress(studentId);
   }
 
   @Get('student/:studentId/detailed-progress')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @SetMetadata('roles', ['student', 'teacher', 'admin'])
+  @SetMetadata('roles', [
+    Role.STUDENT,
+    Role.TEACHER,
+    Role.ADMIN,
+    Role.MANAGER,
+    Role.ASSISTANT,
+  ])
   async getDetailedStudentProgress(@Param('studentId') studentId: string) {
     return this.enrollmentsService.getDetailedStudentProgress(studentId);
   }
 
   @Get(':id')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @SetMetadata('roles', ['student', 'teacher', 'admin'])
+  @SetMetadata('roles', [
+    Role.STUDENT,
+    Role.TEACHER,
+    Role.ADMIN,
+    Role.MANAGER,
+    Role.ASSISTANT,
+  ])
   async findOne(@Param('id') id: string) {
     return this.enrollmentsService.findEnrollmentById(id);
   }
 
   @Put(':id/progress')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @SetMetadata('roles', ['student'])
+  @SetMetadata('roles', [Role.STUDENT, Role.ASSISTANT])
   @UsePipes(new ValidationPipe())
   async updateProgress(
     @Param('id') id: string,
@@ -108,7 +133,7 @@ export class EnrollmentsController {
 
   @Put(':id/complete')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @SetMetadata('roles', ['teacher', 'admin'])
+  @SetMetadata('roles', [Role.TEACHER, Role.ADMIN, Role.MANAGER])
   @UsePipes(new ValidationPipe())
   async completeCourse(
     @Param('id') id: string,
@@ -119,14 +144,14 @@ export class EnrollmentsController {
 
   @Delete(':id')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @SetMetadata('roles', ['admin'])
+  @SetMetadata('roles', [Role.ADMIN, Role.MANAGER])
   async delete(@Param('id') id: string) {
     return this.enrollmentsService.deleteEnrollment(id);
   }
 
   @Get('export/csv')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @SetMetadata('roles', ['admin'])
+  @SetMetadata('roles', [Role.ADMIN, Role.MANAGER])
   async exportCsv(@Res() res: Response) {
     const csv = await this.enrollmentsService.exportEnrollmentsToCsv();
     res.set('Content-Type', 'text/csv'); // Используем set вместо header

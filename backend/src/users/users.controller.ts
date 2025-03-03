@@ -11,9 +11,9 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from '../auth/guards/roles.guard';
-import { UsersService } from './users.service'; // Импортируем класс, а не интерфейс
-import { User } from './schemas/user.schema';
+import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
+import { Role } from '../auth/roles.enum';
 
 @Controller('users')
 export class UsersController {
@@ -22,20 +22,23 @@ export class UsersController {
   @Post()
   @UsePipes(new ValidationPipe())
   async create(@Body() createUserDto: CreateUserDto) {
-    const { email, password, name, role } = createUserDto;
-    return this.usersService.create(email, password, name, role);
+    return this.usersService.create({
+      email: createUserDto.email,
+      password: createUserDto.password,
+      roles: createUserDto.roles || [Role.STUDENT], // Преобразуем role в массив ролей, если он строка
+    });
   }
 
   @Get('me')
   @UseGuards(AuthGuard('jwt'))
   async getMe(@Request() req) {
-    return this.usersService.findById(req.user._id);
+    return this.usersService.findById(req.user.sub); // Используем sub из JWT payload
   }
 
   @Get()
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @SetMetadata('roles', ['admin'])
-  async getAllUsers() {
+  @SetMetadata('roles', [Role.ADMIN])
+  async findAll() {
     return this.usersService.findAll();
   }
 }
