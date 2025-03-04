@@ -333,6 +333,9 @@ export class HomeworksService {
     this.logger.debug('Homework found:', homework); // Отладочный лог
 
     // Находим курс, связанный с lessonId домашнего задания
+    this.logger.debug(
+      `Searching course for lessonId: ${homework.lessonId.toString()}`,
+    );
     const course = await this.coursesService.findCourseByLesson(
       homework.lessonId.toString(),
     );
@@ -342,10 +345,16 @@ export class HomeworksService {
     }
     this.logger.debug('Course found for lesson:', course);
 
-    // Ищем enrollment, связанный с этим курсом
-    const relatedEnrollment = enrollment.find(
-      (e) => e.courseId.toString() === course._id.toString(),
-    );
+    // Ищем enrollment, связанный с этим курсом, с явным преобразованием и проверкой формата
+    const relatedEnrollment = enrollment.find((e) => {
+      const courseIdStr = e.courseId.toString();
+      const courseIdFromCourseStr = course._id.toString();
+      this.logger.debug(
+        `Checking enrollment: courseId=${courseIdStr}, courseIdFromCourse=${courseIdFromCourseStr}, types - courseId: ${typeof e.courseId}, course._id: ${typeof course._id}`,
+      );
+      return courseIdStr === courseIdFromCourseStr;
+    });
+
     if (!relatedEnrollment) {
       this.logger.error('No related enrollment found for submission:', {
         studentId: submission.studentId,
@@ -426,6 +435,9 @@ export class HomeworksService {
             this.logger.debug('Homework found:', homework); // Отладочный лог
 
             // Находим курс, связанный с lessonId домашнего задания
+            this.logger.debug(
+              `Searching course for lessonId: ${homework.lessonId.toString()}`,
+            );
             const course = await this.coursesService.findCourseByLesson(
               homework.lessonId.toString(),
             );

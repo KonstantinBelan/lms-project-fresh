@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Course, CourseDocument } from './schemas/course.schema';
@@ -16,6 +16,8 @@ import { Cache } from 'cache-manager';
 
 @Injectable()
 export class CoursesService implements ICoursesService {
+  private readonly logger = new Logger(CoursesService.name);
+
   constructor(
     @InjectModel(Course.name) private courseModel: Model<CourseDocument>,
     @InjectModel(Module.name) private moduleModel: Model<ModuleDocument>,
@@ -47,16 +49,6 @@ export class CoursesService implements ICoursesService {
 
     return courses;
   }
-
-  // async findAllCourses(): Promise<Course[]> {
-  //   // return this.courseModel.find().exec();
-  //   return this.courseModel.find().lean().exec(); // Используем .lean()
-  // }
-
-  // async findCourseById(courseId: string): Promise<Course | null> {
-  //   // return this.courseModel.findById(courseId).exec();
-  //   return this.courseModel.findById(courseId).lean().exec(); // Используем .lean()
-  // }
 
   async findAllCourses(): Promise<Course[]> {
     const cacheKey = 'courses:all';
@@ -150,32 +142,40 @@ export class CoursesService implements ICoursesService {
     return this.lessonModel.findById(lessonId).exec();
   }
 
-  // async findCourseByLesson(lessonId: string): Promise<any> {
-  //   // Замени any на конкретный тип, если известен
-  //   // const course = await this.courseModel
-  //   //   .findOne({ 'modules.lessons': new Types.ObjectId(lessonId) })
-  //   //   .exec();
-  //   const course = await this.courseModel
-  //     .findOne({ 'modules.lessons': new Types.ObjectId(lessonId) })
-  //     .lean()
-  //     .exec(); // Используем .lean()
-  //   return course;
-  // }
-
   async findCourseByLesson(lessonId: string): Promise<Course | null> {
     const cacheKey = `course:lesson:${lessonId}`;
     const cachedCourse = await this.cacheManager.get<Course>(cacheKey);
     if (cachedCourse) {
-      console.log('Course found in cache for lesson:', cachedCourse);
+      this.logger.debug('Course found in cache for lesson:', cachedCourse);
       return cachedCourse;
     }
 
-    const course = await this.courseModel
-      .findOne({ 'modules.lessons': new Types.ObjectId(lessonId) })
+    const objectId = new Types.ObjectId(lessonId);
+    this.logger.debug(`Searching module for lessonId: ${lessonId}`);
+
+    // Найти модуль, содержащий урок
+    const module = await this.moduleModel
+      .findOne({ lessons: objectId })
       .lean()
       .exec();
-    console.log('Course found in DB for lesson:', course);
-    if (course) await this.cacheManager.set(cacheKey, course, 3600); // Кэшируем на 1 час
+    if (!module) {
+      this.logger.error(`No module found for lessonId: ${lessonId}`);
+      return null;
+    }
+    this.logger.debug(`Module found for lesson: ${JSON.stringify(module)}`);
+
+    // Найти курс, содержащий этот модуль
+    const course = await this.courseModel
+      .findOne({ modules: module._id })
+      .lean()
+      .exec();
+    if (!course) {
+      this.logger.error(`No course found for moduleId: ${module._id}`);
+      return null;
+    }
+    this.logger.debug(`Course found for module: ${JSON.stringify(course)}`);
+
+    await this.cacheManager.set(cacheKey, course, 3600); // Кэшируем на 1 час
     return course;
   }
 
