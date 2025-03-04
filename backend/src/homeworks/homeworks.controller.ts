@@ -20,7 +20,7 @@ import { UpdateHomeworkDto } from './dto/update-homework.dto';
 import { CreateSubmissionDto } from './dto/create-submission.dto';
 import { UpdateSubmissionDto } from './dto/update-submission.dto';
 import { Role } from '../auth/roles.enum';
-import { Types } from 'mongoose';
+import { Types } from 'mongoose'; // Импортируем Types для проверки ObjectId
 
 @Controller('homeworks')
 export class HomeworksController {

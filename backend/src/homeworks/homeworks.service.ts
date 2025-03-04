@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Homework, HomeworkDocument } from './schemas/homework.schema';
@@ -16,6 +16,8 @@ import { EnrollmentsService } from '../enrollments/enrollments.service'; // Им
 
 @Injectable()
 export class HomeworksService {
+  private readonly logger = new Logger(HomeworksService.name);
+
   constructor(
     @InjectModel(Homework.name) private homeworkModel: Model<HomeworkDocument>,
     @InjectModel(Submission.name)
@@ -71,7 +73,7 @@ export class HomeworksService {
   }
 
   async deleteHomework(id: string): Promise<void> {
-    await this.cacheManager.del(`homework:${id}`); // Очищаем кэш для этой записи
+    await this.cacheManager.del(`homework:${id}`); // Очищем кэш для этой записи
     await this.cacheManager.del('homeworks:lesson:*'); // Очищаем кэш всех уроков
     await this.homeworkModel.findByIdAndDelete(id).exec();
   }
@@ -80,12 +82,12 @@ export class HomeworksService {
     const cacheKey = `homework:${id}`;
     const cachedHomework = await this.cacheManager.get<Homework>(cacheKey);
     if (cachedHomework) {
-      console.log('Homework found in cache:', cachedHomework);
+      this.logger.debug('Homework found in cache:', cachedHomework);
       return cachedHomework;
     }
 
     const homework = await this.homeworkModel.findById(id).lean().exec();
-    console.log('Homework found in DB:', homework);
+    this.logger.debug('Homework found in DB:', homework);
     if (homework) await this.cacheManager.set(cacheKey, homework, 3600); // Кэшируем на 1 час
     return homework;
   }
@@ -94,17 +96,23 @@ export class HomeworksService {
     const cacheKey = `homeworks:lesson:${lessonId}`;
     const cachedHomeworks = await this.cacheManager.get<Homework[]>(cacheKey);
     if (cachedHomeworks) {
-      console.log('Homeworks found in cache for lesson:', cachedHomeworks);
+      this.logger.debug(
+        'Homeworks found in cache for lesson:',
+        cachedHomeworks,
+      );
       return cachedHomeworks;
     }
 
     const objectId = new Types.ObjectId(lessonId);
-    console.log('Searching homeworks for lessonId:', { lessonId, objectId });
+    this.logger.debug('Searching homeworks for lessonId:', {
+      lessonId,
+      objectId,
+    });
     const homeworks = await this.homeworkModel
       .find({ lessonId: objectId })
       .lean()
       .exec();
-    console.log('Homeworks found in DB for lesson:', homeworks);
+    this.logger.debug('Homeworks found in DB for lesson:', homeworks);
     if (homeworks.length > 0)
       await this.cacheManager.set(cacheKey, homeworks, 3600); // Кэшируем на 1 час
     return homeworks;
@@ -155,13 +163,12 @@ export class HomeworksService {
     const cacheKey = `submission:${id}`;
     const cachedSubmission = await this.cacheManager.get<Submission>(cacheKey);
     if (cachedSubmission) {
-      console.log('Submission found in cache:', cachedSubmission);
+      this.logger.debug('Submission found in cache:', cachedSubmission);
       return cachedSubmission;
     }
 
-    // Удаляем проверку Types.ObjectId.isValid, так как она уже выполняется в контроллере
     const submission = await this.submissionModel.findById(id).lean().exec();
-    console.log('Submission found in DB:', submission);
+    this.logger.debug('Submission found in DB:', submission);
     if (submission) await this.cacheManager.set(cacheKey, submission, 3600); // Кэшируем на 1 час
     return submission;
   }
@@ -171,7 +178,7 @@ export class HomeworksService {
     const cachedSubmissions =
       await this.cacheManager.get<Submission[]>(cacheKey);
     if (cachedSubmissions) {
-      console.log(
+      this.logger.debug(
         'Submissions found in cache for homework:',
         cachedSubmissions,
       );
@@ -179,7 +186,7 @@ export class HomeworksService {
     }
 
     const objectId = new Types.ObjectId(homeworkId);
-    console.log('Searching submissions for homeworkId:', {
+    this.logger.debug('Searching submissions for homeworkId:', {
       homeworkId,
       objectId,
     });
@@ -187,7 +194,7 @@ export class HomeworksService {
       .find({ homeworkId: objectId })
       .lean()
       .exec();
-    console.log('Submissions found in DB for homework:', submissions);
+    this.logger.debug('Submissions found in DB for homework:', submissions);
     if (submissions.length > 0)
       await this.cacheManager.set(cacheKey, submissions, 3600); // Кэшируем на 1 час
     return submissions;
@@ -198,7 +205,10 @@ export class HomeworksService {
     const cachedSubmissions =
       await this.cacheManager.get<Submission[]>(cacheKey);
     if (cachedSubmissions) {
-      console.log('Submissions found in cache for student:', cachedSubmissions);
+      this.logger.debug(
+        'Submissions found in cache for student:',
+        cachedSubmissions,
+      );
       return cachedSubmissions;
     }
 
@@ -207,7 +217,7 @@ export class HomeworksService {
       .find({ studentId: objectId })
       .lean()
       .exec();
-    console.log('Submissions found in DB for student:', submissions);
+    this.logger.debug('Submissions found in DB for student:', submissions);
     if (submissions.length > 0)
       await this.cacheManager.set(cacheKey, submissions, 3600); // Кэшируем на 1 час
     return submissions;
@@ -217,7 +227,7 @@ export class HomeworksService {
     const cacheKey = 'homeworks:deadlines';
     const cachedDeadlines = await this.cacheManager.get<any>(cacheKey);
     if (cachedDeadlines) {
-      console.log('Deadlines found in cache:', cachedDeadlines);
+      this.logger.debug('Deadlines found in cache:', cachedDeadlines);
       for (const [homeworkId, daysLeft] of Object.entries(cachedDeadlines)) {
         if ((daysLeft as number) <= 7 && (daysLeft as number) > 0) {
           const homework = await this.findHomeworkById(homeworkId);
@@ -283,7 +293,7 @@ export class HomeworksService {
       comment: string;
     }>(cacheKey);
     if (cachedResult) {
-      console.log('Auto-check result found in cache:', cachedResult);
+      this.logger.debug('Auto-check result found in cache:', cachedResult);
       return cachedResult;
     }
 
@@ -314,17 +324,38 @@ export class HomeworksService {
     const enrollment = await this.enrollmentsService.findEnrollmentsByStudent(
       submission.studentId.toString(),
     );
-    const relatedEnrollment = await Promise.all(
-      enrollment.map(
-        async (e) =>
-          (await e.courseId.toString()) ===
-          (
-            await this.findHomeworkById(submission.homeworkId.toString())
-          )?.lessonId.toString(),
-      ),
-    ).then((results) => enrollment[results.indexOf(true)]);
-    if (!relatedEnrollment)
+    this.logger.debug('All enrollments for student:', enrollment); // Отладочный лог
+
+    const homework = await this.findHomeworkById(
+      submission.homeworkId.toString(),
+    );
+    if (!homework) throw new Error('Homework not found for this submission');
+    this.logger.debug('Homework found:', homework); // Отладочный лог
+
+    // Находим курс, связанный с lessonId домашнего задания
+    const course = await this.coursesService.findCourseByLesson(
+      homework.lessonId.toString(),
+    );
+    if (!course) {
+      this.logger.error('No course found for lessonId:', homework.lessonId);
+      throw new Error('Course not found for this homework');
+    }
+    this.logger.debug('Course found for lesson:', course);
+
+    // Ищем enrollment, связанный с этим курсом
+    const relatedEnrollment = enrollment.find(
+      (e) => e.courseId.toString() === course._id.toString(),
+    );
+    if (!relatedEnrollment) {
+      this.logger.error('No related enrollment found for submission:', {
+        studentId: submission.studentId,
+        homeworkId: submission.homeworkId,
+        homeworkLessonId: homework.lessonId,
+        courseId: course._id,
+        enrollments: enrollment,
+      });
       throw new Error('Enrollment not found for this submission');
+    }
 
     // Уведомить студента о проверке, используя enrollmentId
     await this.notificationsService.notifyDeadline(
@@ -349,7 +380,7 @@ export class HomeworksService {
     const cacheKey = `deadline:notifications:${homeworkId}`;
     const cachedNotifications = await this.cacheManager.get<any>(cacheKey);
     if (cachedNotifications) {
-      console.log(
+      this.logger.debug(
         'Deadline notifications found in cache:',
         cachedNotifications,
       );
@@ -385,19 +416,42 @@ export class HomeworksService {
               await this.enrollmentsService.findEnrollmentsByStudent(
                 submission.studentId.toString(),
               );
-            const relatedEnrollment = await Promise.all(
-              enrollment.map(
-                async (e) =>
-                  (await e.courseId.toString()) ===
-                  (
-                    await this.findHomeworkById(
-                      submission.homeworkId.toString(),
-                    )
-                  )?.lessonId.toString(),
-              ),
-            ).then((results) => enrollment[results.indexOf(true)]);
-            if (!relatedEnrollment)
+            this.logger.debug('All enrollments for student:', enrollment); // Отладочный лог
+
+            const homework = await this.findHomeworkById(
+              submission.homeworkId.toString(),
+            );
+            if (!homework)
+              throw new Error('Homework not found for this submission');
+            this.logger.debug('Homework found:', homework); // Отладочный лог
+
+            // Находим курс, связанный с lessonId домашнего задания
+            const course = await this.coursesService.findCourseByLesson(
+              homework.lessonId.toString(),
+            );
+            if (!course) {
+              this.logger.error(
+                'No course found for lessonId:',
+                homework.lessonId,
+              );
+              throw new Error('Course not found for this homework');
+            }
+            this.logger.debug('Course found for lesson:', course);
+
+            // Ищем enrollment, связанный с этим курсом
+            const relatedEnrollment = enrollment.find(
+              (e) => e.courseId.toString() === course._id.toString(),
+            );
+            if (!relatedEnrollment) {
+              this.logger.error('No related enrollment found for submission:', {
+                studentId: submission.studentId,
+                homeworkId: submission.homeworkId,
+                homeworkLessonId: homework.lessonId,
+                courseId: course._id,
+                enrollments: enrollment,
+              });
               throw new Error('Enrollment not found for this submission');
+            }
 
             await this.notificationsService.notifyDeadline(
               relatedEnrollment._id.toString(), // Используем enrollmentId
@@ -406,7 +460,7 @@ export class HomeworksService {
             );
 
             await this.notificationsService.notifyDeadline(
-              'admin-id', // Замени на реальный ID администратора
+              'admin', // Замени на реальный ID администратора
               0, // Placeholder
               `Late submission detected for homework ${homeworkId} by student ${submission.studentId}.`,
             );
