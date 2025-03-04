@@ -265,9 +265,9 @@ export class EnrollmentsService implements IEnrollmentsService {
 
     this.logger.debug('Updated student progress:', updatedEnrollment);
 
-    // Уведомляем о прогрессе
+    // Уведомляем о прогрессе, передаём enrollment._id вместо studentId
     await this.notificationsService.notifyProgress(
-      studentId,
+      enrollment._id.toString(), // Исправлено: передаём enrollmentId
       moduleId,
       lessonId,
     );
