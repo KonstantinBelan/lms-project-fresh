@@ -73,7 +73,11 @@ describe('EnrollmentsController', () => {
       updateProgressDto.moduleId,
       updateProgressDto.lessonId,
     );
-    expect(result.completedModules).toContain('67c5861505ac038b1bf9c1af');
-    expect(result.completedLessons).toContain('67c5862905ac038b1bf9c1b5');
+    expect(result).not.toBeNull(); // Проверяем, что результат не null
+    if (result) {
+      // Условная проверка для TypeScript
+      expect(result.completedModules).toContain('67c5861505ac038b1bf9c1af');
+      expect(result.completedLessons).toContain('67c5862905ac038b1bf9c1b5');
+    }
   });
 });

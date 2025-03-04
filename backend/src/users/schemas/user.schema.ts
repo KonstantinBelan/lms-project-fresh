@@ -12,14 +12,13 @@ export class User {
   @Prop({ required: true, select: false }) // Добавляем select: false, чтобы по умолчанию не возвращать пароль
   password: string;
 
-  @Prop({ index: true })
+  @Prop({})
   name?: string;
 
   @Prop({
     type: [String],
     enum: Object.values(Role),
     default: [Role.STUDENT],
-    index: true,
   }) // Индекс для roles
   roles: Role[];
 

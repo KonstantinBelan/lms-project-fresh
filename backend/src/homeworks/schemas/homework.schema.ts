@@ -19,7 +19,7 @@ export class Homework {
   })
   category: string;
 
-  @Prop({ index: true })
+  @Prop({})
   deadline?: Date; // Сделали deadline опциональным, чтобы соответствовать интерфейсу
 
   @Prop({ default: false })

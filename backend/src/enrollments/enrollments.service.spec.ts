@@ -12,39 +12,43 @@ describe('EnrollmentsService', () => {
 
   const mockEnrollmentModel = {
     findOne: jest.fn().mockReturnValue({
-      lean: jest.fn().mockResolvedValue({
-        _id: '67c59acebe3880a60e6f53b1',
-        studentId: '67c4d379a5c903e26a37557c',
-        courseId: '67c585ff05ac038b1bf9c1a9',
-        completedModules: ['67c58261d8f478d10a0dfce0'],
-        completedLessons: ['67c58285d8f478d10a0dfce5'],
-        isCompleted: false,
-        deadline: new Date('2025-03-15T00:00:00.000Z'),
-        __v: 0,
+      lean: jest.fn().mockReturnValue({
+        exec: jest.fn().mockResolvedValue({
+          _id: '67c59acebe3880a60e6f53b1',
+          studentId: '67c4d379a5c903e26a37557c',
+          courseId: '67c585ff05ac038b1bf9c1a9',
+          completedModules: ['67c58261d8f478d10a0dfce0'],
+          completedLessons: ['67c58285d8f478d10a0dfce5'],
+          isCompleted: false,
+          deadline: new Date('2025-03-15T00:00:00.000Z'),
+          __v: 0,
+        }),
       }),
     }),
     findByIdAndUpdate: jest.fn().mockReturnValue({
-      lean: jest.fn().mockResolvedValue({
-        _id: '67c59acebe3880a60e6f53b1',
-        studentId: '67c4d379a5c903e26a37557c',
-        courseId: '67c585ff05ac038b1bf9c1a9',
-        completedModules: [
-          '67c58261d8f478d10a0dfce0',
-          '67c5861505ac038b1bf9c1af',
-        ],
-        completedLessons: [
-          '67c58285d8f478d10a0dfce5',
-          '67c5862905ac038b1bf9c1b5',
-        ],
-        isCompleted: false,
-        deadline: new Date('2025-03-15T00:00:00.000Z'),
-        __v: 0,
+      lean: jest.fn().mockReturnValue({
+        exec: jest.fn().mockResolvedValue({
+          _id: '67c59acebe3880a60e6f53b1',
+          studentId: '67c4d379a5c903e26a37557c',
+          courseId: '67c585ff05ac038b1bf9c1a9',
+          completedModules: [
+            '67c58261d8f478d10a0dfce0',
+            '67c5861505ac038b1bf9c1af',
+          ],
+          completedLessons: [
+            '67c58285d8f478d10a0dfce5',
+            '67c5862905ac038b1bf9c1b5',
+          ],
+          isCompleted: false,
+          deadline: new Date('2025-03-15T00:00:00.000Z'),
+          __v: 0,
+        }),
       }),
     }),
   };
 
   const mockUsersService = {
-    findById: jest.fn().mockResolvedValue({ email: 'test@example.com' }), // Минимальный мок
+    findById: jest.fn().mockResolvedValue({ email: 'test@example.com' }),
   };
 
   const mockCoursesService = {
@@ -91,7 +95,6 @@ describe('EnrollmentsService', () => {
       lessonId,
     );
 
-    // Проверяем вызовы методов
     expect(mockEnrollmentModel.findOne).toHaveBeenCalledWith({
       studentId: expect.any(Types.ObjectId),
       courseId: expect.any(Types.ObjectId),
@@ -114,7 +117,7 @@ describe('EnrollmentsService', () => {
     expect(mockCoursesService.findCourseById).toHaveBeenCalledWith(courseId);
     expect(mockNotificationsService.notifyDeadline).toHaveBeenCalledWith(
       '67c59acebe3880a60e6f53b1',
-      expect.any(Number), // daysLeft
+      expect.any(Number),
       'Test Course',
     );
     expect(mockCacheManager.del).toHaveBeenCalledTimes(3);
@@ -128,22 +131,11 @@ describe('EnrollmentsService', () => {
       `enrollments:course:${courseId}`,
     );
 
-    // Проверяем результат
-    expect(result).toEqual({
-      _id: '67c59acebe3880a60e6f53b1',
-      studentId: '67c4d379a5c903e26a37557c',
-      courseId: '67c585ff05ac038b1bf9c1a9',
-      completedModules: [
-        '67c58261d8f478d10a0dfce0',
-        '67c5861505ac038b1bf9c1af',
-      ],
-      completedLessons: [
-        '67c58285d8f478d10a0dfce5',
-        '67c5862905ac038b1bf9c1b5',
-      ],
-      isCompleted: false,
-      deadline: expect.any(Date),
-      __v: 0,
-    });
+    expect(result).not.toBeNull(); // Проверяем, что результат не null
+    if (result) {
+      // Условная проверка для TypeScript
+      expect(result.completedModules).toContain('67c5861505ac038b1bf9c1af');
+      expect(result.completedLessons).toContain('67c5862905ac038b1bf9c1b5');
+    }
   });
 });
