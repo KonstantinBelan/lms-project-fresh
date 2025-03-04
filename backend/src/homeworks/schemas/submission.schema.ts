@@ -3,7 +3,11 @@ import { Document, Types } from 'mongoose';
 import { Homework } from './homework.schema';
 import { User } from '../../users/schemas/user.schema';
 
-export type SubmissionDocument = Submission & Document;
+export type SubmissionDocument = Submission &
+  Document & {
+    createdAt: Date;
+    updatedAt: Date;
+  };
 
 @Schema({ collection: 'submissions', timestamps: true })
 export class Submission {

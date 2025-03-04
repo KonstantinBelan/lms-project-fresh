@@ -77,7 +77,7 @@ export class RealTimeAnalyticsService {
           (a, b) =>
             (b.createdAt as Date).getTime() - (a.createdAt as Date).getTime(),
         )
-        .slice(0, 5), // Явно указываем тип Date
+        .slice(0, 5),
     };
   }
 
