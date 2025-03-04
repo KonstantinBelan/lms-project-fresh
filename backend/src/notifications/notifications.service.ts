@@ -17,15 +17,14 @@ import { Course } from '../courses/schemas/course.schema';
 import { Module } from '../courses/schemas/module.schema';
 import { Lesson } from '../courses/schemas/lesson.schema';
 import { Types } from 'mongoose';
-import { Twilio } from 'twilio'; // Импортируем Twilio
 import { CACHE_MANAGER } from '@nestjs/cache-manager'; // Импортируем CACHE_MANAGER
 import { Cache } from 'cache-manager'; // Импортируем Cache
+import axios from 'axios';
 
 @Injectable()
 export class NotificationsService implements INotificationsService {
   private transporter: nodemailer.Transporter;
   private telegramBot: TelegramBot;
-  private twilioClient: Twilio | null = null; // Для SMS
 
   constructor(
     @InjectModel(Notification.name)
@@ -57,14 +56,6 @@ export class NotificationsService implements INotificationsService {
     this.telegramBot = new TelegramBot(config.telegram.botToken, {
       polling: false,
     });
-
-    // Настройка Twilio для SMS
-    if (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN) {
-      this.twilioClient = new Twilio(
-        process.env.TWILIO_ACCOUNT_SID,
-        process.env.TWILIO_AUTH_TOKEN,
-      );
-    }
   }
 
   async createNotification(
@@ -243,24 +234,41 @@ export class NotificationsService implements INotificationsService {
   }
 
   public async sendSMS(userId: string, message: string): Promise<void> {
-    if (!this.twilioClient) {
-      console.warn('Twilio client not initialized, skipping SMS');
-      return;
-    }
-
     try {
-      const user = await this.usersService.findById(userId); // Ищем пользователя по ObjectId
+      const user = await this.usersService.findById(userId);
       if (!user || !user.phone) {
         console.warn('User or phone number not found for ID:', userId);
         return;
       }
 
-      await this.twilioClient.messages.create({
-        body: message,
-        from: process.env.TWILIO_PHONE_NUMBER,
-        to: user.phone, // Используем поле phone из пользователя
+      const phone = user.phone; // Номер получателя из базы
+      const apiKey = process.env.SMS_RU_API_KEY; // API-ключ из .env
+      if (!apiKey) {
+        throw new Error('SMS_RU_API_KEY is not configured in .env');
+      }
+
+      console.log(
+        'Attempting to send SMS to:',
+        phone,
+        'with message:',
+        message,
+      );
+
+      const response = await axios.get('https://sms.ru/sms/send', {
+        params: {
+          api_id: apiKey,
+          to: phone,
+          text: message,
+          json: 1, // Возвращать ответ в формате JSON
+        },
       });
-      console.log('SMS sent successfully to:', user.phone);
+
+      if (response.data.status === 'OK') {
+        console.log('SMS sent successfully to:', phone);
+      } else {
+        console.error('Failed to send SMS:', response.data);
+        throw new Error(`Failed to send SMS: ${response.data.error}`);
+      }
     } catch (error) {
       console.error('Failed to send SMS:', error);
       throw new Error(`Failed to send SMS notification: ${error.message}`);
