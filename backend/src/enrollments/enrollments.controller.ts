@@ -77,7 +77,7 @@ export class EnrollmentsController {
     return this.enrollmentsService.findEnrollmentsByStudent(studentId);
   }
 
-  @Get('student/:studentId/progress')
+  @Get('student/:studentId/progress/:courseId')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @SetMetadata('roles', [
     Role.STUDENT,
@@ -86,8 +86,11 @@ export class EnrollmentsController {
     Role.MANAGER,
     Role.ASSISTANT,
   ])
-  async getStudentProgress(@Param('studentId') studentId: string) {
-    return this.enrollmentsService.getStudentProgress(studentId);
+  async getStudentProgress(
+    @Param('studentId') studentId: string,
+    @Param('courseId') courseId: string,
+  ) {
+    return this.enrollmentsService.getStudentProgress(studentId, courseId);
   }
 
   @Get('student/:studentId/detailed-progress')
@@ -124,8 +127,11 @@ export class EnrollmentsController {
     @Param('id') id: string,
     @Body() updateProgressDto: UpdateProgressDto,
   ) {
-    return this.enrollmentsService.updateProgress(
-      id,
+    return this.enrollmentsService.updateStudentProgress(
+      id.split('.')[0], // Предполагаем, что id может содержать дополнительные данные, берём только studentId
+      (
+        await this.enrollmentsService.findEnrollmentById(id)
+      )?.courseId.toString() || '',
       updateProgressDto.moduleId,
       updateProgressDto.lessonId,
     );

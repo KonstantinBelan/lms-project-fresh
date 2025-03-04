@@ -14,10 +14,10 @@ export class Enrollment extends Document {
   @Prop({ required: true, type: Types.ObjectId, ref: 'Course', index: true })
   courseId: Types.ObjectId; // Оставляем как ObjectId, без populate
 
-  @Prop({ type: [String], default: [] })
+  @Prop({ type: [String], default: [], index: true })
   completedModules: string[];
 
-  @Prop({ type: [String], default: [] })
+  @Prop({ type: [String], default: [], index: true })
   completedLessons: string[];
 
   @Prop({ type: Boolean, default: false })
@@ -29,10 +29,13 @@ export class Enrollment extends Document {
   @Prop({ type: Date, index: true })
   deadline?: Date;
 
+  @Prop({ default: 0 })
   __v: number; // Mongoose version key
 }
 
 export const EnrollmentSchema = SchemaFactory.createForClass(Enrollment);
-EnrollmentSchema.index({ studentId: 1 }); // Индекс для studentId
-EnrollmentSchema.index({ courseId: 1 }); // Индекс для courseId
-EnrollmentSchema.index({ deadline: 1 }); // Индекс для deadline (опционально)
+EnrollmentSchema.index({ studentId: 1 });
+EnrollmentSchema.index({ courseId: 1 });
+EnrollmentSchema.index({ deadline: 1 });
+EnrollmentSchema.index({ completedModules: 1 });
+EnrollmentSchema.index({ completedLessons: 1 });

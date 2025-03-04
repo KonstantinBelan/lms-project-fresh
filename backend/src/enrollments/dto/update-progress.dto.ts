@@ -1,9 +1,11 @@
-import { IsString } from 'class-validator';
+import { IsMongoId, IsNotEmpty } from 'class-validator';
 
 export class UpdateProgressDto {
-  @IsString()
+  @IsMongoId()
+  @IsNotEmpty()
   moduleId: string;
 
-  @IsString()
+  @IsMongoId()
+  @IsNotEmpty()
   lessonId: string;
 }

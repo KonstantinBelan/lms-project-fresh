@@ -345,6 +345,30 @@ export class HomeworksService {
     }
     this.logger.debug('Course found for lesson:', course);
 
+    // Получаем структуру курса для определения модуля и урока
+    const courseStructure = await this.coursesService.getCourseStructure(
+      course._id.toString(),
+    );
+    const lesson = courseStructure.modules
+      .flatMap((m) => m.lessons)
+      .find((l) => l.lessonId.toString() === homework.lessonId.toString());
+    if (!lesson) throw new Error('Lesson not found in course structure');
+
+    const module = courseStructure.modules.find((m) =>
+      m.lessons.some(
+        (l) => l.lessonId.toString() === lesson.lessonId.toString(),
+      ),
+    );
+    if (!module) throw new Error('Module not found in course structure');
+
+    // Обновляем прогресс студента
+    await this.enrollmentsService.updateStudentProgress(
+      submission.studentId.toString(),
+      course._id.toString(),
+      module.moduleId.toString(),
+      lesson.lessonId.toString(),
+    );
+
     // Ищем enrollment, связанный с этим курсом, с явным преобразованием и проверкой формата
     const relatedEnrollment = enrollment.find((e) => {
       const courseIdStr = e.courseId.toString();
@@ -449,6 +473,35 @@ export class HomeworksService {
               throw new Error('Course not found for this homework');
             }
             this.logger.debug('Course found for lesson:', course);
+
+            // Получаем структуру курса для определения модуля и урока
+            const courseStructure =
+              await this.coursesService.getCourseStructure(
+                course._id.toString(),
+              );
+            const lesson = courseStructure.modules
+              .flatMap((m) => m.lessons)
+              .find(
+                (l) => l.lessonId.toString() === homework.lessonId.toString(),
+              );
+            if (!lesson)
+              throw new Error('Lesson not found in course structure');
+
+            const module = courseStructure.modules.find((m) =>
+              m.lessons.some(
+                (l) => l.lessonId.toString() === lesson.lessonId.toString(),
+              ),
+            );
+            if (!module)
+              throw new Error('Module not found in course structure');
+
+            // Обновляем прогресс студента
+            await this.enrollmentsService.updateStudentProgress(
+              submission.studentId.toString(),
+              course._id.toString(),
+              module.moduleId.toString(),
+              lesson.lessonId.toString(),
+            );
 
             // Ищем enrollment, связанный с этим курсом
             const relatedEnrollment = enrollment.find(
