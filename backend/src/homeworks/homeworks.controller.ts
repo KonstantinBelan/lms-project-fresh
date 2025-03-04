@@ -10,6 +10,7 @@ import {
   ValidationPipe,
   UseGuards,
   SetMetadata,
+  BadRequestException,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -139,7 +140,7 @@ export class HomeworksController {
     return this.homeworksService.findSubmissionsByStudent(studentId);
   }
 
-  // Обновлённый роут для автоматической проверки решений с валидацией submissionId
+  // Обновлённый роут для автоматической проверки решений с улучшенной валидацией submissionId
   @Post('submissions/auto-check')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @SetMetadata('roles', [
@@ -148,11 +149,13 @@ export class HomeworksController {
     Role.MANAGER,
     Role.ASSISTANT,
   ]) // Ограничение доступа для учителей и администраторов
-  @UsePipes(new ValidationPipe({ transform: true }))
+  @UsePipes(new ValidationPipe({ transform: true, whitelist: true })) // Улучшаем валидацию
   async autoCheckSubmission(@Body('submissionId') submissionId: string) {
     // Валидация submissionId как ObjectId
     if (!Types.ObjectId.isValid(submissionId)) {
-      throw new Error('Invalid submissionId: must be a valid ObjectId');
+      throw new BadRequestException(
+        'Invalid submissionId: must be a valid ObjectId',
+      );
     }
     return this.homeworksService.autoCheckSubmission(submissionId);
   }

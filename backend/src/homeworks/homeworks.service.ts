@@ -159,11 +159,7 @@ export class HomeworksService {
       return cachedSubmission;
     }
 
-    // Проверяем, является ли id валидным ObjectId
-    if (!Types.ObjectId.isValid(id)) {
-      throw new Error('Invalid submissionId: must be a valid ObjectId');
-    }
-
+    // Удаляем проверку Types.ObjectId.isValid, так как она уже выполняется в контроллере
     const submission = await this.submissionModel.findById(id).lean().exec();
     console.log('Submission found in DB:', submission);
     if (submission) await this.cacheManager.set(cacheKey, submission, 3600); // Кэшируем на 1 час
