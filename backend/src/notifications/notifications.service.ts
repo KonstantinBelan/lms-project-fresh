@@ -17,11 +17,15 @@ import { Course } from '../courses/schemas/course.schema';
 import { Module } from '../courses/schemas/module.schema';
 import { Lesson } from '../courses/schemas/lesson.schema';
 import { Types } from 'mongoose';
+import { Twilio } from 'twilio'; // Импортируем Twilio
+import { CACHE_MANAGER } from '@nestjs/cache-manager'; // Импортируем CACHE_MANAGER
+import { Cache } from 'cache-manager'; // Импортируем Cache
 
 @Injectable()
 export class NotificationsService implements INotificationsService {
   private transporter: nodemailer.Transporter;
   private telegramBot: TelegramBot;
+  private twilioClient: Twilio | null = null; // Для SMS
 
   constructor(
     @InjectModel(Notification.name)
@@ -30,6 +34,7 @@ export class NotificationsService implements INotificationsService {
     private enrollmentsService: EnrollmentsService,
     private usersService: UsersService,
     private coursesService: CoursesService,
+    @Inject(CACHE_MANAGER) private cacheManager: Cache, // Инжектируем кэш
   ) {
     console.log(
       'NotificationsService initialized, enrollmentsService:',
@@ -52,6 +57,14 @@ export class NotificationsService implements INotificationsService {
     this.telegramBot = new TelegramBot(config.telegram.botToken, {
       polling: false,
     });
+
+    // Настройка Twilio для SMS
+    if (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN) {
+      this.twilioClient = new Twilio(
+        process.env.TWILIO_ACCOUNT_SID,
+        process.env.TWILIO_AUTH_TOKEN,
+      );
+    }
   }
 
   async createNotification(
@@ -93,6 +106,16 @@ export class NotificationsService implements INotificationsService {
     moduleId: string,
     lessonId: string,
   ): Promise<void> {
+    const cacheKey = `notification:progress:${enrollmentId}:${moduleId}:${lessonId}`;
+    const cachedNotification = await this.cacheManager.get<any>(cacheKey);
+    if (cachedNotification) {
+      console.log(
+        'Notification found in cache for progress:',
+        cachedNotification,
+      );
+      return;
+    }
+
     console.log(
       'Notifying progress for enrollmentId:',
       enrollmentId,
@@ -105,21 +128,17 @@ export class NotificationsService implements INotificationsService {
       await this.enrollmentsService.findEnrollmentById(enrollmentId);
     if (!enrollment) throw new Error('Enrollment not found');
 
-    // Извлекаем courseId как ObjectId и преобразуем в строку
     const courseId = enrollment.courseId.toString();
     if (!courseId) throw new Error('Course ID not found in enrollment');
 
-    // Получаем курс по ID
     const course = (await this.coursesService.findCourseById(
       courseId,
     )) as Course;
     if (!course) throw new Error('Course not found');
 
-    // Получаем модуль по ID
     const module = await this.coursesService.findModuleById(moduleId);
     const moduleTitle = module?.title || moduleId;
 
-    // Получаем урок по ID
     const lesson = await this.coursesService.findLessonById(lessonId);
     const lessonTitle = lesson?.title || lessonId;
 
@@ -127,6 +146,9 @@ export class NotificationsService implements INotificationsService {
     await this.createNotification(enrollment.studentId, message);
     await this.sendEmail(enrollment.studentId, message);
     await this.sendTelegram(message);
+    await this.sendSMS(enrollment.studentId, message);
+
+    await this.cacheManager.set(cacheKey, message, 3600); // Кэшируем уведомление на 1 час
   }
 
   async notifyNewCourse(
@@ -134,10 +156,23 @@ export class NotificationsService implements INotificationsService {
     courseId: string,
     courseTitle: string,
   ): Promise<void> {
+    const cacheKey = `notification:newcourse:${studentId}:${courseId}`;
+    const cachedNotification = await this.cacheManager.get<any>(cacheKey);
+    if (cachedNotification) {
+      console.log(
+        'Notification found in cache for new course:',
+        cachedNotification,
+      );
+      return;
+    }
+
     const message = `New course available: "${courseTitle}" (ID: ${courseId})`;
     await this.createNotification(studentId, message);
     await this.sendEmail(studentId, message);
     await this.sendTelegram(message);
+    await this.sendSMS(studentId, message);
+
+    await this.cacheManager.set(cacheKey, message, 3600); // Кэшируем уведомление на 1 час
   }
 
   async notifyDeadline(
@@ -145,6 +180,16 @@ export class NotificationsService implements INotificationsService {
     daysLeft: number,
     courseTitle: string,
   ): Promise<void> {
+    const cacheKey = `notification:deadline:${enrollmentId}:${daysLeft}`;
+    const cachedNotification = await this.cacheManager.get<any>(cacheKey);
+    if (cachedNotification) {
+      console.log(
+        'Notification found in cache for deadline:',
+        cachedNotification,
+      );
+      return;
+    }
+
     const enrollment =
       await this.enrollmentsService.findEnrollmentById(enrollmentId);
     if (!enrollment) throw new Error('Enrollment not found');
@@ -152,10 +197,13 @@ export class NotificationsService implements INotificationsService {
     await this.createNotification(enrollment.studentId, message);
     await this.sendEmail(enrollment.studentId, message);
     await this.sendTelegram(message);
+    await this.sendSMS(enrollment.studentId, message);
+
+    await this.cacheManager.set(cacheKey, message, 3600); // Кэшируем уведомление на 1 час
   }
 
-  private async sendEmail(userId: string, message: string): Promise<void> {
-    const user = await this.usersService.findById(userId);
+  public async sendEmail(userId: string, message: string): Promise<void> {
+    const user = await this.usersService.findByEmail(userId); // Используем findByEmail вместо findById
     if (!user || !user.email) {
       console.warn('User or email not found for ID:', userId);
       return;
@@ -180,17 +228,42 @@ export class NotificationsService implements INotificationsService {
       console.log('Email sent successfully to:', user.email);
     } catch (error) {
       console.error('Failed to send email:', error);
-      throw new Error('Failed to send email notification');
+      throw new Error(`Failed to send email notification: ${error.message}`);
     }
   }
 
-  private async sendTelegram(message: string): Promise<void> {
+  public async sendTelegram(message: string): Promise<void> {
     try {
       await this.telegramBot.sendMessage(config.telegram.chatId, message);
       console.log('Telegram message sent:', message);
     } catch (error) {
       console.error('Failed to send Telegram message:', error);
-      throw new Error('Failed to send Telegram notification');
+      throw new Error(`Failed to send Telegram notification: ${error.message}`);
+    }
+  }
+
+  public async sendSMS(userId: string, message: string): Promise<void> {
+    if (!this.twilioClient) {
+      console.warn('Twilio client not initialized, skipping SMS');
+      return;
+    }
+
+    try {
+      const user = await this.usersService.findById(userId); // Ищем пользователя по ObjectId
+      if (!user || !user.phone) {
+        console.warn('User or phone number not found for ID:', userId);
+        return;
+      }
+
+      await this.twilioClient.messages.create({
+        body: message,
+        from: process.env.TWILIO_PHONE_NUMBER,
+        to: user.phone, // Используем поле phone из пользователя
+      });
+      console.log('SMS sent successfully to:', user.phone);
+    } catch (error) {
+      console.error('Failed to send SMS:', error);
+      throw new Error(`Failed to send SMS notification: ${error.message}`);
     }
   }
 }

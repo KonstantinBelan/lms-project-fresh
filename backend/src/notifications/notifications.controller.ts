@@ -65,4 +65,31 @@ export class NotificationsController {
   async delete(@Param('id') id: string) {
     return this.notificationsService.deleteNotification(id);
   }
+
+  @Post('test-email')
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @SetMetadata('roles', [Role.ADMIN]) // Ограничиваем доступ только для администратора
+  async testEmail(@Body() body: { userId: string; message: string }) {
+    const { userId, message } = body;
+    await this.notificationsService.sendEmail(userId, message);
+    return { status: 'success', message: 'Test email sent successfully' };
+  }
+
+  @Post('test-telegram')
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @SetMetadata('roles', [Role.ADMIN]) // Ограничиваем доступ только для администратора
+  async testTelegram(@Body() body: { message: string }) {
+    const { message } = body;
+    await this.notificationsService.sendTelegram(message);
+    return { status: 'success', message: 'Test Telegram sent successfully' };
+  }
+
+  @Post('test-sms')
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @SetMetadata('roles', [Role.ADMIN]) // Ограничиваем доступ только для администратора
+  async testSMS(@Body() body: { userId: string; message: string }) {
+    const { userId, message } = body;
+    await this.notificationsService.sendSMS(userId, message);
+    return { status: 'success', message: 'Test SMS sent successfully' };
+  }
 }

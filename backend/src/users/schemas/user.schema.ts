@@ -22,6 +22,9 @@ export class User {
     index: true,
   }) // Индекс для roles
   roles: Role[];
+
+  @Prop() // Добавляем поле phone (опционально, может быть null)
+  phone?: string;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

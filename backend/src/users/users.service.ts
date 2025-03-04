@@ -21,11 +21,13 @@ export class UsersService implements IUsersService {
     password,
     roles,
     name,
+    phone,
   }: {
     email: string;
     password: string;
     roles?: Role[];
     name?: string;
+    phone?: string;
   }): Promise<User> {
     console.log('Hashing password:', { email, saltRounds: 10 });
     const hashedPassword = await bcrypt.hash(password, 10);
