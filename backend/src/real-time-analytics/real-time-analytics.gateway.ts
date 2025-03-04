@@ -16,9 +16,11 @@ import { Injectable } from '@nestjs/common';
       'http://localhost:3000',
       'http://127.0.0.1:3000',
       'https://postman-echo.com',
-    ], // Разрешаем Postman для тестов
+      'https://websocketking.com',
+      '*',
+    ], // Разрешаем больше источников для тестов
     methods: ['GET', 'POST'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Origin'],
     credentials: true,
   },
   namespace: 'analytics',
@@ -38,6 +40,7 @@ export class RealTimeAnalyticsGateway
       clientId: client.id,
       namespace: client.nsp.name,
       handshake: client.handshake,
+      headers: client.handshake.headers,
     });
   }
 
@@ -45,6 +48,7 @@ export class RealTimeAnalyticsGateway
     console.log('WebSocket disconnected:', {
       clientId: client.id,
       namespace: client.nsp.name,
+      reason: client.disconnected,
     });
   }
 
@@ -53,6 +57,7 @@ export class RealTimeAnalyticsGateway
     console.log('Received subscribe-progress event:', {
       clientId: data.userId,
       data,
+      clientHeaders: data.headers || 'No headers',
     });
     try {
       const progress = await this.analyticsService.getStudentProgress(
@@ -77,6 +82,7 @@ export class RealTimeAnalyticsGateway
     console.log('Received subscribe-activity event:', {
       clientId: data.courseId,
       data,
+      clientHeaders: data.headers || 'No headers',
     });
     try {
       const activity = await this.analyticsService.getCourseActivity(
