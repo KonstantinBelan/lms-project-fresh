@@ -64,13 +64,11 @@ export class AppModule implements OnModuleInit {
       24 * 60 * 60 * 1000,
     ); // Запуск раз в сутки
 
+    // Периодическая проверка дедлайнов каждые 5 минут
     setInterval(
       async () => {
         console.log('Checking homework deadlines...');
-        const homeworks = await this.homeworksService.homeworkModel
-          .find()
-          .lean()
-          .exec();
+        const homeworks = await this.homeworksService.findAllHomeworks(); // Используем публичный метод вместо прямого доступа к homeworkModel
         await Promise.all(
           homeworks.map((homework) =>
             this.homeworksService.checkDeadlineNotifications(

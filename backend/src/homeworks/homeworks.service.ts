@@ -24,6 +24,14 @@ export class HomeworksService {
     @Inject(CACHE_MANAGER) private cacheManager: Cache, // Инжектируем кэш
   ) {}
 
+  // Новый публичный метод для доступа к homeworkModel
+  async findAllHomeworks(): Promise<Homework[]> {
+    return this.homeworkModel
+      .find({ deadline: { $exists: true }, isActive: true })
+      .lean()
+      .exec();
+  }
+
   async createHomework(
     createHomeworkDto: CreateHomeworkDto,
   ): Promise<HomeworkDocument> {
@@ -263,7 +271,6 @@ export class HomeworksService {
     await this.cacheManager.set(cacheKey, deadlineCache, 3600); // Кэшируем дедлайны на 1 час
   }
 
-  // Новая функция для автоматической проверки решений
   async autoCheckSubmission(
     submissionId: string,
   ): Promise<{ grade: number; comment: string }> {
@@ -301,11 +308,12 @@ export class HomeworksService {
       .exec();
 
     // Уведомить студента о проверке
-    await this.notificationsService.sendNotification({
-      userId: submission.studentId.toString(),
-      message: `Your submission for homework ${submission.homeworkId} has been auto-checked with grade ${grade}%.`,
-      type: 'homework',
-    });
+    await this.notificationsService.notifyDeadline(
+      // Используем notifyDeadline, так как sendNotification не определён
+      submission.studentId.toString(),
+      0, // Placeholder, так как notifyDeadline требует daysLeft
+      `Your submission for homework ${submission.homeworkId} has been auto-checked with grade ${grade}%.`,
+    );
 
     // Очищаем кэш для связанных данных
     await this.cacheManager.del(`submission:${submissionId}`);
@@ -319,7 +327,6 @@ export class HomeworksService {
     return result;
   }
 
-  // Новая функция для проверки просроченных дедлайнов
   async checkDeadlineNotifications(homeworkId: string): Promise<void> {
     const cacheKey = `deadline:notifications:${homeworkId}`;
     const cachedNotifications = await this.cacheManager.get<any>(cacheKey);
@@ -338,7 +345,11 @@ export class HomeworksService {
     if (!homework) throw new Error('Homework not found');
 
     const now = new Date();
-    const deadline = new Date(homework.deadline);
+    const deadline = homework.deadline
+      ? new Date(homework.deadline)
+      : undefined; // Проверяем на undefined
+    if (!deadline) throw new Error('Deadline not found for homework');
+
     if (now > deadline) {
       const submissions = await this.submissionModel
         .find({ homeworkId: homework._id })
@@ -352,17 +363,19 @@ export class HomeworksService {
         // Уведомить администратора и студентов о просроченных дедлайнах
         await Promise.all(
           lateSubmissions.map(async (submission) => {
-            await this.notificationsService.sendNotification({
-              userId: submission.studentId.toString(),
-              message: `Your submission for homework ${homeworkId} is late. Please review and resubmit if possible.`,
-              type: 'deadline',
-            });
+            await this.notificationsService.notifyDeadline(
+              // Используем notifyDeadline
+              submission.studentId.toString(),
+              0, // Placeholder, так как notifyDeadline требует daysLeft
+              `Your submission for homework ${homeworkId} is late. Please review and resubmit if possible.`,
+            );
 
-            await this.notificationsService.sendNotification({
-              userId: 'admin', // Замени на реальный ID администратора
-              message: `Late submission detected for homework ${homeworkId} by student ${submission.studentId}.`,
-              type: 'admin',
-            });
+            await this.notificationsService.notifyDeadline(
+              // Используем notifyDeadline
+              'admin-id', // Замени на реальный ID администратора
+              0, // Placeholder
+              `Late submission detected for homework ${homeworkId} by student ${submission.studentId}.`,
+            );
           }),
         );
       }
