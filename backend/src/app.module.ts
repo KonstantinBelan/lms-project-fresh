@@ -15,6 +15,8 @@ import { CacheModule } from '@nestjs/cache-manager'; // Импортируем C
 import { cacheManagerConfig } from './cache.config'; // Создаём конфигурацию кэша (см. ниже)
 import { RealTimeAnalyticsModule } from './real-time-analytics/real-time-analytics.module'; // Убедимся, что путь корректен
 import { AdminModule } from './admin/admin.module';
+import { Homework } from './homeworks/schemas/homework.schema';
+import { Types } from 'mongoose';
 
 @Module({
   imports: [
@@ -68,12 +70,15 @@ export class AppModule implements OnModuleInit {
     setInterval(
       async () => {
         console.log('Checking homework deadlines...');
-        const homeworks = await this.homeworksService.findAllHomeworks(); // Используем публичный метод вместо прямого доступа к homeworkModel
+        const homeworks = await this.homeworksService.findAllHomeworks(); // Используем публичный метод
         await Promise.all(
-          homeworks.map((homework) =>
-            this.homeworksService.checkDeadlineNotifications(
-              homework._id.toString(),
-            ),
+          homeworks.map(
+            (
+              homework: Homework, // Явно указываем тип Homework
+            ) =>
+              this.homeworksService.checkDeadlineNotifications(
+                (homework._id as Types.ObjectId).toString(), // Явно приводим _id к Types.ObjectId
+              ),
           ),
         );
       },
