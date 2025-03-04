@@ -27,6 +27,5 @@ export class User {
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);
-UserSchema.index({ email: 1 }, { unique: true }); // Явно создаём уникальный индекс для email
 UserSchema.index({ roles: 1 }); // Индекс для roles
 UserSchema.index({ name: 1 }); // Индекс для name (опционально)
