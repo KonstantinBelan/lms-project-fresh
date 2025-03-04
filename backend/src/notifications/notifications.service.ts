@@ -263,6 +263,8 @@ export class NotificationsService implements INotificationsService {
         },
       });
 
+      console.log('SMS.ru API response:', response.data);
+
       if (response.data.status === 'OK') {
         console.log('SMS sent successfully to:', phone);
       } else {
