@@ -184,6 +184,7 @@ export class NotificationsService implements INotificationsService {
     const enrollment =
       await this.enrollmentsService.findEnrollmentById(enrollmentId);
     if (!enrollment) throw new Error('Enrollment not found');
+
     const message = `You have ${daysLeft} days left to complete "${courseTitle}"`;
     await this.createNotification(enrollment.studentId, message);
     await this.sendEmail(enrollment.studentId, message);

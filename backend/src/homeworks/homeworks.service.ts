@@ -12,6 +12,7 @@ import { CoursesService } from '../courses/courses.service';
 import { Types } from 'mongoose';
 import { CACHE_MANAGER } from '@nestjs/cache-manager'; // Импортируем CACHE_MANAGER
 import { Cache } from 'cache-manager'; // Импортируем Cache
+import { EnrollmentsService } from '../enrollments/enrollments.service'; // Импортируем EnrollmentsService
 
 @Injectable()
 export class HomeworksService {
@@ -21,6 +22,7 @@ export class HomeworksService {
     private submissionModel: Model<SubmissionDocument>,
     private notificationsService: NotificationsService,
     private coursesService: CoursesService,
+    private enrollmentsService: EnrollmentsService, // Добавляем зависимость EnrollmentsService
     @Inject(CACHE_MANAGER) private cacheManager: Cache, // Инжектируем кэш
   ) {}
 
@@ -307,9 +309,25 @@ export class HomeworksService {
       })
       .exec();
 
-    // Уведомить студента о проверке
-    await this.notificationsService.notifyDeadline(
+    // Находим enrollmentId, связанный с submission через studentId и homeworkId
+    const enrollment = await this.enrollmentsService.findEnrollmentsByStudent(
       submission.studentId.toString(),
+    );
+    const relatedEnrollment = await Promise.all(
+      enrollment.map(
+        async (e) =>
+          (await e.courseId.toString()) ===
+          (
+            await this.findHomeworkById(submission.homeworkId.toString())
+          )?.lessonId.toString(),
+      ),
+    ).then((results) => enrollment[results.indexOf(true)]);
+    if (!relatedEnrollment)
+      throw new Error('Enrollment not found for this submission');
+
+    // Уведомить студента о проверке, используя enrollmentId
+    await this.notificationsService.notifyDeadline(
+      relatedEnrollment._id.toString(), // Используем enrollmentId
       0, // Placeholder, так как notifyDeadline требует daysLeft
       `Your submission for homework ${submission.homeworkId} has been auto-checked with grade ${grade}%.`,
     );
@@ -362,8 +380,26 @@ export class HomeworksService {
         // Уведомить администратора и студентов о просроченных дедлайнах
         await Promise.all(
           lateSubmissions.map(async (submission) => {
+            const enrollment =
+              await this.enrollmentsService.findEnrollmentsByStudent(
+                submission.studentId.toString(),
+              );
+            const relatedEnrollment = await Promise.all(
+              enrollment.map(
+                async (e) =>
+                  (await e.courseId.toString()) ===
+                  (
+                    await this.findHomeworkById(
+                      submission.homeworkId.toString(),
+                    )
+                  )?.lessonId.toString(),
+              ),
+            ).then((results) => enrollment[results.indexOf(true)]);
+            if (!relatedEnrollment)
+              throw new Error('Enrollment not found for this submission');
+
             await this.notificationsService.notifyDeadline(
-              submission.studentId.toString(),
+              relatedEnrollment._id.toString(), // Используем enrollmentId
               0, // Placeholder, так как notifyDeadline требует daysLeft
               `Your submission for homework ${homeworkId} is late. Please review and resubmit if possible.`,
             );
