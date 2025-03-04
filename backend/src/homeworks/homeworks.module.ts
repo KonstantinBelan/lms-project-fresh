@@ -13,8 +13,6 @@ import { CoursesModule } from '../courses/courses.module'; // Импортиру
       { name: Homework.name, schema: HomeworkSchema },
       { name: Submission.name, schema: SubmissionSchema },
     ]),
-    // forwardRef(() => NotificationsModule), // Используем forwardRef для NotificationsModule
-    // forwardRef(() => CoursesModule), // Используем forwardRef для CoursesModule
     NotificationsModule,
     CoursesModule,
   ],

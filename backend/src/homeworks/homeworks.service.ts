@@ -31,7 +31,7 @@ export class HomeworksService {
       ...createHomeworkDto,
       lessonId: new Types.ObjectId(createHomeworkDto.lessonId),
     });
-    const savedHomework: HomeworkDocument = await newHomework.save(); // Явно указываем тип HomeworkDocument
+    const savedHomework: HomeworkDocument = await newHomework.save();
 
     // Очищаем кэш для связанных данных
     await this.cacheManager.del(
@@ -108,7 +108,7 @@ export class HomeworksService {
       homeworkId: new Types.ObjectId(createSubmissionDto.homeworkId),
       studentId: new Types.ObjectId(createSubmissionDto.studentId),
     });
-    const savedSubmission: SubmissionDocument = await newSubmission.save(); // Явно указываем тип SubmissionDocument
+    const savedSubmission: SubmissionDocument = await newSubmission.save();
 
     // Очищаем кэш для связанных данных
     await this.cacheManager.del(
@@ -209,7 +209,6 @@ export class HomeworksService {
       console.log('Deadlines found in cache:', cachedDeadlines);
       for (const [homeworkId, daysLeft] of Object.entries(cachedDeadlines)) {
         if ((daysLeft as number) <= 7 && (daysLeft as number) > 0) {
-          // Кастим daysLeft как number
           const homework = await this.findHomeworkById(homeworkId);
           if (homework) {
             const lesson = await this.findHomeworkById(
@@ -221,7 +220,7 @@ export class HomeworksService {
               );
               await this.notificationsService.notifyDeadline(
                 homeworkId,
-                daysLeft as number, // Кастим daysLeft как number
+                daysLeft as number,
                 `Homework for ${course?.title || 'Unknown Course'}: ${homework.description}`,
               );
             }
@@ -241,10 +240,9 @@ export class HomeworksService {
       if (!homework.deadline) continue;
 
       const daysLeft: number = Math.ceil(
-        // Явно указываем тип daysLeft как number
         (homework.deadline.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
       );
-      deadlineCache[(homework._id as Types.ObjectId).toString()] = daysLeft; // Кастим homework._id как Types.ObjectId
+      deadlineCache[(homework._id as Types.ObjectId).toString()] = daysLeft;
 
       const lesson = await this.findHomeworkById(homework.lessonId.toString());
       if (!lesson) continue;
@@ -263,5 +261,113 @@ export class HomeworksService {
     }
 
     await this.cacheManager.set(cacheKey, deadlineCache, 3600); // Кэшируем дедлайны на 1 час
+  }
+
+  // Новая функция для автоматической проверки решений
+  async autoCheckSubmission(
+    submissionId: string,
+  ): Promise<{ grade: number; comment: string }> {
+    const cacheKey = `submission:check:${submissionId}`;
+    const cachedResult = await this.cacheManager.get<{
+      grade: number;
+      comment: string;
+    }>(cacheKey);
+    if (cachedResult) {
+      console.log('Auto-check result found in cache:', cachedResult);
+      return cachedResult;
+    }
+
+    const submission = await this.submissionModel
+      .findById(submissionId)
+      .lean()
+      .exec();
+    if (!submission) throw new Error('Submission not found');
+
+    // Логика автоматической проверки (пример: простой подсчёт правильных ответов)
+    const correctAnswers = 10; // Пример: предполагаем, что задание имеет 10 вопросов
+    const submittedAnswers = submission.submissionContent
+      .split(',')
+      .filter(Boolean).length; // Парсим ответы, игнорируя пустые
+    const grade = Math.min(100, (submittedAnswers / correctAnswers) * 100);
+    const comment = `Auto-checked: ${grade}% based on ${submittedAnswers} correct answers out of ${correctAnswers}.`;
+
+    // Обновляем submission в базе
+    await this.submissionModel
+      .findByIdAndUpdate(submissionId, {
+        grade,
+        teacherComment: comment,
+        isReviewed: true,
+      })
+      .exec();
+
+    // Уведомить студента о проверке
+    await this.notificationsService.sendNotification({
+      userId: submission.studentId.toString(),
+      message: `Your submission for homework ${submission.homeworkId} has been auto-checked with grade ${grade}%.`,
+      type: 'homework',
+    });
+
+    // Очищаем кэш для связанных данных
+    await this.cacheManager.del(`submission:${submissionId}`);
+    await this.cacheManager.del(
+      `submissions:homework:${submission.homeworkId}`,
+    );
+    await this.cacheManager.del(`submissions:student:${submission.studentId}`);
+
+    const result = { grade, comment };
+    await this.cacheManager.set(cacheKey, result, 3600); // Кэшируем результат на 1 час
+    return result;
+  }
+
+  // Новая функция для проверки просроченных дедлайнов
+  async checkDeadlineNotifications(homeworkId: string): Promise<void> {
+    const cacheKey = `deadline:notifications:${homeworkId}`;
+    const cachedNotifications = await this.cacheManager.get<any>(cacheKey);
+    if (cachedNotifications) {
+      console.log(
+        'Deadline notifications found in cache:',
+        cachedNotifications,
+      );
+      return;
+    }
+
+    const homework = await this.homeworkModel
+      .findById(homeworkId)
+      .lean()
+      .exec();
+    if (!homework) throw new Error('Homework not found');
+
+    const now = new Date();
+    const deadline = new Date(homework.deadline);
+    if (now > deadline) {
+      const submissions = await this.submissionModel
+        .find({ homeworkId: homework._id })
+        .lean()
+        .exec();
+      const lateSubmissions = submissions.filter(
+        (s) => !s.isReviewed && new Date(s.createdAt) > deadline,
+      );
+
+      if (lateSubmissions.length > 0) {
+        // Уведомить администратора и студентов о просроченных дедлайнах
+        await Promise.all(
+          lateSubmissions.map(async (submission) => {
+            await this.notificationsService.sendNotification({
+              userId: submission.studentId.toString(),
+              message: `Your submission for homework ${homeworkId} is late. Please review and resubmit if possible.`,
+              type: 'deadline',
+            });
+
+            await this.notificationsService.sendNotification({
+              userId: 'admin', // Замени на реальный ID администратора
+              message: `Late submission detected for homework ${homeworkId} by student ${submission.studentId}.`,
+              type: 'admin',
+            });
+          }),
+        );
+      }
+
+      await this.cacheManager.set(cacheKey, { checked: true }, 3600); // Кэшируем проверку на 1 час
+    }
   }
 }

@@ -63,5 +63,23 @@ export class AppModule implements OnModuleInit {
       () => this.homeworksService.checkDeadlines(),
       24 * 60 * 60 * 1000,
     ); // Запуск раз в сутки
+
+    setInterval(
+      async () => {
+        console.log('Checking homework deadlines...');
+        const homeworks = await this.homeworksService.homeworkModel
+          .find()
+          .lean()
+          .exec();
+        await Promise.all(
+          homeworks.map((homework) =>
+            this.homeworksService.checkDeadlineNotifications(
+              homework._id.toString(),
+            ),
+          ),
+        );
+      },
+      5 * 60 * 1000,
+    ); // 5 минут
   }
 }
