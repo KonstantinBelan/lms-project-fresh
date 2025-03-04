@@ -19,6 +19,7 @@ import { UpdateHomeworkDto } from './dto/update-homework.dto';
 import { CreateSubmissionDto } from './dto/create-submission.dto';
 import { UpdateSubmissionDto } from './dto/update-submission.dto';
 import { Role } from '../auth/roles.enum';
+import { Types } from 'mongoose';
 
 @Controller('homeworks')
 export class HomeworksController {
@@ -138,7 +139,7 @@ export class HomeworksController {
     return this.homeworksService.findSubmissionsByStudent(studentId);
   }
 
-  // Новый роут для автоматической проверки решений
+  // Обновлённый роут для автоматической проверки решений с валидацией submissionId
   @Post('submissions/auto-check')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @SetMetadata('roles', [
@@ -147,8 +148,12 @@ export class HomeworksController {
     Role.MANAGER,
     Role.ASSISTANT,
   ]) // Ограничение доступа для учителей и администраторов
-  @UsePipes(new ValidationPipe())
+  @UsePipes(new ValidationPipe({ transform: true }))
   async autoCheckSubmission(@Body('submissionId') submissionId: string) {
+    // Валидация submissionId как ObjectId
+    if (!Types.ObjectId.isValid(submissionId)) {
+      throw new Error('Invalid submissionId: must be a valid ObjectId');
+    }
     return this.homeworksService.autoCheckSubmission(submissionId);
   }
 }
