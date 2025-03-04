@@ -10,6 +10,10 @@ import { Types } from 'mongoose';
 describe('EnrollmentsService', () => {
   let service: EnrollmentsService;
 
+  // Устанавливаем дедлайн на 7 дней от текущей даты (примерно 11 марта 2025 + 7 дней = 18 марта 2025)
+  const deadlineWithin7Days = new Date();
+  deadlineWithin7Days.setDate(deadlineWithin7Days.getDate() + 7);
+
   const mockEnrollmentModel = {
     findOne: jest.fn().mockReturnValue({
       lean: jest.fn().mockReturnValue({
@@ -20,7 +24,7 @@ describe('EnrollmentsService', () => {
           completedModules: ['67c58261d8f478d10a0dfce0'],
           completedLessons: ['67c58285d8f478d10a0dfce5'],
           isCompleted: false,
-          deadline: new Date('2025-03-15T00:00:00.000Z'),
+          deadline: deadlineWithin7Days, // Обновлённый дедлайн
           __v: 0,
         }),
       }),
@@ -40,7 +44,7 @@ describe('EnrollmentsService', () => {
             '67c5862905ac038b1bf9c1b5',
           ],
           isCompleted: false,
-          deadline: new Date('2025-03-15T00:00:00.000Z'),
+          deadline: deadlineWithin7Days, // Обновлённый дедлайн
           __v: 0,
         }),
       }),
@@ -114,7 +118,7 @@ describe('EnrollmentsService', () => {
       moduleId,
       lessonId,
     );
-    expect(mockCoursesService.findCourseById).toHaveBeenCalledWith(courseId);
+    expect(mockCoursesService.findCourseById).toHaveBeenCalledWith(courseId); // Теперь должно сработать
     expect(mockNotificationsService.notifyDeadline).toHaveBeenCalledWith(
       '67c59acebe3880a60e6f53b1',
       expect.any(Number),
@@ -131,9 +135,8 @@ describe('EnrollmentsService', () => {
       `enrollments:course:${courseId}`,
     );
 
-    expect(result).not.toBeNull(); // Проверяем, что результат не null
+    expect(result).not.toBeNull();
     if (result) {
-      // Условная проверка для TypeScript
       expect(result.completedModules).toContain('67c5861505ac038b1bf9c1af');
       expect(result.completedLessons).toContain('67c5862905ac038b1bf9c1b5');
     }
