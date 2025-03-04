@@ -14,6 +14,7 @@ import { HomeworksService } from './homeworks/homeworks.service';
 import { CacheModule } from '@nestjs/cache-manager'; // Импортируем CacheModule
 import { cacheManagerConfig } from './cache.config'; // Создаём конфигурацию кэша (см. ниже)
 import { RealTimeAnalyticsModule } from './real-time-analytics/real-time-analytics.module'; // Убедимся, что путь корректен
+import { AdminModule } from './admin/admin.module';
 
 @Module({
   imports: [
@@ -34,6 +35,7 @@ import { RealTimeAnalyticsModule } from './real-time-analytics/real-time-analyti
     HomeworksModule,
     CacheModule.register(cacheManagerConfig),
     RealTimeAnalyticsModule,
+    AdminModule,
   ],
   controllers: [AppController],
   providers: [AppService],
@@ -52,6 +54,7 @@ export class AppModule implements OnModuleInit {
       'HomeworksModule',
       'CacheModule.register(cacheManagerConfig)',
       'RealTimeAnalyticsModule',
+      'AdminModule',
     ]);
   }
 

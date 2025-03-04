@@ -9,8 +9,8 @@ const socket = io('ws://localhost:3000/analytics', {
 
 socket.on('connect', () => {
   console.log('Connected to WebSocket with socket ID:', socket.id);
-  socket.emit('subscribe-progress', { userId: '67c4d379a5c903e26a37557c' }); // Убедись, что userId валиден
-  socket.emit('subscribe-activity', { courseId: '67c59b26be3880a60e6f53c5' }); // Убедись, что courseId валиден
+  socket.emit('subscribe-progress', { userId: '67c4d379a5c903e26a37557c' });
+  socket.emit('subscribe-activity', { courseId: '67c59b26be3880a60e6f53c5' });
 });
 
 socket.on('progress-update', (data) => {
