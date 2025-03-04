@@ -37,3 +37,14 @@ HomeworkSchema.pre('save', function (next) {
 });
 HomeworkSchema.index({ lessonId: 1 }); // Индекс для lessonId
 HomeworkSchema.index({ deadline: 1 }); // Индекс для deadline (опционально)
+
+// Явно расширяем интерфейс Homework для включения _id
+export interface Homework {
+  _id: Types.ObjectId;
+  lessonId: Types.ObjectId;
+  description: string;
+  deadline: Date;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}

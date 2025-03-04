@@ -24,8 +24,8 @@ export class HomeworksService {
     @Inject(CACHE_MANAGER) private cacheManager: Cache, // Инжектируем кэш
   ) {}
 
-  // Новый публичный метод для доступа к homeworkModel
-  async findAllHomeworks(): Promise<Homework[]> {
+  // Публичный метод для доступа к homeworkModel, теперь возвращает HomeworkDocument[]
+  async findAllHomeworks(): Promise<HomeworkDocument[]> {
     return this.homeworkModel
       .find({ deadline: { $exists: true }, isActive: true })
       .lean()
@@ -309,7 +309,6 @@ export class HomeworksService {
 
     // Уведомить студента о проверке
     await this.notificationsService.notifyDeadline(
-      // Используем notifyDeadline, так как sendNotification не определён
       submission.studentId.toString(),
       0, // Placeholder, так как notifyDeadline требует daysLeft
       `Your submission for homework ${submission.homeworkId} has been auto-checked with grade ${grade}%.`,
@@ -364,14 +363,12 @@ export class HomeworksService {
         await Promise.all(
           lateSubmissions.map(async (submission) => {
             await this.notificationsService.notifyDeadline(
-              // Используем notifyDeadline
               submission.studentId.toString(),
               0, // Placeholder, так как notifyDeadline требует daysLeft
               `Your submission for homework ${homeworkId} is late. Please review and resubmit if possible.`,
             );
 
             await this.notificationsService.notifyDeadline(
-              // Используем notifyDeadline
               'admin-id', // Замени на реальный ID администратора
               0, // Placeholder
               `Late submission detected for homework ${homeworkId} by student ${submission.studentId}.`,

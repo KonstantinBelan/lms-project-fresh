@@ -15,7 +15,10 @@ import { CacheModule } from '@nestjs/cache-manager'; // Импортируем C
 import { cacheManagerConfig } from './cache.config'; // Создаём конфигурацию кэша (см. ниже)
 import { RealTimeAnalyticsModule } from './real-time-analytics/real-time-analytics.module'; // Убедимся, что путь корректен
 import { AdminModule } from './admin/admin.module';
-import { Homework } from './homeworks/schemas/homework.schema';
+import {
+  Homework,
+  HomeworkDocument,
+} from './homeworks/schemas/homework.schema';
 import { Types } from 'mongoose';
 
 @Module({
@@ -74,10 +77,10 @@ export class AppModule implements OnModuleInit {
         await Promise.all(
           homeworks.map(
             (
-              homework: Homework, // Явно указываем тип Homework
+              homework: HomeworkDocument, // Используем HomeworkDocument для явной типизации с _id
             ) =>
               this.homeworksService.checkDeadlineNotifications(
-                (homework._id as Types.ObjectId).toString(), // Явно приводим _id к Types.ObjectId
+                homework._id.toString(), // Теперь TypeScript распознаёт _id
               ),
           ),
         );
