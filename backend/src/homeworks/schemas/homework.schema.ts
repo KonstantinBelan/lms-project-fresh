@@ -20,7 +20,7 @@ export class Homework {
   category: string;
 
   @Prop({ index: true })
-  deadline?: Date;
+  deadline?: Date; // Сделали deadline опциональным, чтобы соответствовать интерфейсу
 
   @Prop({ default: false })
   isActive: boolean;
@@ -29,22 +29,22 @@ export class Homework {
 }
 
 export const HomeworkSchema = SchemaFactory.createForClass(Homework);
-HomeworkSchema.index({ lessonId: 1 });
+HomeworkSchema.index({ lessonId: 1 }); // Индекс для lessonId
+HomeworkSchema.index({ deadline: 1 }); // Индекс для deadline (опционально)
+
+// Явно расширяем интерфейс Homework для включения _id и опционального deadline
+export interface Homework {
+  _id: Types.ObjectId;
+  lessonId: Types.ObjectId;
+  description: string;
+  category: string;
+  deadline?: Date; // Сделали deadline опциональным, чтобы соответствовать классу
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
 
 HomeworkSchema.pre('save', function (next) {
   console.log('Saving homework with lessonId:', this.lessonId);
   next();
 });
-HomeworkSchema.index({ lessonId: 1 }); // Индекс для lessonId
-HomeworkSchema.index({ deadline: 1 }); // Индекс для deadline (опционально)
-
-// Явно расширяем интерфейс Homework для включения _id
-export interface Homework {
-  _id: Types.ObjectId;
-  lessonId: Types.ObjectId;
-  description: string;
-  deadline: Date;
-  isActive: boolean;
-  createdAt: Date;
-  updatedAt: Date;
-}
