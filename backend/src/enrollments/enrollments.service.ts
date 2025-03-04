@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Enrollment, EnrollmentDocument } from './schemas/enrollment.schema';
@@ -9,6 +9,8 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { AlreadyEnrolledException } from './exceptions/already-enrolled.exception';
 import { BatchEnrollmentDto, DateStringDto } from './dto/batch-enrollment.dto';
 import { stringify } from 'csv-stringify/sync';
+import { CACHE_MANAGER } from '@nestjs/cache-manager'; // Импортируем CACHE_MANAGER
+import { Cache } from 'cache-manager'; // Импортируем Cache
 
 @Injectable()
 export class EnrollmentsService implements IEnrollmentsService {
@@ -18,6 +20,7 @@ export class EnrollmentsService implements IEnrollmentsService {
     private usersService: UsersService,
     private coursesService: CoursesService,
     private notificationsService: NotificationsService,
+    @Inject(CACHE_MANAGER) private cacheManager: Cache, // Инжектируем кэш
   ) {
     console.log(
       'EnrollmentsService initialized, notificationsService:',
@@ -144,9 +147,6 @@ export class EnrollmentsService implements IEnrollmentsService {
   }
 
   async findEnrollmentsByStudent(studentId: string): Promise<Enrollment[]> {
-    // return this.enrollmentModel
-    //   .find({ studentId: new Types.ObjectId(studentId) })
-    //   .exec();
     return this.enrollmentModel
       .find({ studentId: new Types.ObjectId(studentId) })
       .lean()
@@ -161,7 +161,6 @@ export class EnrollmentsService implements IEnrollmentsService {
   }
 
   async findEnrollmentById(enrollmentId: string): Promise<Enrollment | null> {
-    // return this.enrollmentModel.findById(enrollmentId).exec();
     return this.enrollmentModel.findById(enrollmentId).lean().exec(); // Используем .lean()
   }
 
@@ -170,7 +169,6 @@ export class EnrollmentsService implements IEnrollmentsService {
     moduleId: string,
     lessonId: string,
   ): Promise<Enrollment | null> {
-    // const enrollment = await this.enrollmentModel.findById(enrollmentId).exec();
     const enrollment = await this.enrollmentModel
       .findById(enrollmentId)
       .lean()
