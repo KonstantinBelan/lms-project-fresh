@@ -26,8 +26,8 @@ export class RealTimeAnalyticsService {
   ) {}
 
   async getStudentProgress(studentId: string): Promise<any> {
+    console.log('Starting getStudentProgress for userId:', studentId);
     try {
-      // Валидация userId как ObjectId
       let objectId: Types.ObjectId;
       try {
         objectId = new Types.ObjectId(studentId);
@@ -36,11 +36,13 @@ export class RealTimeAnalyticsService {
         throw new Error('Invalid user ID format');
       }
 
+      console.log('Searching enrollments for studentId:', objectId);
       const enrollments = await this.enrollmentModel
         .find({ studentId: objectId })
         .lean()
         .exec();
 
+      console.log('Found enrollments:', enrollments.length);
       if (!enrollments.length) {
         console.warn('No enrollments found for userId:', studentId);
         return { studentId, progress: [] };
@@ -48,6 +50,10 @@ export class RealTimeAnalyticsService {
 
       const progress = await Promise.all(
         enrollments.map(async (enrollment) => {
+          console.log(
+            'Processing enrollment for courseId:',
+            enrollment.courseId.toString(),
+          );
           const courseId = enrollment.courseId.toString();
           const course = await this.getCourseDetails(courseId);
           return {
@@ -63,7 +69,9 @@ export class RealTimeAnalyticsService {
         }),
       );
 
-      return { studentId, progress };
+      const result = { studentId, progress };
+      console.log('Completed getStudentProgress:', result);
+      return result;
     } catch (error) {
       console.error('Failed to get student progress:', error);
       throw error;
@@ -71,6 +79,7 @@ export class RealTimeAnalyticsService {
   }
 
   async getCourseActivity(courseId: string): Promise<any> {
+    console.log('Starting getCourseActivity for courseId:', courseId);
     try {
       let objectId: Types.ObjectId;
       try {
@@ -80,20 +89,31 @@ export class RealTimeAnalyticsService {
         throw new Error('Invalid course ID format');
       }
 
+      console.log('Searching enrollments for courseId:', objectId);
       const enrollments = await this.enrollmentModel
         .find({ courseId: objectId })
         .lean()
         .exec();
+      console.log('Found enrollments:', enrollments.length);
+
+      console.log('Searching homeworks for courseId:', courseId);
       const homeworks = await this.homeworkModel
         .find({ lessonId: { $in: await this.getLessonsForCourse(courseId) } })
         .lean()
         .exec();
+      console.log('Found homeworks:', homeworks.length);
+
+      console.log(
+        'Searching submissions for homeworks:',
+        homeworks.map((h) => h._id),
+      );
       const submissions = await this.submissionModel
         .find({ homeworkId: { $in: homeworks.map((h) => h._id) } })
         .lean()
         .exec();
+      console.log('Found submissions:', submissions.length);
 
-      return {
+      const result = {
         courseId,
         totalEnrollments: enrollments.length,
         activeHomeworks: homeworks.filter((h) => h.isActive).length,
@@ -105,6 +125,8 @@ export class RealTimeAnalyticsService {
           )
           .slice(0, 5),
       };
+      console.log('Completed getCourseActivity:', result);
+      return result;
     } catch (error) {
       console.error('Failed to get course activity:', error);
       throw error;
@@ -112,12 +134,14 @@ export class RealTimeAnalyticsService {
   }
 
   private async getCourseDetails(courseId: string): Promise<any> {
+    console.log('Getting course details for courseId:', courseId);
     return this.enrollmentModel.db
       .collection('courses')
       .findOne({ _id: new Types.ObjectId(courseId) });
   }
 
   private async getTotalLessons(courseId: string): Promise<number> {
+    console.log('Calculating total lessons for courseId:', courseId);
     const course = await this.getCourseDetails(courseId);
     if (!course || !course.modules) return 0;
     const lessons = await Promise.all(
@@ -134,6 +158,7 @@ export class RealTimeAnalyticsService {
   }
 
   private async getLessonsForCourse(courseId: string): Promise<string[]> {
+    console.log('Getting lessons for courseId:', courseId);
     const course = await this.getCourseDetails(courseId);
     if (!course || !course.modules) return [];
     const modules = await Promise.all(
