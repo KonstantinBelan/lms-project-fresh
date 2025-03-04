@@ -6,13 +6,13 @@ export type CourseDocument = Course & Document;
 
 @Schema()
 export class Course {
-  @Prop({ required: true, index: true })
+  @Prop({ required: true })
   title: string;
 
-  @Prop({ required: true, index: true })
+  @Prop({ required: true })
   description: string;
 
-  @Prop({ type: [{ type: Types.ObjectId, ref: 'Module', index: true }] })
+  @Prop({ type: [{ type: Types.ObjectId, ref: 'Module' }] })
   modules: Types.ObjectId[];
 
   _id: Types.ObjectId;

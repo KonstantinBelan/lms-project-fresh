@@ -8,16 +8,16 @@ export type EnrollmentDocument = Enrollment &
 
 @Schema()
 export class Enrollment extends Document {
-  @Prop({ required: true, type: Types.ObjectId, ref: 'User', index: true })
+  @Prop({ required: true, type: Types.ObjectId, ref: 'User' })
   studentId: string;
 
-  @Prop({ required: true, type: Types.ObjectId, ref: 'Course', index: true })
+  @Prop({ required: true, type: Types.ObjectId, ref: 'Course' })
   courseId: Types.ObjectId; // Оставляем как ObjectId, без populate
 
-  @Prop({ type: [String], default: [], index: true })
+  @Prop({ type: [String], default: [] })
   completedModules: string[];
 
-  @Prop({ type: [String], default: [], index: true })
+  @Prop({ type: [String], default: [] })
   completedLessons: string[];
 
   @Prop({ type: Boolean, default: false })
@@ -26,7 +26,7 @@ export class Enrollment extends Document {
   @Prop({ type: Number, min: 0, max: 100 })
   grade?: number;
 
-  @Prop({ type: Date, index: true })
+  @Prop({ type: Date })
   deadline?: Date;
 
   @Prop({ default: 0 })

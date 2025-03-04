@@ -11,10 +11,10 @@ export type SubmissionDocument = Submission &
 
 @Schema({ collection: 'submissions', timestamps: true })
 export class Submission {
-  @Prop({ required: true, type: Types.ObjectId, ref: 'Homework', index: true })
+  @Prop({ required: true, type: Types.ObjectId, ref: 'Homework' })
   homeworkId: Types.ObjectId;
 
-  @Prop({ required: true, type: Types.ObjectId, ref: 'User', index: true })
+  @Prop({ required: true, type: Types.ObjectId, ref: 'User' })
   studentId: Types.ObjectId;
 
   @Prop({ required: true }) // Решение (текст, ссылка, или путь к файлу)
@@ -23,7 +23,7 @@ export class Submission {
   @Prop() // Комментарий от преподавателя
   teacherComment?: string;
 
-  @Prop({ type: Number, min: 0, max: 100, index: true }) // Оценка (0–100)
+  @Prop({ type: Number, min: 0, max: 100 }) // Оценка (0–100)
   grade?: number;
 
   @Prop({ default: false }) // Статус проверки

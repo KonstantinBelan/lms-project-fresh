@@ -6,7 +6,7 @@ export type HomeworkDocument = Homework & Document; // Убедимся, что 
 
 @Schema({ collection: 'homeworks', timestamps: true })
 export class Homework {
-  @Prop({ required: true, type: Types.ObjectId, ref: 'Lesson', index: true })
+  @Prop({ required: true, type: Types.ObjectId, ref: 'Lesson' })
   lessonId: Types.ObjectId;
 
   @Prop({ required: true })
