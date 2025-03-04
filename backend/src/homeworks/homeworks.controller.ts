@@ -137,4 +137,18 @@ export class HomeworksController {
   async findSubmissionsByStudent(@Param('studentId') studentId: string) {
     return this.homeworksService.findSubmissionsByStudent(studentId);
   }
+
+  // Новый роут для автоматической проверки решений
+  @Post('submissions/auto-check')
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @SetMetadata('roles', [
+    Role.TEACHER,
+    Role.ADMIN,
+    Role.MANAGER,
+    Role.ASSISTANT,
+  ]) // Ограничение доступа для учителей и администраторов
+  @UsePipes(new ValidationPipe())
+  async autoCheckSubmission(@Body('submissionId') submissionId: string) {
+    return this.homeworksService.autoCheckSubmission(submissionId);
+  }
 }

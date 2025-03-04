@@ -148,4 +148,23 @@ export class RealTimeAnalyticsGateway
       });
     }
   }
+
+  @SubscribeMessage('subscribe-notifications')
+  async handleSubscribeNotifications(
+    @MessageBody() data: { userId: string },
+    @ConnectedSocket() client: Socket,
+  ) {
+    console.log('Received subscribe-notifications event:', {
+      clientId: data.userId,
+      data,
+      clientHeaders: client.handshake.headers || 'No headers',
+      clientIp: client.handshake.address,
+      clientQuery: client.handshake.query,
+    });
+    // Здесь можно добавить логику получения уведомлений через NotificationsService
+    this.server.to(data.userId).emit('notification', {
+      message: 'New notification received',
+      userId: data.userId,
+    });
+  }
 }

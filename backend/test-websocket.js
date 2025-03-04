@@ -21,6 +21,11 @@ socket.on('activity-update', (data) => {
   console.log('Received activity-update:', data);
 });
 
+socket.on('notification', (data) => {
+  // Добавляем подписку на уведомления
+  console.log('Received notification:', data);
+});
+
 socket.on('error', (error) => {
   console.error('WebSocket error:', error);
 });
