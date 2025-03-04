@@ -1,4 +1,4 @@
-import { Enrollment } from './schemas/enrollment.schema';
+import { EnrollmentDocument } from './schemas/enrollment.schema';
 import { BatchEnrollmentDto } from './dto/batch-enrollment.dto';
 
 export interface IEnrollmentsService {
@@ -6,21 +6,21 @@ export interface IEnrollmentsService {
     studentId: string,
     courseId: string,
     deadline?: Date,
-  ): Promise<Enrollment>;
+  ): Promise<EnrollmentDocument>;
   createBatchEnrollments(
     batchEnrollmentDto: BatchEnrollmentDto,
-  ): Promise<Enrollment[]>;
-  findEnrollmentsByStudent(studentId: string): Promise<Enrollment[]>;
-  findEnrollmentById(enrollmentId: string): Promise<Enrollment | null>;
+  ): Promise<EnrollmentDocument[]>;
+  findEnrollmentsByStudent(studentId: string): Promise<EnrollmentDocument[]>;
+  findEnrollmentById(enrollmentId: string): Promise<EnrollmentDocument | null>;
   updateProgress(
     enrollmentId: string,
     moduleId: string,
     lessonId: string,
-  ): Promise<Enrollment | null>;
+  ): Promise<EnrollmentDocument | null>;
   completeCourse(
     enrollmentId: string,
     grade: number,
-  ): Promise<Enrollment | null>;
+  ): Promise<EnrollmentDocument | null>;
   deleteEnrollment(enrollmentId: string): Promise<void>;
   getStudentProgress(studentId: string): Promise<any>;
   getDetailedStudentProgress(studentId: string): Promise<any>;
