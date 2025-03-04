@@ -127,11 +127,13 @@ export class EnrollmentsController {
     @Param('id') id: string,
     @Body() updateProgressDto: UpdateProgressDto,
   ) {
+    const enrollment = await this.enrollmentsService.findEnrollmentById(id);
+    if (!enrollment) {
+      throw new HttpException('Enrollment not found', HttpStatus.NOT_FOUND);
+    }
     return this.enrollmentsService.updateStudentProgress(
-      id.split('.')[0], // Предполагаем, что id может содержать дополнительные данные, берём только studentId
-      (
-        await this.enrollmentsService.findEnrollmentById(id)
-      )?.courseId.toString() || '',
+      enrollment.studentId.toString(),
+      enrollment.courseId.toString(),
       updateProgressDto.moduleId,
       updateProgressDto.lessonId,
     );

@@ -7,7 +7,7 @@ import { UsersService } from '../users/users.service';
 import { CoursesService } from '../courses/courses.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { AlreadyEnrolledException } from './exceptions/already-enrolled.exception';
-import { BatchEnrollmentDto, DateStringDto } from './dto/batch-enrollment.dto';
+import { BatchEnrollmentDto } from './dto/batch-enrollment.dto';
 import { stringify } from 'csv-stringify/sync';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
@@ -278,10 +278,7 @@ export class EnrollmentsService implements IEnrollmentsService {
           (1000 * 60 * 60 * 24),
       );
       if (daysLeft <= 7 && daysLeft > 0) {
-        const course = await this.coursesService
-          .findCourseById(courseId)
-          .lean()
-          .exec();
+        const course = await this.coursesService.findCourseById(courseId);
         if (course) {
           await this.notificationsService.notifyDeadline(
             updatedEnrollment._id.toString(),
@@ -312,10 +309,7 @@ export class EnrollmentsService implements IEnrollmentsService {
       .exec();
     if (!enrollment) throw new Error('Enrollment not found');
 
-    const course = await this.coursesService
-      .findCourseById(courseId)
-      .lean()
-      .exec();
+    const course = await this.coursesService.findCourseById(courseId);
     if (!course) throw new Error('Course not found');
 
     const totalModules = course.modules.length || 0;
@@ -357,10 +351,7 @@ export class EnrollmentsService implements IEnrollmentsService {
     const progress = await Promise.all(
       enrollments.map(async (enrollment) => {
         const courseId = enrollment.courseId.toString();
-        const course = await this.coursesService
-          .findCourseById(courseId)
-          .lean()
-          .exec();
+        const course = await this.coursesService.findCourseById(courseId);
 
         const totalModules = course?.modules.length || 0;
         const totalLessons =
@@ -434,7 +425,7 @@ export class EnrollmentsService implements IEnrollmentsService {
     await this.cacheManager.del(`enrollments:student:*`);
     await this.cacheManager.del(`enrollments:course:*`);
 
-    const enrollment = await this.enrollmentModel.findById(enrollmentId).exec();
+    const enrollment = await this.enrollmentModel.findById(enrollmentId);
     if (!enrollment) {
       throw new Error('Enrollment not found');
     }

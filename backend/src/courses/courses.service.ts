@@ -282,12 +282,13 @@ export class CoursesService implements ICoursesService {
   async getTotalLessonsForCourse(courseId: string): Promise<number> {
     const cacheKey = `course:total-lessons:${courseId}`;
     const cachedTotal = await this.cacheManager.get<number>(cacheKey);
-    if (cachedTotal !== undefined) {
+    if (cachedTotal !== undefined && cachedTotal !== null) {
+      // Проверяем на undefined и null
       this.logger.debug(
         'Total lessons found in cache for course:',
         cachedTotal,
       );
-      return cachedTotal;
+      return cachedTotal; // Гарантируем, что возвращается number
     }
 
     const course = await this.courseModel.findById(courseId).lean().exec();

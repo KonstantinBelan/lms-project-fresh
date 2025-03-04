@@ -11,7 +11,16 @@ export interface IEnrollmentsService {
     batchEnrollmentDto: BatchEnrollmentDto,
   ): Promise<EnrollmentDocument[]>;
   findEnrollmentsByStudent(studentId: string): Promise<EnrollmentDocument[]>;
+  findEnrollmentsByCourse(courseId: string): Promise<EnrollmentDocument[]>;
   findEnrollmentById(enrollmentId: string): Promise<EnrollmentDocument | null>;
+  updateStudentProgress(
+    studentId: string,
+    courseId: string,
+    moduleId: string,
+    lessonId: string,
+  ): Promise<EnrollmentDocument | null>;
+  getStudentProgress(studentId: string, courseId: string): Promise<any>;
+  getDetailedStudentProgress(studentId: string): Promise<any>;
   updateProgress(
     enrollmentId: string,
     moduleId: string,
@@ -22,8 +31,6 @@ export interface IEnrollmentsService {
     grade: number,
   ): Promise<EnrollmentDocument | null>;
   deleteEnrollment(enrollmentId: string): Promise<void>;
-  getStudentProgress(studentId: string): Promise<any>;
-  getDetailedStudentProgress(studentId: string): Promise<any>;
   notifyProgress(
     enrollmentId: string,
     moduleId: string,
