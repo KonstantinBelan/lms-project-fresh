@@ -26,59 +26,89 @@ export class RealTimeAnalyticsService {
   ) {}
 
   async getStudentProgress(studentId: string): Promise<any> {
-    const objectId = new Types.ObjectId(studentId);
-    const enrollments = await this.enrollmentModel
-      .find({ studentId: objectId })
-      .lean()
-      .exec();
+    try {
+      // Валидация userId как ObjectId
+      let objectId: Types.ObjectId;
+      try {
+        objectId = new Types.ObjectId(studentId);
+      } catch (error) {
+        console.error('Invalid ObjectId for userId:', studentId, error);
+        throw new Error('Invalid user ID format');
+      }
 
-    const progress = await Promise.all(
-      enrollments.map(async (enrollment) => {
-        const courseId = enrollment.courseId.toString();
-        const course = await this.getCourseDetails(courseId);
-        return {
-          courseId,
-          courseTitle: course?.title || 'Unknown',
-          completedModules: enrollment.completedModules.length,
-          totalModules: course?.modules.length || 0,
-          completedLessons: enrollment.completedLessons.length,
-          totalLessons: await this.getTotalLessons(courseId),
-          grade: enrollment.grade,
-          isCompleted: enrollment.isCompleted,
-        };
-      }),
-    );
+      const enrollments = await this.enrollmentModel
+        .find({ studentId: objectId })
+        .lean()
+        .exec();
 
-    return { studentId, progress };
+      if (!enrollments.length) {
+        console.warn('No enrollments found for userId:', studentId);
+        return { studentId, progress: [] };
+      }
+
+      const progress = await Promise.all(
+        enrollments.map(async (enrollment) => {
+          const courseId = enrollment.courseId.toString();
+          const course = await this.getCourseDetails(courseId);
+          return {
+            courseId,
+            courseTitle: course?.title || 'Unknown',
+            completedModules: enrollment.completedModules.length,
+            totalModules: course?.modules.length || 0,
+            completedLessons: enrollment.completedLessons.length,
+            totalLessons: await this.getTotalLessons(courseId),
+            grade: enrollment.grade,
+            isCompleted: enrollment.isCompleted,
+          };
+        }),
+      );
+
+      return { studentId, progress };
+    } catch (error) {
+      console.error('Failed to get student progress:', error);
+      throw error;
+    }
   }
 
   async getCourseActivity(courseId: string): Promise<any> {
-    const objectId = new Types.ObjectId(courseId);
-    const enrollments = await this.enrollmentModel
-      .find({ courseId: objectId })
-      .lean()
-      .exec();
-    const homeworks = await this.homeworkModel
-      .find({ lessonId: { $in: await this.getLessonsForCourse(courseId) } })
-      .lean()
-      .exec();
-    const submissions = await this.submissionModel
-      .find({ homeworkId: { $in: homeworks.map((h) => h._id) } })
-      .lean()
-      .exec();
+    try {
+      let objectId: Types.ObjectId;
+      try {
+        objectId = new Types.ObjectId(courseId);
+      } catch (error) {
+        console.error('Invalid ObjectId for courseId:', courseId, error);
+        throw new Error('Invalid course ID format');
+      }
 
-    return {
-      courseId,
-      totalEnrollments: enrollments.length,
-      activeHomeworks: homeworks.filter((h) => h.isActive).length,
-      totalSubmissions: submissions.length,
-      recentActivity: submissions
-        .sort(
-          (a, b) =>
-            (b.createdAt as Date).getTime() - (a.createdAt as Date).getTime(),
-        )
-        .slice(0, 5),
-    };
+      const enrollments = await this.enrollmentModel
+        .find({ courseId: objectId })
+        .lean()
+        .exec();
+      const homeworks = await this.homeworkModel
+        .find({ lessonId: { $in: await this.getLessonsForCourse(courseId) } })
+        .lean()
+        .exec();
+      const submissions = await this.submissionModel
+        .find({ homeworkId: { $in: homeworks.map((h) => h._id) } })
+        .lean()
+        .exec();
+
+      return {
+        courseId,
+        totalEnrollments: enrollments.length,
+        activeHomeworks: homeworks.filter((h) => h.isActive).length,
+        totalSubmissions: submissions.length,
+        recentActivity: submissions
+          .sort(
+            (a, b) =>
+              (b.createdAt as Date).getTime() - (a.createdAt as Date).getTime(),
+          )
+          .slice(0, 5),
+      };
+    } catch (error) {
+      console.error('Failed to get course activity:', error);
+      throw error;
+    }
   }
 
   private async getCourseDetails(courseId: string): Promise<any> {
