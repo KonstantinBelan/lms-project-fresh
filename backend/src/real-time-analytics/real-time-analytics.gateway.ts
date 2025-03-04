@@ -5,59 +5,101 @@ import {
   MessageBody,
   OnGatewayConnection,
   OnGatewayDisconnect,
+  ConnectedSocket,
+  OnGatewayInit,
 } from '@nestjs/websockets';
-import { Server, Socket } from 'socket.io';
+import { Server, Socket, Namespace } from 'socket.io'; // Импортируем Namespace
 import { RealTimeAnalyticsService } from './real-time-analytics.service';
 import { Injectable } from '@nestjs/common';
 
 @WebSocketGateway({
   cors: {
-    origin: [
-      'http://localhost:3000',
-      'http://127.0.0.1:3000',
-      'https://postman-echo.com',
-      'https://websocketking.com',
-      '*',
-    ], // Разрешаем больше источников для тестов
+    origin: '*', // Разрешить все источники для тестов, в продакшене уточни домены
     methods: ['GET', 'POST'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'Origin'],
-    credentials: true,
+    allowedHeaders: ['*'], // Разрешить все заголовки для тестов
+    credentials: false, // Отключить credentials, чтобы избежать конфликтов
   },
   namespace: 'analytics',
-  port: 3000,
-})
+}) // Убрали порт, чтобы использовать порт приложения (3000 по умолчанию)
 @Injectable()
 export class RealTimeAnalyticsGateway
-  implements OnGatewayConnection, OnGatewayDisconnect
+  implements OnGatewayConnection, OnGatewayDisconnect, OnGatewayInit
 {
   @WebSocketServer()
-  server: Server;
+  server: Namespace; // Изменяем тип на Namespace, чтобы использовать nsp
 
   constructor(private readonly analyticsService: RealTimeAnalyticsService) {}
 
-  handleConnection(client: Socket) {
-    console.log('WebSocket connection established:', {
-      clientId: client.id,
-      namespace: client.nsp.name,
-      handshake: client.handshake,
-      headers: client.handshake.headers,
+  afterInit(server: Namespace) {
+    console.log('WebSocket gateway initialized with server:', server.name); // Используем server.name вместо server.nsp.name
+    // Логирование и настройка событий на уровне сервера
+    server.on('connection', (client: Socket) => {
+      console.log('Server-level WebSocket connection:', {
+        clientId: client.id,
+        namespace: server.name, // Используем server.name
+        handshake: client.handshake,
+        headers: client.handshake.headers,
+        query: client.handshake.query,
+      });
+    });
+
+    server.on('error', (error) => {
+      console.error('Server-level WebSocket error:', error);
+    });
+
+    server.on('disconnection', (client: Socket) => {
+      console.log('Server-level WebSocket disconnection:', {
+        clientId: client.id,
+        namespace: server.name, // Используем server.name
+        reason: client.disconnected,
+      });
     });
   }
 
-  handleDisconnect(client: Socket) {
-    console.log('WebSocket disconnected:', {
+  handleConnection(client: Socket) {
+    console.log('Gateway-level WebSocket connection attempt:', {
       clientId: client.id,
-      namespace: client.nsp.name,
+      namespace: (this.server as Namespace).name, // Явно приводим тип для совместимости
+      handshake: client.handshake,
+      headers: client.handshake.headers,
+      query: client.handshake.query,
+    });
+    try {
+      client.join(client.handshake.query.room || client.id);
+      console.log(
+        'Client successfully joined room:',
+        client.handshake.query.room || client.id,
+      );
+    } catch (error) {
+      console.error('Error in WebSocket connection:', error);
+      client.emit('error', {
+        message: 'Connection error',
+        error: error.message,
+      });
+      client.disconnect(true);
+    }
+  }
+
+  handleDisconnect(client: Socket) {
+    console.log('Gateway-level WebSocket disconnection:', {
+      clientId: client.id,
+      namespace: (this.server as Namespace).name, // Явно приводим тип для совместимости
       reason: client.disconnected,
+      time: new Date().toISOString(),
     });
   }
 
   @SubscribeMessage('subscribe-progress')
-  async handleSubscribeProgress(@MessageBody() data: { userId: string }) {
+  async handleSubscribeProgress(
+    @MessageBody() data: { userId: string; headers?: Record<string, string> },
+    @ConnectedSocket() client: Socket,
+  ) {
     console.log('Received subscribe-progress event:', {
       clientId: data.userId,
       data,
-      clientHeaders: data.headers || 'No headers',
+      clientHeaders: data.headers || client.handshake.headers || 'No headers',
+      clientIp: client.handshake.address,
+      clientQuery: client.handshake.query,
     });
     try {
       const progress = await this.analyticsService.getStudentProgress(
@@ -78,11 +120,16 @@ export class RealTimeAnalyticsGateway
   }
 
   @SubscribeMessage('subscribe-activity')
-  async handleSubscribeActivity(@MessageBody() data: { courseId: string }) {
+  async handleSubscribeActivity(
+    @MessageBody() data: { courseId: string; headers?: Record<string, string> },
+    @ConnectedSocket() client: Socket,
+  ) {
     console.log('Received subscribe-activity event:', {
       clientId: data.courseId,
       data,
-      clientHeaders: data.headers || 'No headers',
+      clientHeaders: data.headers || client.handshake.headers || 'No headers',
+      clientIp: client.handshake.address,
+      clientQuery: client.handshake.query,
     });
     try {
       const activity = await this.analyticsService.getCourseActivity(

@@ -7,14 +7,11 @@ async function bootstrap() {
 
   const app = await NestFactory.create(AppModule);
   app.enableCors({
-    origin: [
-      'http://localhost:3000',
-      'http://127.0.0.1:3000',
-      'https://postman-echo.com',
-    ],
+    origin: '*', // Разрешить все источники для тестов, в продакшене уточни домены
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
-    credentials: true,
+    credentials: false, // Согласовать с WebSocket
   });
   await app.listen(3000);
+  console.log('Server running on port 3000 with WebSocket support');
 }
 bootstrap();
