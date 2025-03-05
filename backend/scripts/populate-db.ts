@@ -24,7 +24,7 @@ const retryOperation = async <T>(
         );
         await new Promise((resolve) => setTimeout(resolve, delayMs));
       } else {
-        throw error; // Если не ECONNRESET или исчерпаны попытки, пробрасываем ошибку
+        throw error;
       }
     }
   }
@@ -102,16 +102,18 @@ async function bootstrap() {
       // Создание 2 уроков для модуля
       for (let k = 0; k < 2; k++) {
         const lessonTitle = `Lesson ${k} for Module ${j} in Course ${i}`;
-        let lesson = await retryOperation(() =>
-          coursesService.findLessonById(
-            (
-              await coursesService.getCourseStructure(course._id.toString())
-            ).modules
+        let lesson = await retryOperation(async () => {
+          // Добавляем async
+          const structure = await coursesService.getCourseStructure(
+            course._id.toString(),
+          );
+          const lessonId =
+            structure.modules
               .find((m) => m.title === moduleTitle)
               ?.lessons.find((l) => l.title === lessonTitle)
-              ?.lessonId.toString() || '',
-          ),
-        );
+              ?.lessonId.toString() || '';
+          return coursesService.findLessonById(lessonId);
+        });
         if (!lesson) {
           lesson = await retryOperation(() =>
             coursesService.createLesson(
