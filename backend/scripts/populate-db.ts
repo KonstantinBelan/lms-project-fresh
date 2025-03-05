@@ -41,11 +41,9 @@ async function bootstrap() {
   const courses: Course[] = [];
   for (let i = 0; i < 100; i++) {
     const title = `Course ${i}`;
-    let course = await coursesService.findCourseById(
-      (await coursesService.findAllCourses())
-        .find((c) => c.title === title)
-        ?._id?.toString() || '',
-    );
+    let course = await coursesService
+      .findAllCourses()
+      .then((courses) => courses.find((c) => c.title === title));
     if (!course) {
       course = await coursesService.createCourse({
         title,
@@ -57,10 +55,9 @@ async function bootstrap() {
     // Создание 2 модулей для курса
     for (let j = 0; j < 2; j++) {
       const moduleTitle = `Module ${j} for Course ${i}`;
-      let module = await coursesService.findModuleById(
-        course.modules
-          .find((m) => m.toString() === moduleTitle)
-          ?._id?.toString() || '',
+      let module = await coursesService.findModuleByCourseAndTitle(
+        course._id.toString(),
+        moduleTitle,
       );
       if (!module) {
         module = await coursesService.createModule(course._id.toString(), {
@@ -72,9 +69,12 @@ async function bootstrap() {
       for (let k = 0; k < 2; k++) {
         const lessonTitle = `Lesson ${k} for Module ${j} in Course ${i}`;
         let lesson = await coursesService.findLessonById(
-          module.lessons
-            .find((l) => l.toString() === lessonTitle)
-            ?._id?.toString() || '',
+          (
+            await coursesService.getCourseStructure(course._id.toString())
+          ).modules
+            .find((m) => m.title === moduleTitle)
+            ?.lessons.find((l) => l.title === lessonTitle)
+            ?.lessonId.toString() || '',
         );
         if (!lesson) {
           lesson = await coursesService.createLesson(
@@ -130,7 +130,7 @@ async function bootstrap() {
           course._id.toString(),
           undefined,
           true,
-        ); // Пропускаем уведомления
+        );
         successfulEnrollments++;
       }
     }

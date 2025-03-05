@@ -124,6 +124,26 @@ export class CoursesService implements ICoursesService {
     return this.moduleModel.findById(moduleId).lean().exec();
   }
 
+  async findModuleByCourseAndTitle(
+    courseId: string,
+    title: string,
+  ): Promise<Module | null> {
+    const cacheKey = `module:course:${courseId}:title:${title}`;
+    const cachedModule = await this.cacheManager.get<Module>(cacheKey);
+    if (cachedModule) {
+      this.logger.debug('Module found in cache:', cachedModule);
+      return cachedModule;
+    }
+
+    const module = await this.moduleModel
+      .findOne({ courseId: new Types.ObjectId(courseId), title })
+      .lean()
+      .exec();
+    this.logger.debug('Module found in DB:', module);
+    if (module) await this.cacheManager.set(cacheKey, module, 3600); // Кэшируем на 1 час
+    return module;
+  }
+
   async createLesson(
     courseId: string,
     moduleId: string,
