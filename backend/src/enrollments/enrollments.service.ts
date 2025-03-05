@@ -34,6 +34,7 @@ export class EnrollmentsService implements IEnrollmentsService {
     studentId: string,
     courseId: string,
     deadline?: Date,
+    skipNotifications = false,
   ): Promise<EnrollmentDocument> {
     this.logger.debug(
       'Creating enrollment for studentId:',
@@ -68,11 +69,13 @@ export class EnrollmentsService implements IEnrollmentsService {
     });
     const savedEnrollment: EnrollmentDocument = await newEnrollment.save();
 
-    await this.notificationsService.notifyNewCourse(
-      studentId,
-      courseId,
-      course.title,
-    );
+    if (!skipNotifications) {
+      await this.notificationsService.notifyNewCourse(
+        studentId,
+        courseId,
+        course.title,
+      );
+    }
 
     await this.cacheManager.del(`enrollment:${savedEnrollment._id.toString()}`);
     await this.cacheManager.del(`enrollments:student:${studentId}`);
