@@ -1,5 +1,5 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document } from 'mongoose';
+import { Document, Types } from 'mongoose';
 import { Role } from '../../auth/roles.enum';
 
 export type UserDocument = User & Document;
@@ -24,6 +24,18 @@ export class User {
 
   @Prop() // Добавляем поле phone (опционально, может быть null)
   phone?: string;
+
+  @Prop({})
+  avatar?: string; // URL аватара
+
+  @Prop({
+    type: { notifications: Boolean, language: String },
+    default: { notifications: true, language: 'en' },
+  })
+  settings?: { notifications: boolean; language: string }; // Настройки пользователя
+
+  @Prop({ type: [{ type: Types.ObjectId, ref: 'Group' }] })
+  groups?: Types.ObjectId[]; // Ссылки на группы
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

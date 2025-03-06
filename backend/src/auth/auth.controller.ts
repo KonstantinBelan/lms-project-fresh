@@ -30,6 +30,36 @@ export class AuthController {
     return this.authService.login(user);
   }
 
+  @Post('register')
+  async register(
+    @Body() body: { email: string; password: string; name?: string },
+  ) {
+    const user = await this.authService.register(
+      body.email,
+      body.password,
+      body.name,
+    );
+    return { message: 'User registered', userId: user._id };
+  }
+
+  @Post('forgot-password')
+  async forgotPassword(@Body('email') email: string) {
+    await this.authService.generateResetToken(email);
+    return { message: 'Reset token sent to your email' };
+  }
+
+  @Post('reset-password')
+  async resetPassword(
+    @Body() body: { email: string; token: string; newPassword: string },
+  ) {
+    await this.authService.resetPassword(
+      body.email,
+      body.token,
+      body.newPassword,
+    );
+    return { message: 'Password reset successful' };
+  }
+
   @Post('signup')
   @UsePipes(new ValidationPipe())
   async signup(@Body() createUserDto: CreateUserDto) {

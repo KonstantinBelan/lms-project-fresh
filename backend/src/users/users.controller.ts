@@ -77,6 +77,23 @@ export class UsersController {
   //   return this.usersService.findByEmail(email);
   // }
 
+  @Post(':id/groups/:groupId')
+  @SetMetadata('roles', [Role.ADMIN])
+  async addToGroup(@Param('id') id: string, @Param('groupId') groupId: string) {
+    await this.groupsService.addStudent(groupId, id);
+    return this.usersService.updateUser(id, { $addToSet: { groups: groupId } });
+  }
+
+  @Delete(':id/groups/:groupId')
+  @SetMetadata('roles', [Role.ADMIN])
+  async removeFromGroup(
+    @Param('id') id: string,
+    @Param('groupId') groupId: string,
+  ) {
+    await this.groupsService.removeStudent(groupId, id);
+    return this.usersService.updateUser(id, { $pull: { groups: groupId } });
+  }
+
   @Get()
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @SetMetadata('roles', [Role.ADMIN])
