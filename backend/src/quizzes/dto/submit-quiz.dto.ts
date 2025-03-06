@@ -1,4 +1,19 @@
-import { IsString, IsArray, IsNotEmpty, IsInt } from 'class-validator';
+import {
+  IsString,
+  IsArray,
+  IsNotEmpty,
+  IsInt,
+  ArrayNotEmpty,
+  ValidateNested,
+} from 'class-validator';
+import { Type } from 'class-transformer';
+
+export class AnswerArrayDto {
+  @IsArray()
+  @ArrayNotEmpty()
+  @IsInt({ each: true })
+  answers: number[];
+}
 
 export class SubmitQuizDto {
   @IsString()
@@ -6,7 +21,8 @@ export class SubmitQuizDto {
   studentId: string;
 
   @IsArray()
-  @IsArray({ each: true })
-  @IsInt({ each: true })
-  answers: number[][];
+  @ArrayNotEmpty()
+  @ValidateNested({ each: true })
+  @Type(() => AnswerArrayDto)
+  answers: AnswerArrayDto[];
 }
