@@ -1,4 +1,9 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  Logger,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Enrollment, EnrollmentDocument } from './schemas/enrollment.schema';
@@ -249,7 +254,7 @@ export class EnrollmentsService implements IEnrollmentsService {
   async updateStudentProgress(
     studentId: string,
     courseId: string,
-    moduleId: string, // Убираем null, так как теперь он всегда есть
+    moduleId: string,
     lessonId: string,
   ): Promise<EnrollmentDocument | null> {
     const cacheKey = `enrollment:student:${studentId}:course:${courseId}`;
@@ -265,7 +270,7 @@ export class EnrollmentsService implements IEnrollmentsService {
       .lean()
       .exec();
     if (!enrollment) {
-      throw new Error('Enrollment not found');
+      throw new BadRequestException('Student is not enrolled in this course');
     }
 
     const update: any = {
@@ -420,7 +425,7 @@ export class EnrollmentsService implements IEnrollmentsService {
   ): Promise<EnrollmentDocument | null> {
     const enrollment = await this.findEnrollmentById(enrollmentId);
     if (!enrollment) {
-      throw new Error('Enrollment not found');
+      throw new BadRequestException('Enrollment not found');
     }
 
     return this.updateStudentProgress(
