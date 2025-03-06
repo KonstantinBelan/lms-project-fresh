@@ -14,6 +14,7 @@ import { Types } from 'mongoose';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 import { createObjectCsvWriter } from 'csv-writer';
+import * as fs from 'fs/promises';
 
 // Настраиваемый TTL кэша (в секундах)
 const CACHE_TTL = 3600; // 1 час по умолчанию
@@ -478,7 +479,12 @@ export class CoursesService implements ICoursesService {
 
   async exportCourseAnalyticsToCSV(courseId: string): Promise<string> {
     const analytics = await this.getCourseAnalytics(courseId);
-    const filePath = `course_${courseId}_analytics_${Date.now()}.csv`;
+    const dirPath = `analytics/course_${courseId}`; // Папка для курса
+    const filePath = `${dirPath}/course_${courseId}_analytics_${Date.now()}.csv`; // Полный путь к файлу
+
+    // Создаём директорию, если её нет
+    await fs.mkdir(dirPath, { recursive: true });
+
     const csvWriter = createObjectCsvWriter({
       path: filePath,
       header: [
@@ -522,6 +528,7 @@ export class CoursesService implements ICoursesService {
     ];
 
     await csvWriter.writeRecords(records);
-    return filePath; // Возвращаем путь напрямую
+    console.log('CSV file saved:', filePath);
+    return filePath;
   }
 }
