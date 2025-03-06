@@ -12,9 +12,15 @@ describe('NotificationsService', () => {
   let service: NotificationsService;
 
   const mockNotificationModel = {
-    create: jest
-      .fn()
-      .mockResolvedValue({ _id: '1', userId: 'user1', message: 'Test' }),
+    create: jest.fn().mockImplementation((data) => ({
+      ...data,
+      _id: '1',
+      save: jest.fn().mockResolvedValue({
+        _id: '1',
+        userId: data.userId,
+        message: data.message,
+      }),
+    })),
   };
 
   const mockUsersService = {

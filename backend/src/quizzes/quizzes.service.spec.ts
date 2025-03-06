@@ -15,26 +15,39 @@ describe('QuizzesService', () => {
   const validStudentId = new Types.ObjectId().toString();
 
   const mockQuizModel = {
-    findById: jest.fn().mockReturnValue({
+    findById: jest.fn().mockImplementation(() => ({
       lean: jest.fn().mockResolvedValue({
         _id: validQuizId,
         lessonId: validLessonId,
         title: 'Test Quiz',
         questions: [{ question: 'Q1', correctAnswers: [0], weight: 1 }],
       }),
-    }),
-    create: jest.fn().mockResolvedValue({
+    })),
+    // Исправляем мок для создания новой модели
+    create: jest.fn().mockImplementation((data) => ({
+      ...data,
       _id: validQuizId,
-      lessonId: validLessonId,
-      title: 'Test Quiz',
-      questions: [{ question: 'Q1', correctAnswers: [0], weight: 1 }],
-    }),
+      save: jest.fn().mockResolvedValue({
+        _id: validQuizId,
+        lessonId: validLessonId,
+        title: 'Test Quiz',
+        questions: data.questions,
+        toObject: jest.fn().mockReturnValue({
+          _id: validQuizId,
+          lessonId: validLessonId,
+          title: 'Test Quiz',
+          questions: data.questions,
+        }),
+      }),
+    })),
   };
 
   const mockQuizSubmissionModel = {
-    findOne: jest.fn().mockReturnValue({
-      lean: jest.fn().mockResolvedValue(null),
-    }),
+    findOne: jest.fn().mockImplementation(() => ({
+      lean: jest.fn().mockReturnValue({
+        exec: jest.fn().mockResolvedValue(null),
+      }),
+    })),
   };
 
   const mockCacheManager = {
@@ -47,6 +60,10 @@ describe('QuizzesService', () => {
     updateStudentProgress: jest.fn().mockResolvedValue(undefined),
   };
 
+  const mockLessonModel = {};
+  const mockModuleModel = {};
+  const mockCourseModel = {};
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -56,9 +73,9 @@ describe('QuizzesService', () => {
           provide: getModelToken('QuizSubmission'),
           useValue: mockQuizSubmissionModel,
         },
-        { provide: getModelToken('Lesson'), useValue: {} },
-        { provide: getModelToken('Module'), useValue: {} },
-        { provide: getModelToken('Course'), useValue: {} },
+        { provide: getModelToken('Lesson'), useValue: mockLessonModel },
+        { provide: getModelToken('Module'), useValue: mockModuleModel },
+        { provide: getModelToken('Course'), useValue: mockCourseModel },
         { provide: CACHE_MANAGER, useValue: mockCacheManager },
         { provide: EnrollmentsService, useValue: mockEnrollmentsService },
       ],

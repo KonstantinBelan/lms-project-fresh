@@ -8,45 +8,48 @@ import { CoursesService } from '../courses/courses.service';
 import { UsersService } from '../users/users.service';
 import { Types } from 'mongoose';
 import { BadRequestException } from '@nestjs/common';
-import { Queue } from 'bull';
-import { InjectQueue } from '@nestjs/bull';
 
 describe('EnrollmentsService', () => {
   let service: EnrollmentsService;
 
+  const validStudentId = new Types.ObjectId().toString();
+  const validCourseId = new Types.ObjectId().toString();
+  const validModuleId = new Types.ObjectId().toString();
+  const validLessonId = new Types.ObjectId().toString();
+
   const mockEnrollmentModel = {
-    findOne: jest.fn().mockReturnValue({
+    findOne: jest.fn().mockImplementation(() => ({
       lean: jest.fn().mockReturnValue({
         exec: jest.fn().mockResolvedValue({
           _id: '67c59acebe3880a60e6f53b1',
-          studentId: new Types.ObjectId('67c4d379a5c903e26a37557c'),
-          courseId: new Types.ObjectId('67c585ff05ac038b1bf9c1a9'),
+          studentId: new Types.ObjectId(validStudentId),
+          courseId: new Types.ObjectId(validCourseId),
           completedModules: [new Types.ObjectId('67c58261d8f478d10a0dfce0')],
           completedLessons: [new Types.ObjectId('67c58285d8f478d10a0dfce5')],
           isCompleted: false,
           deadline: new Date(),
         }),
       }),
-    }),
-    findByIdAndUpdate: jest.fn().mockReturnValue({
+    })),
+    findByIdAndUpdate: jest.fn().mockImplementation(() => ({
       lean: jest.fn().mockReturnValue({
         exec: jest.fn().mockResolvedValue({
           _id: '67c59acebe3880a60e6f53b1',
-          studentId: new Types.ObjectId('67c4d379a5c903e26a37557c'),
-          courseId: new Types.ObjectId('67c585ff05ac038b1bf9c1a9'),
+          studentId: new Types.ObjectId(validStudentId),
+          courseId: new Types.ObjectId(validCourseId),
           completedModules: [
             new Types.ObjectId('67c58261d8f478d10a0dfce0'),
-            new Types.ObjectId('67c5861505ac038b1bf9c1af'),
+            new Types.ObjectId(validModuleId),
           ],
           completedLessons: [
             new Types.ObjectId('67c58285d8f478d10a0dfce5'),
-            new Types.ObjectId('67c5862905ac038b1bf9c1b5'),
+            new Types.ObjectId(validLessonId),
           ],
           isCompleted: false,
           deadline: new Date(),
         }),
       }),
-    }),
+    })),
   };
 
   const mockUsersService = {
@@ -93,38 +96,33 @@ describe('EnrollmentsService', () => {
 
   describe('updateStudentProgress', () => {
     it('should update progress with new moduleId and lessonId', async () => {
-      const studentId = '67c4d379a5c903e26a37557c';
-      const courseId = '67c585ff05ac038b1bf9c1a9';
-      const moduleId = '67c5861505ac038b1bf9c1af';
-      const lessonId = '67c5862905ac038b1bf9c1b5';
-
       const result = await service.updateStudentProgress(
-        studentId,
-        courseId,
-        moduleId,
-        lessonId,
+        validStudentId,
+        validCourseId,
+        validModuleId,
+        validLessonId,
       );
 
       expect(mockEnrollmentModel.findOne).toHaveBeenCalled();
       expect(mockEnrollmentModel.findByIdAndUpdate).toHaveBeenCalled();
       expect(result).toBeDefined();
       expect(result!.completedModules.map((id) => id.toString())).toContain(
-        moduleId,
+        validModuleId,
       );
     });
 
     it('should throw BadRequestException if enrollment not found', async () => {
-      mockEnrollmentModel.findOne.mockReturnValue({
-        lean: jest
-          .fn()
-          .mockReturnValue({ exec: jest.fn().mockResolvedValue(null) }),
-      });
+      mockEnrollmentModel.findOne.mockImplementation(() => ({
+        lean: jest.fn().mockReturnValue({
+          exec: jest.fn().mockResolvedValue(null),
+        }),
+      }));
       await expect(
         service.updateStudentProgress(
-          'student1',
-          'course1',
-          'module1',
-          'lesson1',
+          new Types.ObjectId().toString(), // Валидный ObjectId
+          new Types.ObjectId().toString(), // Валидный ObjectId
+          validModuleId,
+          validLessonId,
         ),
       ).rejects.toThrow(BadRequestException);
     });
