@@ -71,7 +71,7 @@ export class NotificationsController {
   @SetMetadata('roles', [Role.ADMIN]) // Ограничиваем доступ только для администратора
   async testEmail(@Body() body: { userId: string; message: string }) {
     const { userId, message } = body;
-    await this.notificationsService.sendEmail(userId, message);
+    await this.notificationsService.sendEmail(userId, 'Test Email', message);
     return { status: 'success', message: 'Test email sent successfully' };
   }
 

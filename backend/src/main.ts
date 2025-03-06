@@ -5,7 +5,7 @@ import * as dotenv from 'dotenv';
 import * as mongoose from 'mongoose';
 import { ValidationPipe } from '@nestjs/common';
 import { useContainer } from 'class-validator';
-import { ArrayOfArraysOfIntegers } from './validators/array-of-arrays.validator';
+import { ArrayOrStringValidator } from './validators/array-of-arrays.validator';
 
 async function bootstrap() {
   dotenv.config();
@@ -36,7 +36,11 @@ async function bootstrap() {
       'API для управления курсами, зачислениями и домашними заданиями',
     )
     .setVersion('1.0')
-    .addBearerAuth()
+    // .addBearerAuth()
+    .addBearerAuth(
+      { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
+      'JWT-auth', // Имя для авторизации в Swagger
+    )
     .build();
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api', app, document);

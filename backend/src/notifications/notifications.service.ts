@@ -92,110 +92,14 @@ export class NotificationsService implements INotificationsService {
     await this.notificationModel.findByIdAndDelete(notificationId).exec();
   }
 
-  async notifyProgress(
-    enrollmentId: string,
-    moduleId: string,
-    lessonId: string,
+  // Основные функции отправки email/telegram/sms
+  public async sendEmail(
+    userId: string,
+    subject: string | null,
+    message: string,
   ): Promise<void> {
-    const cacheKey = `notification:progress:${enrollmentId}:${moduleId}:${lessonId}`;
-    const cachedNotification = await this.cacheManager.get<any>(cacheKey);
-    if (cachedNotification) {
-      console.log(
-        'Notification found in cache for progress:',
-        cachedNotification,
-      );
-      return;
-    }
-
-    console.log(
-      'Notifying progress for enrollmentId:',
-      enrollmentId,
-      'moduleId:',
-      moduleId,
-      'lessonId:',
-      lessonId,
-    );
-    const enrollment =
-      await this.enrollmentsService.findEnrollmentById(enrollmentId);
-    if (!enrollment) throw new Error('Enrollment not found');
-
-    const courseId = enrollment.courseId.toString();
-    if (!courseId) throw new Error('Course ID not found in enrollment');
-
-    const course = (await this.coursesService.findCourseById(
-      courseId,
-    )) as Course;
-    if (!course) throw new Error('Course not found');
-
-    const module = await this.coursesService.findModuleById(moduleId);
-    const moduleTitle = module?.title || moduleId;
-
-    const lesson = await this.coursesService.findLessonById(lessonId);
-    const lessonTitle = lesson?.title || lessonId;
-
-    const message = `You completed lesson "${lessonTitle}" in module "${moduleTitle}" of course "${course.title}"`;
-    await this.createNotification(enrollment.studentId, message);
-    await this.sendEmail(enrollment.studentId, message);
-    await this.sendTelegram(message);
-    await this.sendSMS(enrollment.studentId, message);
-
-    await this.cacheManager.set(cacheKey, message, 3600); // Кэшируем уведомление на 1 час
-  }
-
-  async notifyNewCourse(
-    studentId: string,
-    courseId: string,
-    courseTitle: string,
-  ): Promise<void> {
-    const cacheKey = `notification:newcourse:${studentId}:${courseId}`;
-    const cachedNotification = await this.cacheManager.get<any>(cacheKey);
-    if (cachedNotification) {
-      console.log(
-        'Notification found in cache for new course:',
-        cachedNotification,
-      );
-      return;
-    }
-
-    const message = `New course available: "${courseTitle}" (ID: ${courseId})`;
-    await this.createNotification(studentId, message);
-    await this.sendEmail(studentId, message);
-    await this.sendTelegram(message);
-    await this.sendSMS(studentId, message);
-
-    await this.cacheManager.set(cacheKey, message, 3600); // Кэшируем уведомление на 1 час
-  }
-
-  async notifyDeadline(
-    enrollmentId: string,
-    daysLeft: number,
-    courseTitle: string,
-  ): Promise<void> {
-    const cacheKey = `notification:deadline:${enrollmentId}:${daysLeft}`;
-    const cachedNotification = await this.cacheManager.get<any>(cacheKey);
-    if (cachedNotification) {
-      console.log(
-        'Notification found in cache for deadline:',
-        cachedNotification,
-      );
-      return;
-    }
-
-    const enrollment =
-      await this.enrollmentsService.findEnrollmentById(enrollmentId);
-    if (!enrollment) throw new Error('Enrollment not found');
-
-    const message = `You have ${daysLeft} days left to complete "${courseTitle}"`;
-    await this.createNotification(enrollment.studentId, message);
-    await this.sendEmail(enrollment.studentId, message);
-    await this.sendTelegram(message);
-    await this.sendSMS(enrollment.studentId, message);
-
-    await this.cacheManager.set(cacheKey, message, 3600); // Кэшируем уведомление на 1 час
-  }
-
-  public async sendEmail(userId: string, message: string): Promise<void> {
-    const user = await this.usersService.findByEmail(userId); // Используем findByEmail вместо findById
+    console.log('userId: ' + userId);
+    const user = await this.usersService.findById(userId); // Используем findByEmail вместо findById
     if (!user || !user.email) {
       console.warn('User or email not found for ID:', userId);
       return;
@@ -209,10 +113,13 @@ export class NotificationsService implements INotificationsService {
     );
 
     const mailOptions = {
-      from: config.email.user,
-      to: user.email,
-      subject: 'LMS Notification',
+      // from: config.email.user,
+      from: `"LMS Platform" <${process.env.EMAIL_USER}>`,
+      // to: user.email,
+      to: 'kosbelan@yandex.ru', // для тестирования, потом заменить на user.email
+      subject: subject,
       text: message,
+      html: `<p>${message}</p>`,
     };
 
     try {
@@ -276,5 +183,118 @@ export class NotificationsService implements INotificationsService {
       console.error('Failed to send SMS:', error);
       throw new Error(`Failed to send SMS notification: ${error.message}`);
     }
+  }
+
+  // Функции
+
+  async notifyProgress(
+    enrollmentId: string,
+    moduleId: string,
+    lessonId: string,
+    customMessage?: string,
+  ): Promise<void> {
+    const cacheKey = `notification:progress:${enrollmentId}:${moduleId}:${lessonId}`;
+    const cachedNotification = await this.cacheManager.get<any>(cacheKey);
+    if (cachedNotification) {
+      console.log(
+        'Notification found in cache for progress:',
+        cachedNotification,
+      );
+      return;
+    }
+
+    console.log(
+      'Notifying progress for enrollmentId:',
+      enrollmentId,
+      'moduleId:',
+      moduleId,
+      'lessonId:',
+      lessonId,
+    );
+    const enrollment =
+      await this.enrollmentsService.findEnrollmentById(enrollmentId);
+    if (!enrollment) throw new Error('Enrollment not found');
+
+    const courseId = enrollment.courseId.toString();
+    if (!courseId) throw new Error('Course ID not found in enrollment');
+
+    const course = (await this.coursesService.findCourseById(
+      courseId,
+    )) as Course;
+    if (!course) throw new Error('Course not found');
+
+    const module = await this.coursesService.findModuleById(moduleId);
+    const moduleTitle = module?.title || moduleId;
+
+    const lesson = await this.coursesService.findLessonById(lessonId);
+    const lessonTitle = lesson?.title || lessonId;
+
+    // const message = `You completed lesson "${lessonTitle}" in module "${moduleTitle}" of course "${course.title}"`;
+    const message =
+      customMessage ||
+      (lessonId
+        ? `You have completed lesson ${lessonTitle} in course "${course.title}".`
+        : `Progress updated for module ${moduleTitle} in course "${course.title}".`);
+    const subject = 'LMS Progress Update';
+    await this.createNotification(enrollment.studentId, message);
+    await this.sendEmail(enrollment.studentId, subject, message);
+    await this.sendTelegram(message);
+    await this.sendSMS(enrollment.studentId, message);
+
+    await this.cacheManager.set(cacheKey, message, 3600); // Кэшируем уведомление на 1 час
+  }
+
+  async notifyNewCourse(
+    studentId: string,
+    courseId: string,
+    courseTitle: string,
+  ): Promise<void> {
+    const cacheKey = `notification:newcourse:${studentId}:${courseId}`;
+    const cachedNotification = await this.cacheManager.get<any>(cacheKey);
+    if (cachedNotification) {
+      console.log(
+        'Notification found in cache for new course:',
+        cachedNotification,
+      );
+      return;
+    }
+
+    const message = `New course available: "${courseTitle}" (ID: ${courseId})`;
+    const subject = 'New Course Available';
+    await this.createNotification(studentId, message);
+    await this.sendEmail(studentId, subject, message);
+    await this.sendTelegram(message);
+    await this.sendSMS(studentId, message);
+
+    await this.cacheManager.set(cacheKey, message, 3600); // Кэшируем уведомление на 1 час
+  }
+
+  async notifyDeadline(
+    enrollmentId: string,
+    daysLeft: number,
+    courseTitle: string,
+  ): Promise<void> {
+    const cacheKey = `notification:deadline:${enrollmentId}:${daysLeft}`;
+    const cachedNotification = await this.cacheManager.get<any>(cacheKey);
+    if (cachedNotification) {
+      console.log(
+        'Notification found in cache for deadline:',
+        cachedNotification,
+      );
+      return;
+    }
+
+    const enrollment =
+      await this.enrollmentsService.findEnrollmentById(enrollmentId);
+    if (!enrollment) throw new Error('Enrollment not found');
+
+    const message = `Your course "${courseTitle}" deadline is in ${daysLeft} days!`;
+    const subject = 'LMS Deadline Reminder';
+    await this.createNotification(enrollment.studentId, message);
+    await this.sendEmail(enrollment.studentId, subject, message);
+    await this.sendTelegram(message);
+    await this.sendSMS(enrollment.studentId, message);
+
+    await this.cacheManager.set(cacheKey, message, 3600); // Кэшируем уведомление на 1 час
   }
 }

@@ -17,7 +17,14 @@ import { Role } from '../auth/roles.enum';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { CreateQuizDto } from './dto/create-quiz.dto';
 import { SubmitQuizDto } from './dto/submit-quiz.dto';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
 
+@ApiTags('quizzes')
 @Controller('quizzes')
 @UseGuards(AuthGuard('jwt'), RolesGuard)
 export class QuizzesController {
@@ -26,6 +33,9 @@ export class QuizzesController {
   @Post()
   @SetMetadata('roles', [Role.ADMIN, Role.TEACHER])
   @UsePipes(new ValidationPipe({ transform: true }))
+  @ApiOperation({ summary: 'Create a new quiz' })
+  @ApiResponse({ status: 201, description: 'Quiz created' })
+  @ApiBearerAuth('JWT-auth')
   async createQuiz(@Body() body: CreateQuizDto) {
     return this.quizzesService.createQuiz(
       body.lessonId,
