@@ -15,7 +15,7 @@ interface MockModel {
     [key: string]: any;
   };
   findById: jest.Mock;
-  findOne: jest.Mock; // Делаем обязательным
+  findOne: jest.Mock;
   findByIdAndUpdate: jest.Mock;
   deleteOne: jest.Mock;
 }
@@ -146,7 +146,9 @@ describe('QuizzesService', () => {
         }),
       }),
     });
-    mockQuizModel.deleteOne.mockResolvedValue({ deletedCount: 1 });
+    mockQuizModel.deleteOne.mockReturnValue({
+      exec: jest.fn().mockResolvedValue({ deletedCount: 1 }), // Добавляем .exec()
+    });
     mockQuizSubmissionModel.findOne.mockReturnValue({
       lean: jest.fn().mockReturnValue({
         exec: jest.fn().mockResolvedValue(null),
