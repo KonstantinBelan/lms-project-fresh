@@ -185,6 +185,31 @@ export class EnrollmentsService implements IEnrollmentsService {
     return enrollments;
   }
 
+  // async findEnrollmentsByStudent(
+  //   studentId: string,
+  // ): Promise<EnrollmentDocument[]> {
+  //   const objectId = new Types.ObjectId(studentId);
+  //   const enrollments = await this.enrollmentModel
+  //     .find({ studentId: objectId })
+  //     .lean()
+  //     .exec();
+  //   this.logger.debug('Enrollments found in DB for student:', enrollments);
+  //   return enrollments;
+  // }
+
+  async findEnrollmentByStudentAndCourse(
+    studentId: string,
+    courseId: string,
+  ): Promise<EnrollmentDocument | null> {
+    return this.enrollmentModel
+      .findOne({
+        studentId: new Types.ObjectId(studentId),
+        courseId: new Types.ObjectId(courseId),
+      })
+      .lean()
+      .exec();
+  }
+
   async findEnrollmentsByCourse(
     courseId: string,
   ): Promise<EnrollmentDocument[]> {
