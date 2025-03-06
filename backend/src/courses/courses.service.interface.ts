@@ -30,3 +30,20 @@ export interface ICoursesService {
   findLessonById(lessonId: string): Promise<Lesson | null>;
   getCourseStatistics(courseId: string): Promise<any>; // Добавляем новый метод
 }
+
+export interface CourseAnalytics {
+  totalStudents: number;
+  completedStudents: number;
+  completionRate: number;
+  averageGrade: number;
+  moduleCompletion: {
+    totalModules: number;
+    completedModules: number;
+    completionRate: number;
+  };
+  lessonCompletion: {
+    totalLessons: number;
+    completedLessons: number;
+    completionRate: number;
+  };
+}
