@@ -128,17 +128,31 @@ export class QuizzesService {
     });
     const savedSubmission = await submission.save();
 
+    // Находим курс и модуль по уроку
     const lesson = await this.lessonModel.findById(quiz.lessonId).lean().exec();
+    if (!lesson) throw new Error('Lesson not found');
+
     const course = await this.courseModel
       .findOne({ 'modules.lessons': quiz.lessonId })
       .lean()
       .exec();
     if (!course) throw new Error('Course not found for this lesson');
 
+    // Находим модуль, содержащий урок
+    const module = course.modules.find((mod) =>
+      mod.lessons.some(
+        (lessonId) => lessonId.toString() === quiz.lessonId.toString(),
+      ),
+    );
+    if (!module) throw new Error('Module not found for this lesson');
+
+    const moduleId = module._id.toString();
+
+    // Обновляем прогресс студента с moduleId
     await this.enrollmentsService.updateStudentProgress(
       studentId,
       course._id.toString(),
-      null,
+      moduleId, // Теперь всегда string
       quiz.lessonId.toString(),
     );
 

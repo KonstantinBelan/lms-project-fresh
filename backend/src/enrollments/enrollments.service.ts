@@ -249,7 +249,7 @@ export class EnrollmentsService implements IEnrollmentsService {
   async updateStudentProgress(
     studentId: string,
     courseId: string,
-    moduleId: string | null,
+    moduleId: string, // Убираем null, так как теперь он всегда есть
     lessonId: string,
   ): Promise<EnrollmentDocument | null> {
     const cacheKey = `enrollment:student:${studentId}:course:${courseId}`;
@@ -271,11 +271,9 @@ export class EnrollmentsService implements IEnrollmentsService {
     const update: any = {
       $addToSet: {
         completedLessons: new Types.ObjectId(lessonId),
+        completedModules: new Types.ObjectId(moduleId),
       },
     };
-    if (moduleId) {
-      update.$addToSet.completedModules = new Types.ObjectId(moduleId);
-    }
 
     const updatedEnrollment = await this.enrollmentModel
       .findByIdAndUpdate(enrollment._id, update, {
@@ -287,10 +285,9 @@ export class EnrollmentsService implements IEnrollmentsService {
 
     this.logger.debug('Updated student progress:', updatedEnrollment);
 
-    // Передаём moduleId как есть (string | null)
     await this.notificationsService.notifyProgress(
       enrollment._id.toString(),
-      moduleId, // Оставляем как string | null
+      moduleId,
       lessonId,
     );
 
