@@ -2,9 +2,10 @@ import {
   IsString,
   IsArray,
   IsNotEmpty,
-  IsInt,
   ArrayNotEmpty,
+  Validate,
 } from 'class-validator';
+import { ArrayOfArraysOfIntegers } from '../../validators/array-of-arrays.validator';
 
 export class SubmitQuizDto {
   @IsString()
@@ -13,6 +14,6 @@ export class SubmitQuizDto {
 
   @IsArray()
   @ArrayNotEmpty()
-  @IsInt({ each: true }) // Применяем IsInt к каждому элементу вложенных массивов
+  @Validate(ArrayOfArraysOfIntegers)
   answers: number[][];
 }

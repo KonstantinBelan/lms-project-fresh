@@ -67,8 +67,8 @@ export class QuizzesController {
     @Param('quizId') quizId: string,
     @Body() body: SubmitQuizDto,
   ) {
-    const answers = body.answers.map((answer) => answer.answers); // Преобразуем AnswerArrayDto[] в number[][]
-    return this.quizzesService.submitQuiz(body.studentId, quizId, answers);
+    console.log('Received body:', JSON.stringify(body)); // Отладочный вывод
+    return this.quizzesService.submitQuiz(body.studentId, quizId, body.answers);
   }
 
   @Get(':quizId/submission/:studentId')

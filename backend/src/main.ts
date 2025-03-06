@@ -3,6 +3,9 @@ import { AppModule } from './app.module';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import * as dotenv from 'dotenv';
 import * as mongoose from 'mongoose';
+import { ValidationPipe } from '@nestjs/common';
+import { useContainer } from 'class-validator';
+import { ArrayOfArraysOfIntegers } from './validators/array-of-arrays.validator';
 
 async function bootstrap() {
   dotenv.config();
@@ -16,6 +19,16 @@ async function bootstrap() {
   if (process.env.NODE_ENV !== 'production') {
     mongoose.set('debug', true); // Включаем дебаг
   }
+
+  // Регистрируем кастомные валидаторы
+  app.useGlobalPipes(
+    new ValidationPipe({
+      transform: true, // Преобразуем данные в типы DTO
+      whitelist: true, // Удаляем лишние поля
+      forbidNonWhitelisted: true, // Ошибка на лишние поля
+    }),
+  );
+  useContainer(app.select(AppModule), { fallbackOnErrors: true }); // Для DI кастомных валидаторов
 
   const config = new DocumentBuilder()
     .setTitle('Deasy LMS API')

@@ -10,6 +10,7 @@ import { CoursesController } from './courses.controller';
 import { CoursesService } from './courses.service';
 import { AuthModule } from '../auth/auth.module';
 import { EnrollmentsModule } from '../enrollments/enrollments.module';
+// import { QuizzesModule } from '../quizzes/quizzes.module';
 
 @Module({
   imports: [
