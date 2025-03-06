@@ -11,8 +11,8 @@ export class QuizSubmission {
   @Prop({ type: Types.ObjectId, ref: 'User', required: true })
   studentId: Types.ObjectId;
 
-  @Prop({ type: [{ type: Number, required: true }], required: true })
-  answers: number[]; // Массив ответов студента (индексы выбранных вариантов)
+  @Prop({ type: [[Number]], required: true }) // Массив массивов ответов
+  answers: number[][];
 
   @Prop({ required: true })
   score: number; // Оценка в процентах (0-100)

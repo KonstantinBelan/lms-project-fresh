@@ -5,6 +5,7 @@ import { QuizzesController } from './quizzes.controller';
 import { QuizSchema } from './schemas/quiz.schema';
 import { QuizSubmissionSchema } from './schemas/quiz-submission.schema';
 import { EnrollmentsModule } from '../enrollments/enrollments.module'; // Для интеграции
+import { CoursesModule } from '../courses/courses.module';
 
 @Module({
   imports: [
@@ -13,6 +14,7 @@ import { EnrollmentsModule } from '../enrollments/enrollments.module'; // Для
       { name: 'QuizSubmission', schema: QuizSubmissionSchema },
     ]),
     EnrollmentsModule, // Для обновления прогресса
+    CoursesModule,
   ],
   controllers: [QuizzesController],
   providers: [QuizzesService],

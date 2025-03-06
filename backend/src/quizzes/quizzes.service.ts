@@ -20,11 +20,11 @@ const CACHE_TTL = parseInt(process.env.CACHE_TTL ?? '3600', 10); // 1 час
 export class QuizzesService {
   constructor(
     @InjectModel(Quiz.name) private quizModel: Model<QuizDocument>,
-    @InjectModel(Lesson.name) private lessonModel: Model<LessonDocument>, // Инжектируем Lesson
-    @InjectModel(Course.name) private courseModel: Model<CourseDocument>, // Инжектируем Course
-    @InjectModel(Module.name) private moduleModel: Model<ModuleDocument>, // Инжектируем Module
     @InjectModel(QuizSubmission.name)
     private quizSubmissionModel: Model<QuizSubmissionDocument>,
+    @InjectModel(Lesson.name) private lessonModel: Model<LessonDocument>,
+    @InjectModel(Course.name) private courseModel: Model<CourseDocument>,
+    @InjectModel(Module.name) private moduleModel: Model<ModuleDocument>,
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
     private enrollmentsService: EnrollmentsService,
   ) {}
@@ -32,7 +32,12 @@ export class QuizzesService {
   async createQuiz(
     lessonId: string,
     title: string,
-    questions: { question: string; options: string[]; correctAnswer: number }[],
+    questions: {
+      question: string;
+      options: string[];
+      correctAnswers: number[];
+      weight?: number;
+    }[],
   ): Promise<Quiz> {
     const quiz = new this.quizModel({
       lessonId: new Types.ObjectId(lessonId),
@@ -73,7 +78,8 @@ export class QuizzesService {
       questions?: {
         question: string;
         options: string[];
-        correctAnswer: number;
+        correctAnswers: number[];
+        weight?: number;
       }[];
     },
   ): Promise<Quiz | null> {
@@ -100,7 +106,7 @@ export class QuizzesService {
   async submitQuiz(
     studentId: string,
     quizId: string,
-    answers: number[],
+    answers: number[][],
   ): Promise<QuizSubmission> {
     const existingSubmission = await this.quizSubmissionModel
       .findOne({
@@ -116,11 +122,17 @@ export class QuizzesService {
     const quiz = await this.findQuizById(quizId);
     if (!quiz) throw new BadRequestException('Quiz not found');
 
-    let correctCount = 0;
+    let totalScore = 0;
+    let maxScore = 0;
     quiz.questions.forEach((q, index) => {
-      if (answers[index] === q.correctAnswer) correctCount++;
+      const studentAnswers = answers[index] || [];
+      const isCorrect =
+        q.correctAnswers.length === studentAnswers.length &&
+        q.correctAnswers.every((answer) => studentAnswers.includes(answer));
+      totalScore += isCorrect ? q.weight : 0;
+      maxScore += q.weight;
     });
-    const score = (correctCount / quiz.questions.length) * 100;
+    const score = (totalScore / maxScore) * 100;
 
     const submission = new this.quizSubmissionModel({
       quizId: new Types.ObjectId(quizId),
@@ -133,7 +145,6 @@ export class QuizzesService {
     const lesson = await this.lessonModel.findById(quiz.lessonId).lean().exec();
     if (!lesson) throw new BadRequestException('Lesson not found');
 
-    // Находим модуль по уроку
     const module = await this.moduleModel
       .findOne({ lessons: quiz.lessonId })
       .lean()
@@ -141,7 +152,6 @@ export class QuizzesService {
     if (!module)
       throw new BadRequestException('Module not found for this lesson');
 
-    // Находим курс по модулю
     const course = await this.courseModel
       .findOne({ modules: module._id })
       .lean()

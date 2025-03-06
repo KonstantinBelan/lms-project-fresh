@@ -6,6 +6,7 @@ export class SubmitQuizDto {
   studentId: string;
 
   @IsArray()
+  @IsArray({ each: true })
   @IsInt({ each: true })
-  answers: number[];
+  answers: number[][];
 }

@@ -5,6 +5,7 @@ import {
   IsInt,
   Min,
   Max,
+  IsOptional,
 } from 'class-validator';
 
 export class QuizQuestionDto {
@@ -17,10 +18,16 @@ export class QuizQuestionDto {
   @IsNotEmpty({ each: true })
   options: string[];
 
+  @IsArray()
+  @IsInt({ each: true })
+  @Min(0, { each: true })
+  @Max(999, { each: true })
+  correctAnswers: number[];
+
+  @IsOptional()
   @IsInt()
-  @Min(0)
-  @Max(999) // Ограничим индекс разумным значением
-  correctAnswer: number;
+  @Min(1)
+  weight?: number = 1;
 }
 
 export class CreateQuizDto {

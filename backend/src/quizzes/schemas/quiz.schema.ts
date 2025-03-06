@@ -16,12 +16,18 @@ export class Quiz {
       {
         question: { type: String, required: true },
         options: { type: [String], required: true },
-        correctAnswer: { type: Number, required: true }, // Индекс правильного ответа в options
+        correctAnswers: { type: [Number], required: true }, // Массив правильных ответов
+        weight: { type: Number, default: 1 }, // Вес вопроса
       },
     ],
     required: true,
   })
-  questions: { question: string; options: string[]; correctAnswer: number }[];
+  questions: {
+    question: string;
+    options: string[];
+    correctAnswers: number[];
+    weight: number;
+  }[];
 }
 
 export const QuizSchema = SchemaFactory.createForClass(Quiz);
