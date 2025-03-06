@@ -8,8 +8,6 @@ import { UnauthorizedException } from '@nestjs/common';
 
 describe('AuthService', () => {
   let service: AuthService;
-  let usersService: UsersService;
-  let jwtService: JwtService;
 
   const mockUsersService = {
     findByEmail: jest.fn(),
@@ -28,8 +26,6 @@ describe('AuthService', () => {
     }).compile();
 
     service = module.get<AuthService>(AuthService);
-    usersService = module.get<UsersService>(UsersService);
-    jwtService = module.get<JwtService>(JwtService);
   });
 
   afterEach(() => jest.clearAllMocks());
@@ -60,15 +56,26 @@ describe('AuthService', () => {
   });
 
   describe('login', () => {
-    it('should return JWT token for valid user', async () => {
+    it('should return JWT token for valid credentials', async () => {
       const user = { _id: '1', email: 'test@example.com', roles: ['STUDENT'] };
+      mockUsersService.findByEmail.mockResolvedValue({
+        ...user,
+        password: await bcrypt.hash('password', 10),
+      });
       mockJwtService.sign.mockReturnValue('jwt_token');
-      const result = await service.login(user); // Исправлено: только один аргумент
+      const result = await service.login('test@example.com', 'password');
       expect(result).toEqual({ access_token: 'jwt_token' });
       expect(mockJwtService.sign).toHaveBeenCalledWith({
-        userId: '1',
+        sub: '1',
         roles: ['STUDENT'],
       });
+    });
+
+    it('should throw UnauthorizedException for invalid credentials', async () => {
+      mockUsersService.findByEmail.mockResolvedValue(null);
+      await expect(
+        service.login('test@example.com', 'password'),
+      ).rejects.toThrow(UnauthorizedException);
     });
   });
 });
