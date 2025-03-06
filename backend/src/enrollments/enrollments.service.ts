@@ -253,7 +253,7 @@ export class EnrollmentsService implements IEnrollmentsService {
     lessonId: string,
   ): Promise<EnrollmentDocument | null> {
     const cacheKey = `enrollment:student:${studentId}:course:${courseId}`;
-    await this.cacheManager.del(cacheKey); // Очищаем кэш для этой записи
+    await this.cacheManager.del(cacheKey);
     await this.cacheManager.del(`enrollments:student:${studentId}`);
     await this.cacheManager.del(`enrollments:course:${courseId}`);
 
@@ -268,26 +268,29 @@ export class EnrollmentsService implements IEnrollmentsService {
       throw new Error('Enrollment not found');
     }
 
+    const update: any = {
+      $addToSet: {
+        completedLessons: new Types.ObjectId(lessonId),
+      },
+    };
+    if (moduleId) {
+      update.$addToSet.completedModules = new Types.ObjectId(moduleId);
+    }
+
     const updatedEnrollment = await this.enrollmentModel
-      .findByIdAndUpdate(
-        enrollment._id,
-        {
-          $addToSet: {
-            completedLessons: new Types.ObjectId(lessonId),
-            completedModules: new Types.ObjectId(moduleId),
-          },
-        },
-        { new: true, runValidators: true },
-      )
+      .findByIdAndUpdate(enrollment._id, update, {
+        new: true,
+        runValidators: true,
+      })
       .lean()
       .exec();
 
     this.logger.debug('Updated student progress:', updatedEnrollment);
 
-    // Уведомляем о прогрессе, передаём enrollment._id вместо studentId
+    // Передаём moduleId как есть (string | null)
     await this.notificationsService.notifyProgress(
-      enrollment._id.toString(), // Исправлено: передаём enrollmentId
-      moduleId,
+      enrollment._id.toString(),
+      moduleId, // Оставляем как string | null
       lessonId,
     );
 

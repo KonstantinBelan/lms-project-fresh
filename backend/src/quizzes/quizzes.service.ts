@@ -6,6 +6,8 @@ import {
   QuizSubmission,
   QuizSubmissionDocument,
 } from './schemas/quiz-submission.schema';
+import { Lesson, LessonDocument } from '../courses/schemas/lesson.schema';
+import { Course, CourseDocument } from '../courses/schemas/course.schema';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 import { Types } from 'mongoose';
@@ -17,6 +19,8 @@ const CACHE_TTL = parseInt(process.env.CACHE_TTL ?? '3600', 10); // 1 час
 export class QuizzesService {
   constructor(
     @InjectModel(Quiz.name) private quizModel: Model<QuizDocument>,
+    @InjectModel(Lesson.name) private lessonModel: Model<LessonDocument>, // Инжектируем Lesson
+    @InjectModel(Course.name) private courseModel: Model<CourseDocument>, // Инжектируем Course
     @InjectModel(QuizSubmission.name)
     private quizSubmissionModel: Model<QuizSubmissionDocument>,
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
