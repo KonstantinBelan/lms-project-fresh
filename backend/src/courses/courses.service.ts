@@ -15,10 +15,13 @@ import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 import { createObjectCsvWriter } from 'csv-writer';
 import * as fs from 'fs/promises';
+import * as path from 'path';
 
 // Настраиваемый TTL кэша (в секундах)
-const CACHE_TTL = 3600; // 1 час по умолчанию
-// const CACHE_TTL = parseInt(process.env.CACHE_TTL, 10) || 3600; // 1 час по умолчанию
+// const CACHE_TTL = 3600; // 1 час по умолчанию
+// const CSV_EXPIRY_DAYS = 90; // Срок хранения файлов в днях
+const CACHE_TTL = parseInt(process.env.CACHE_TTL ?? '3600', 10); // 1 час по умолчанию
+const CSV_EXPIRY_DAYS = parseInt(process.env.CSV_EXPIRY_DAYS ?? '90', 10); // Срок хранения файлов в днях
 
 @Injectable()
 export class CoursesService implements ICoursesService {
@@ -479,11 +482,14 @@ export class CoursesService implements ICoursesService {
 
   async exportCourseAnalyticsToCSV(courseId: string): Promise<string> {
     const analytics = await this.getCourseAnalytics(courseId);
-    const dirPath = `analytics/course_${courseId}`; // Папка для курса
-    const filePath = `${dirPath}/course_${courseId}_analytics_${Date.now()}.csv`; // Полный путь к файлу
+    const dirPath = `analytics/course_${courseId}`;
+    const filePath = `${dirPath}/course_${courseId}_analytics_${Date.now()}.csv`;
 
     // Создаём директорию, если её нет
     await fs.mkdir(dirPath, { recursive: true });
+
+    // Удаляем старые файлы
+    await this.cleanOldCSVFiles(dirPath);
 
     const csvWriter = createObjectCsvWriter({
       path: filePath,
@@ -530,5 +536,29 @@ export class CoursesService implements ICoursesService {
     await csvWriter.writeRecords(records);
     console.log('CSV file saved:', filePath);
     return filePath;
+  }
+
+  private async cleanOldCSVFiles(dirPath: string): Promise<void> {
+    try {
+      const files = await fs.readdir(dirPath);
+      const now = Date.now();
+      const expiryMs = CSV_EXPIRY_DAYS * 24 * 60 * 60 * 1000; // 90 дней в миллисекундах
+
+      for (const file of files) {
+        const filePath = path.join(dirPath, file);
+        const stats = await fs.stat(filePath);
+        const fileAgeMs = now - stats.mtimeMs;
+
+        if (fileAgeMs > expiryMs) {
+          await fs.unlink(filePath);
+          console.log(`Deleted old CSV file: ${filePath}`);
+        }
+      }
+    } catch (error) {
+      if (error.code !== 'ENOENT') {
+        // Игнорируем ошибку, если папка ещё не существует
+        console.error('Error cleaning old CSV files:', error);
+      }
+    }
   }
 }
