@@ -69,14 +69,19 @@ export class AuthService {
     email: string,
     password: string,
   ): Promise<{ access_token: string }> {
-    const user = await this.usersService.findByEmail(email); // User из-за .lean()
-    if (!user || !(await bcrypt.compare(password, user.password))) {
+    const user = await this.usersService.findByEmail(email); // Получаем User с паролем
+    if (!user || !user.password) {
+      // Проверяем наличие user и password
+      throw new UnauthorizedException('Invalid credentials');
+    }
+    const passwordMatch = await bcrypt.compare(password, user.password);
+    if (!passwordMatch) {
       throw new UnauthorizedException('Invalid credentials');
     }
     const payload = {
       sub: (user._id as Types.ObjectId).toString(),
       roles: user.roles,
-    }; // Явно указываем _id как Types.ObjectId
+    };
     return { access_token: this.jwtService.sign(payload) };
   }
 

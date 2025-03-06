@@ -66,7 +66,11 @@ export class UsersService {
       return cachedUser;
     }
 
-    const user = await this.userModel.findOne({ email }).lean().exec();
+    const user = await this.userModel
+      .findOne({ email })
+      .select('+password')
+      .lean()
+      .exec();
     console.log('User found in DB:', user);
     if (user) await this.cacheManager.set(cacheKey, user, 3600);
     return user;
