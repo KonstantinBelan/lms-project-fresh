@@ -12,7 +12,8 @@ describe('NotificationsService', () => {
   let service: NotificationsService;
 
   const mockNotificationModel = {
-    create: jest.fn().mockImplementation((data) => ({
+    // Мок для создания через new
+    mockConstructor: jest.fn().mockImplementation((data) => ({
       ...data,
       _id: '1',
       save: jest.fn().mockResolvedValue({
@@ -58,7 +59,11 @@ describe('NotificationsService', () => {
         NotificationsService,
         {
           provide: getModelToken('Notification'),
-          useValue: mockNotificationModel,
+          useValue: {
+            ...mockNotificationModel,
+            // Переопределяем конструктор для new
+            new: mockNotificationModel.mockConstructor,
+          },
         },
         { provide: UsersService, useValue: mockUsersService },
         { provide: CoursesService, useValue: mockCoursesService },
@@ -75,7 +80,7 @@ describe('NotificationsService', () => {
   describe('createNotification', () => {
     it('should create a notification', async () => {
       const result = await service.createNotification('user1', 'Test');
-      expect(mockNotificationModel.create).toHaveBeenCalledWith({
+      expect(mockNotificationModel.mockConstructor).toHaveBeenCalledWith({
         userId: 'user1',
         message: 'Test',
       });
