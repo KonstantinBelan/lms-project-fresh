@@ -16,8 +16,8 @@ interface MockModel {
   };
   findById: jest.Mock;
   findOne?: jest.Mock;
-  findByIdAndUpdate?: jest.Mock;
-  deleteOne?: jest.Mock;
+  findByIdAndUpdate: jest.Mock; // Делаем обязательным
+  deleteOne: jest.Mock; // Делаем обязательным
 }
 
 describe('QuizzesService', () => {
