@@ -15,7 +15,7 @@ interface MockModel {
     [key: string]: any;
   };
   findById: jest.Mock;
-  findOne?: jest.Mock;
+  findOne: jest.Mock; // Делаем обязательным
   findByIdAndUpdate: jest.Mock;
   deleteOne: jest.Mock;
 }
@@ -190,7 +190,7 @@ describe('QuizzesService', () => {
       const result = await service.submitQuiz(validStudentId, validQuizId, [
         [0],
         [1],
-      ]); // Ответы для обоих вопросов
+      ]);
       expect(mockQuizModel.findById).toHaveBeenCalledWith(validQuizId);
       expect(mockQuizSubmissionModel).toHaveBeenCalled();
       expect(mockLessonModel.findById).toHaveBeenCalledWith(validLessonId);
