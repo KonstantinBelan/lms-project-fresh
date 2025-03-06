@@ -16,6 +16,8 @@ interface MockModel {
   };
   findById: jest.Mock;
   findOne?: jest.Mock;
+  findByIdAndUpdate?: jest.Mock;
+  deleteOne?: jest.Mock;
 }
 
 describe('QuizzesService', () => {
@@ -31,7 +33,10 @@ describe('QuizzesService', () => {
     _id: validQuizId,
     lessonId: validLessonId,
     title: 'Test Quiz',
-    questions: [{ question: 'Q1', correctAnswers: [0], weight: 1 }],
+    questions: [
+      { question: 'Q1', correctAnswers: [0], weight: 1, hint: 'Hint 1' },
+      { question: 'Q2', correctAnswers: [1], weight: 2 },
+    ],
   };
 
   const mockLessonData = {
@@ -71,6 +76,17 @@ describe('QuizzesService', () => {
       exec: jest.fn().mockResolvedValue(mockQuizData),
     }),
   });
+
+  mockQuizModel.findByIdAndUpdate = jest.fn().mockReturnValue({
+    lean: jest.fn().mockReturnValue({
+      exec: jest.fn().mockResolvedValue({
+        ...mockQuizData,
+        title: 'Updated Quiz',
+      }),
+    }),
+  });
+
+  mockQuizModel.deleteOne = jest.fn().mockResolvedValue({ deletedCount: 1 });
 
   // Мок для quizSubmissionModel как функция-конструктор
   const mockQuizSubmissionModel: MockModel = jest
@@ -151,7 +167,7 @@ describe('QuizzesService', () => {
   describe('createQuiz', () => {
     it('should create a quiz successfully', async () => {
       const result = await service.createQuiz(validLessonId, 'Test Quiz', [
-        { question: 'Q1', correctAnswers: [0], weight: 1 },
+        { question: 'Q1', correctAnswers: [0], weight: 1, hint: 'Hint 1' },
       ]);
       expect(mockQuizModel).toHaveBeenCalled();
       expect(result).toHaveProperty('_id', validQuizId);
@@ -185,6 +201,85 @@ describe('QuizzesService', () => {
       await expect(
         service.submitQuiz(validStudentId, validQuizId, [[0]]),
       ).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  describe('getQuizHints', () => {
+    it('should return hints for quiz questions', async () => {
+      const result = await service.getQuizHints(validQuizId);
+      expect(mockQuizModel.findById).toHaveBeenCalledWith(validQuizId);
+      expect(result).toEqual([
+        { question: 'Q1', hint: 'Hint 1' },
+        { question: 'Q2', hint: undefined },
+      ]);
+    });
+
+    it('should throw BadRequestException if quiz not found', async () => {
+      mockQuizModel.findById.mockReturnValue({
+        lean: jest.fn().mockReturnValue({
+          exec: jest.fn().mockResolvedValue(null),
+        }),
+      });
+      await expect(service.getQuizHints(validQuizId)).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+  });
+
+  describe('updateQuiz', () => {
+    it('should update quiz and clear cache', async () => {
+      const updateData = { title: 'Updated Quiz' };
+      const result = await service.updateQuiz(validQuizId, updateData);
+      expect(mockQuizModel.findByIdAndUpdate).toHaveBeenCalledWith(
+        validQuizId,
+        updateData,
+        { new: true },
+      );
+      expect(mockCacheManager.del).toHaveBeenCalledWith(`quiz:${validQuizId}`);
+      expect(mockCacheManager.del).toHaveBeenCalledWith(
+        `quizzes:lesson:${validLessonId}`,
+      );
+      expect(result).toHaveProperty('title', 'Updated Quiz');
+    });
+
+    it('should return null if quiz not found', async () => {
+      mockQuizModel.findByIdAndUpdate.mockReturnValue({
+        lean: jest.fn().mockReturnValue({
+          exec: jest.fn().mockResolvedValue(null),
+        }),
+      });
+      const result = await service.updateQuiz(validQuizId, {
+        title: 'Updated Quiz',
+      });
+      expect(mockQuizModel.findByIdAndUpdate).toHaveBeenCalled();
+      expect(mockCacheManager.del).not.toHaveBeenCalled(); // Кэш не очищается, если квиз не найден
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('deleteQuiz', () => {
+    it('should delete quiz and clear cache', async () => {
+      await service.deleteQuiz(validQuizId);
+      expect(mockQuizModel.findById).toHaveBeenCalledWith(validQuizId);
+      expect(mockQuizModel.deleteOne).toHaveBeenCalledWith({
+        _id: validQuizId,
+      });
+      expect(mockCacheManager.del).toHaveBeenCalledWith(`quiz:${validQuizId}`);
+      expect(mockCacheManager.del).toHaveBeenCalledWith(
+        `quizzes:lesson:${validLessonId}`,
+      );
+    });
+
+    it('should do nothing if quiz not found', async () => {
+      mockQuizModel.findById.mockReturnValue({
+        lean: jest.fn().mockReturnValue({
+          exec: jest.fn().mockResolvedValue(null),
+        }),
+      });
+      await service.deleteQuiz(validQuizId);
+      expect(mockQuizModel.findById).toHaveBeenCalledWith(validQuizId);
+      expect(mockQuizModel.deleteOne).not.toHaveBeenCalled(); // Не вызывается, если квиз не найден
+      expect(mockCacheManager.del).not.toHaveBeenCalled(); // Кэш не очищается
     });
   });
 });
