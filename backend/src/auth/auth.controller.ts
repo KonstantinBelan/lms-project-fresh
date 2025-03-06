@@ -9,6 +9,7 @@ import {
 import { AuthService } from './auth.service';
 import { Role } from './roles.enum';
 import { CreateUserDto } from '../users/dto/create-user.dto';
+import { Types } from 'mongoose';
 
 @Controller('auth')
 export class AuthController {

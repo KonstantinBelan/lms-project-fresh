@@ -41,3 +41,15 @@ export class User {
 export const UserSchema = SchemaFactory.createForClass(User);
 UserSchema.index({ roles: 1 }); // Индекс для roles
 UserSchema.index({ name: 1 }); // Индекс для name (опционально)
+
+export interface User {
+  _id: Types.ObjectId;
+  email: string;
+  password: string;
+  name?: string;
+  roles: Role[];
+  phone?: string;
+  avatar?: string;
+  settings?: { notifications: boolean; language: string; resetToken?: string };
+  groups?: Types.ObjectId[];
+}
