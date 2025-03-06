@@ -3,11 +3,15 @@ import {
   Post,
   Body,
   Get,
+  Delete,
+  Put,
   UseGuards,
+  Param,
   Request,
   SetMetadata,
   UsePipes,
   ValidationPipe,
+  Query,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -29,13 +33,6 @@ export class UsersController {
     });
   }
 
-  // @Get('me')
-  // @UseGuards(AuthGuard('jwt'))
-  // async getMe(@Request() req) {
-  //   console.log('User from JWT:', req.user); // Логируем req.user для диагностики
-  //   return this.usersService.findById(req.user.sub); // Используем sub из JWT payload
-  // }
-
   @Get('me')
   @UseGuards(AuthGuard('jwt'))
   async getMe(@Request() req) {
@@ -47,6 +44,38 @@ export class UsersController {
     }
     return this.usersService.findById(userId);
   }
+
+  @Get(':id')
+  @SetMetadata('roles', [Role.ADMIN, Role.TEACHER])
+  async findById(@Param('id') id: string) {
+    return this.usersService.findById(id);
+  }
+
+  @Get()
+  @SetMetadata('roles', [Role.ADMIN])
+  async findUserByEmail(@Query('email') email: string) {
+    return this.usersService.findByEmail(email);
+  }
+
+  @Put(':id')
+  @SetMetadata('roles', [Role.ADMIN])
+  async update(
+    @Param('id') id: string,
+    @Body() body: { name?: string; phone?: string; roles?: Role[] },
+  ) {
+    return this.usersService.updateUser(id, body); // Нужно добавить метод в сервис
+  }
+
+  @Delete(':id')
+  @SetMetadata('roles', [Role.ADMIN])
+  async delete(@Param('id') id: string) {
+    return this.usersService.deleteUser(id); // Нужно добавить метод в сервис
+  }
+
+  // @Get()
+  // async findUserByEmail(@Query('email') email: string) {
+  //   return this.usersService.findByEmail(email);
+  // }
 
   @Get()
   @UseGuards(AuthGuard('jwt'), RolesGuard)

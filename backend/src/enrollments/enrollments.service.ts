@@ -11,6 +11,8 @@ import { BatchEnrollmentDto } from './dto/batch-enrollment.dto';
 import { stringify } from 'csv-stringify/sync';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
+import { InjectQueue } from '@nestjs/bull';
+import { Queue } from 'bull';
 
 @Injectable()
 export class EnrollmentsService implements IEnrollmentsService {
@@ -19,10 +21,11 @@ export class EnrollmentsService implements IEnrollmentsService {
   constructor(
     @InjectModel(Enrollment.name)
     private enrollmentModel: Model<EnrollmentDocument>,
+    @Inject(CACHE_MANAGER) private cacheManager: Cache,
     private usersService: UsersService,
     private coursesService: CoursesService,
     private notificationsService: NotificationsService,
-    @Inject(CACHE_MANAGER) private cacheManager: Cache,
+    @InjectQueue('notifications') private notificationsQueue: Queue,
   ) {
     this.logger.debug(
       'EnrollmentsService initialized, notificationsService:',
@@ -36,28 +39,16 @@ export class EnrollmentsService implements IEnrollmentsService {
     deadline?: Date,
     skipNotifications = false,
   ): Promise<EnrollmentDocument> {
-    this.logger.debug(
-      'Creating enrollment for studentId:',
-      studentId,
-      'courseId:',
-      courseId,
-      'deadline:',
-      deadline,
-    );
     const student = await this.usersService.findById(studentId);
     const course = await this.coursesService.findCourseById(courseId);
 
-    if (!student || !course) {
-      throw new Error('Student or course not found');
-    }
+    if (!student || !course) throw new Error('Student or course not found');
 
     const existingEnrollment = await this.enrollmentModel
       .findOne({ studentId, courseId })
       .lean()
       .exec();
-    if (existingEnrollment) {
-      throw new AlreadyEnrolledException();
-    }
+    if (existingEnrollment) throw new AlreadyEnrolledException();
 
     const newEnrollment = new this.enrollmentModel({
       studentId: new Types.ObjectId(studentId),
@@ -67,14 +58,14 @@ export class EnrollmentsService implements IEnrollmentsService {
       completedLessons: [],
       isCompleted: false,
     });
-    const savedEnrollment: EnrollmentDocument = await newEnrollment.save();
+    const savedEnrollment = await newEnrollment.save();
 
     if (!skipNotifications) {
-      await this.notificationsService.notifyNewCourse(
+      await this.notificationsQueue.add('newCourse', {
         studentId,
         courseId,
-        course.title,
-      );
+        courseTitle: course.title,
+      });
     }
 
     await this.cacheManager.del(`enrollment:${savedEnrollment._id.toString()}`);

@@ -85,9 +85,12 @@ export class CoursesService implements ICoursesService {
     courseId: string,
     updateCourseDto: UpdateCourseDto,
   ): Promise<Course | null> {
-    return this.courseModel
+    const updatedCourse = await this.courseModel
       .findByIdAndUpdate(courseId, updateCourseDto, { new: true })
       .exec();
+    await this.cacheManager.del(`course:${courseId}`);
+    await this.cacheManager.del('courses:all'); // Очистка общего кэша
+    return updatedCourse;
   }
 
   async deleteCourse(courseId: string): Promise<void> {
@@ -330,5 +333,30 @@ export class CoursesService implements ICoursesService {
     await this.cacheManager.set(cacheKey, total, 3600); // Кэшируем на 1 час
     this.logger.debug('Calculated total lessons for course:', total);
     return total;
+  }
+
+  async updateLesson(
+    courseId: string,
+    moduleId: string,
+    lessonId: string,
+    updateLessonDto: CreateLessonDto,
+  ): Promise<Lesson | null> {
+    const lesson = await this.lessonModel
+      .findByIdAndUpdate(lessonId, updateLessonDto, { new: true })
+      .lean()
+      .exec();
+    await this.cacheManager.del(`module:${moduleId}`);
+    await this.cacheManager.del(`course:${courseId}`);
+    return lesson;
+  }
+
+  async deleteLesson(
+    courseId: string,
+    moduleId: string,
+    lessonId: string,
+  ): Promise<void> {
+    await this.lessonModel.findByIdAndDelete(lessonId).exec();
+    await this.cacheManager.del(`module:${moduleId}`);
+    await this.cacheManager.del(`course:${courseId}`);
   }
 }

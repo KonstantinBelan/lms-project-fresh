@@ -166,4 +166,15 @@ export class EnrollmentsController {
     res.set('Content-Disposition', 'attachment; filename=enrollments.csv');
     res.send(csv);
   }
+
+  @Get('test-index/:studentId/:courseId')
+  async testIndex(
+    @Param('studentId') studentId: string,
+    @Param('courseId') courseId: string,
+  ) {
+    return this.enrollmentsService.findEnrollmentByStudentAndCourse(
+      studentId,
+      courseId,
+    );
+  }
 }

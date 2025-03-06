@@ -1,8 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
 
-export type LessonDocument = Lesson & Document;
-
 @Schema()
 export class Lesson {
   @Prop({ required: true })
@@ -19,4 +17,6 @@ export class Lesson {
   __v: number;
 }
 
+export type LessonDocument = Lesson & Document;
 export const LessonSchema = SchemaFactory.createForClass(Lesson);
+LessonSchema.index({ moduleId: 1 }); // Добавляем индекс

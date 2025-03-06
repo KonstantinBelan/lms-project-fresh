@@ -166,4 +166,30 @@ export class CoursesController {
   async getCourseStatistics(@Param('id') courseId: string) {
     return this.coursesService.getCourseStatistics(courseId);
   }
+
+  @Put(':courseId/modules/:moduleId/lessons/:lessonId')
+  @SetMetadata('roles', [Role.ADMIN])
+  async updateLesson(
+    @Param('courseId') courseId: string,
+    @Param('moduleId') moduleId: string,
+    @Param('lessonId') lessonId: string,
+    @Body() updateLessonDto: CreateLessonDto, // Можно создать отдельный UpdateLessonDto
+  ) {
+    return this.coursesService.updateLesson(
+      courseId,
+      moduleId,
+      lessonId,
+      updateLessonDto,
+    );
+  }
+
+  @Delete(':courseId/modules/:moduleId/lessons/:lessonId')
+  @SetMetadata('roles', [Role.ADMIN])
+  async deleteLesson(
+    @Param('courseId') courseId: string,
+    @Param('moduleId') moduleId: string,
+    @Param('lessonId') lessonId: string,
+  ) {
+    return this.coursesService.deleteLesson(courseId, moduleId, lessonId);
+  }
 }

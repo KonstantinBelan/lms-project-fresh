@@ -69,7 +69,7 @@ export class UsersService implements IUsersService {
 
     const user = await this.userModel
       .findOne({ email })
-      .select('+password')
+      // .select('+password')
       .lean()
       .exec();
     console.log('User found in DB:', user);
@@ -89,5 +89,19 @@ export class UsersService implements IUsersService {
     console.log('Users found in DB:', users);
     await this.cacheManager.set(cacheKey, users, 3600); // Кэшируем на 1 час
     return users;
+  }
+
+  async updateUser(
+    id: string,
+    updateData: { name?: string; phone?: string; roles?: Role[] },
+  ): Promise<User | null> {
+    return this.userModel
+      .findByIdAndUpdate(id, updateData, { new: true })
+      .lean()
+      .exec();
+  }
+
+  async deleteUser(id: string): Promise<void> {
+    await this.userModel.findByIdAndDelete(id).exec();
   }
 }

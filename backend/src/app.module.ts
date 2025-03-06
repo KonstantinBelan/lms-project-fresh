@@ -28,6 +28,9 @@ import { Types } from 'mongoose';
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => ({
         uri: configService.get<string>('MONGODB_URI'),
+        maxPoolSize: 10, // Максимум 10 подключений
+        serverSelectionTimeoutMS: 5000, // Таймаут выбора сервера
+        socketTimeoutMS: 45000, // Таймаут сокета
       }),
       inject: [ConfigService],
     }),

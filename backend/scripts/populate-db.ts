@@ -43,24 +43,24 @@ async function bootstrap() {
 
   console.log('Starting population, skipping existing records...');
 
-  // Создание 10,000 студентов
-  console.time('Create students');
-  for (let i = 0; i < 10000; i++) {
-    const email = `student${i}@example.com`;
-    const existingUser = await retryOperation(() =>
-      usersService.findByEmail(email),
-    );
-    if (!existingUser) {
-      await retryOperation(() =>
-        usersService.create({
-          email,
-          password: 'password',
-          name: `Student ${i}`,
-        }),
-      );
-    }
-  }
-  console.timeEnd('Create students');
+  // // Создание 10,000 студентов
+  // console.time('Create students');
+  // for (let i = 0; i < 10000; i++) {
+  //   const email = `student${i}@example.com`;
+  //   const existingUser = await retryOperation(() =>
+  //     usersService.findByEmail(email),
+  //   );
+  //   if (!existingUser) {
+  //     await retryOperation(() =>
+  //       usersService.create({
+  //         email,
+  //         password: 'password',
+  //         name: `Student ${i}`,
+  //       }),
+  //     );
+  //   }
+  // }
+  // console.timeEnd('Create students');
 
   // Создание 100 курсов с модулями, уроками и домашними заданиями
   console.time('Create courses with modules, lessons, and homeworks');

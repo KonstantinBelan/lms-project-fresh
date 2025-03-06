@@ -39,3 +39,4 @@ EnrollmentSchema.index({ courseId: 1 });
 EnrollmentSchema.index({ deadline: 1 });
 EnrollmentSchema.index({ completedModules: 1 });
 EnrollmentSchema.index({ completedLessons: 1 });
+EnrollmentSchema.index({ studentId: 1, courseId: 1 });

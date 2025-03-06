@@ -7,6 +7,7 @@ import { UsersModule } from '../users/users.module';
 import { CoursesModule } from '../courses/courses.module';
 import { AuthModule } from '../auth/auth.module';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { BullModule } from '@nestjs/bull';
 
 @Module({
   imports: [
@@ -17,6 +18,10 @@ import { NotificationsModule } from '../notifications/notifications.module';
     forwardRef(() => CoursesModule),
     AuthModule,
     forwardRef(() => NotificationsModule),
+    BullModule.forRoot({
+      redis: { host: 'localhost', port: 6379 }, // Укажи свои настройки Redis
+    }),
+    BullModule.registerQueue({ name: 'notifications' }),
   ],
   controllers: [EnrollmentsController],
   providers: [EnrollmentsService],
