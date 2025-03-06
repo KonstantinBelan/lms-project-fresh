@@ -11,18 +11,16 @@ import * as nodemailer from 'nodemailer';
 describe('NotificationsService', () => {
   let service: NotificationsService;
 
-  const mockNotificationModel = {
-    // Мок для создания через new
-    mockConstructor: jest.fn().mockImplementation((data) => ({
-      ...data,
+  // Мок для notificationModel
+  const mockNotificationModel = jest.fn().mockImplementation((data) => ({
+    ...data,
+    _id: '1',
+    save: jest.fn().mockResolvedValue({
       _id: '1',
-      save: jest.fn().mockResolvedValue({
-        _id: '1',
-        userId: data.userId,
-        message: data.message,
-      }),
-    })),
-  };
+      userId: data.userId,
+      message: data.message,
+    }),
+  }));
 
   const mockUsersService = {
     findById: jest.fn().mockResolvedValue({ email: 'test@example.com' }),
@@ -59,11 +57,7 @@ describe('NotificationsService', () => {
         NotificationsService,
         {
           provide: getModelToken('Notification'),
-          useValue: {
-            ...mockNotificationModel,
-            // Переопределяем конструктор для new
-            new: mockNotificationModel.mockConstructor,
-          },
+          useValue: mockNotificationModel,
         },
         { provide: UsersService, useValue: mockUsersService },
         { provide: CoursesService, useValue: mockCoursesService },
@@ -80,7 +74,7 @@ describe('NotificationsService', () => {
   describe('createNotification', () => {
     it('should create a notification', async () => {
       const result = await service.createNotification('user1', 'Test');
-      expect(mockNotificationModel.mockConstructor).toHaveBeenCalledWith({
+      expect(mockNotificationModel).toHaveBeenCalledWith({
         userId: 'user1',
         message: 'Test',
       });

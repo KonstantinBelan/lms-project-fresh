@@ -21,35 +21,40 @@ describe('QuizzesService', () => {
     questions: [{ question: 'Q1', correctAnswers: [0], weight: 1 }],
   };
 
-  const mockQuizModel = {
-    // Мок для findById с полной цепочкой lean().exec()
-    findById: jest.fn().mockReturnValue({
-      lean: jest.fn().mockReturnValue({
-        exec: jest.fn().mockResolvedValue(mockQuizData),
-      }),
-    }),
-    // Мок для создания через new
-    mockConstructor: jest.fn().mockImplementation((data) => ({
+  // Мок для quizModel
+  const mockQuizModel = jest.fn().mockImplementation((data) => ({
+    ...data,
+    _id: validQuizId,
+    save: jest.fn().mockResolvedValue({
       ...data,
       _id: validQuizId,
-      save: jest.fn().mockResolvedValue({
+      toObject: jest.fn().mockReturnValue({
         ...data,
         _id: validQuizId,
-        toObject: jest.fn().mockReturnValue({
-          ...data,
-          _id: validQuizId,
-        }),
-      }),
-    })),
-  };
-
-  const mockQuizSubmissionModel = {
-    findOne: jest.fn().mockReturnValue({
-      lean: jest.fn().mockReturnValue({
-        exec: jest.fn().mockResolvedValue(null),
       }),
     }),
-  };
+  }));
+
+  mockQuizModel.findById = jest.fn().mockReturnValue({
+    lean: jest.fn().mockReturnValue({
+      exec: jest.fn().mockResolvedValue(mockQuizData),
+    }),
+  });
+
+  // Мок для quizSubmissionModel
+  const mockQuizSubmissionModel = jest.fn().mockImplementation((data) => ({
+    ...data,
+    save: jest.fn().mockResolvedValue({
+      ...data,
+      toObject: jest.fn().mockReturnValue(data),
+    }),
+  }));
+
+  mockQuizSubmissionModel.findOne = jest.fn().mockReturnValue({
+    lean: jest.fn().mockReturnValue({
+      exec: jest.fn().mockResolvedValue(null),
+    }),
+  });
 
   const mockCacheManager = {
     get: jest.fn().mockResolvedValue(null),
@@ -69,14 +74,7 @@ describe('QuizzesService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         QuizzesService,
-        {
-          provide: getModelToken('Quiz'),
-          useValue: {
-            ...mockQuizModel,
-            // Переопределяем конструктор для new
-            new: mockQuizModel.mockConstructor,
-          },
-        },
+        { provide: getModelToken('Quiz'), useValue: mockQuizModel },
         {
           provide: getModelToken('QuizSubmission'),
           useValue: mockQuizSubmissionModel,
@@ -99,7 +97,7 @@ describe('QuizzesService', () => {
       const result = await service.createQuiz(validLessonId, 'Test Quiz', [
         { question: 'Q1', correctAnswers: [0], weight: 1 },
       ]);
-      expect(mockQuizModel.mockConstructor).toHaveBeenCalled();
+      expect(mockQuizModel).toHaveBeenCalled();
       expect(result).toHaveProperty('_id', validQuizId);
     });
   });
@@ -111,6 +109,7 @@ describe('QuizzesService', () => {
         [0],
       ]);
       expect(mockQuizModel.findById).toHaveBeenCalledWith(validQuizId);
+      expect(mockQuizSubmissionModel).toHaveBeenCalled();
       expect(result).toHaveProperty('score', 100);
     });
 
