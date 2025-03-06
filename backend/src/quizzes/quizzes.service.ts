@@ -8,6 +8,7 @@ import {
 } from './schemas/quiz-submission.schema';
 import { Lesson, LessonDocument } from '../courses/schemas/lesson.schema';
 import { Course, CourseDocument } from '../courses/schemas/course.schema';
+import { Module, ModuleDocument } from '../courses/schemas/module.schema';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 import { Types } from 'mongoose';
@@ -21,6 +22,7 @@ export class QuizzesService {
     @InjectModel(Quiz.name) private quizModel: Model<QuizDocument>,
     @InjectModel(Lesson.name) private lessonModel: Model<LessonDocument>, // Инжектируем Lesson
     @InjectModel(Course.name) private courseModel: Model<CourseDocument>, // Инжектируем Course
+    @InjectModel(Module.name) private moduleModel: Model<ModuleDocument>, // Инжектируем Module
     @InjectModel(QuizSubmission.name)
     private quizSubmissionModel: Model<QuizSubmissionDocument>,
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
@@ -131,32 +133,28 @@ export class QuizzesService {
     const lesson = await this.lessonModel.findById(quiz.lessonId).lean().exec();
     if (!lesson) throw new BadRequestException('Lesson not found');
 
-    // Находим курс, содержащий урок в modules.lessons
-    const course = await this.courseModel
-      .findOne({ 'modules.lessons': quiz.lessonId }) // Ищем курс по уроку
-      .populate('modules') // Загружаем модули
+    // Находим модуль по уроку
+    const module = await this.moduleModel
+      .findOne({ lessons: quiz.lessonId })
       .lean()
       .exec();
-    if (!course)
-      throw new BadRequestException('Course not found for this lesson');
-
-    // Находим модуль, содержащий урок
-    const module = (course.modules as any[]).find(
-      (mod) =>
-        mod.lessons &&
-        mod.lessons.some(
-          (lessonId: Types.ObjectId) =>
-            lessonId.toString() === quiz.lessonId.toString(),
-        ),
-    );
     if (!module)
       throw new BadRequestException('Module not found for this lesson');
 
+    // Находим курс по модулю
+    const course = await this.courseModel
+      .findOne({ modules: module._id })
+      .lean()
+      .exec();
+    if (!course)
+      throw new BadRequestException('Course not found for this module');
+
     const moduleId = module._id.toString();
+    const courseId = course._id.toString();
 
     await this.enrollmentsService.updateStudentProgress(
       studentId,
-      course._id.toString(),
+      courseId,
       moduleId,
       quiz.lessonId.toString(),
     );
