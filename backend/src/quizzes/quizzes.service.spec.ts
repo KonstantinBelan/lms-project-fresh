@@ -14,7 +14,7 @@ interface MockModel {
     toObject: jest.Mock;
     [key: string]: any;
   };
-  findById?: jest.Mock;
+  findById: jest.Mock; // Убираем ? для обязательности
   findOne?: jest.Mock;
 }
 
@@ -72,7 +72,7 @@ describe('QuizzesService', () => {
   const mockCacheManager = {
     get: jest.fn().mockResolvedValue(null),
     set: jest.fn().mockResolvedValue(undefined),
-    del: jost.fn().mockResolvedValue(undefined),
+    del: jest.fn().mockResolvedValue(undefined), // Исправляем jost на jest
   };
 
   const mockEnrollmentsService = {
