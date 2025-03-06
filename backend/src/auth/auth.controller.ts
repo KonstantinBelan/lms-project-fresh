@@ -41,11 +41,11 @@ export class AuthController {
   async register(
     @Body() body: { email: string; password: string; name?: string },
   ): Promise<{ message: string; userId: string }> {
-    const user = await this.authService.register(
+    const user = (await this.authService.register(
       body.email,
       body.password,
       body.name,
-    );
+    )) as UserDocument; // Указываем тип
     return { message: 'User registered', userId: user._id.toString() };
   }
 

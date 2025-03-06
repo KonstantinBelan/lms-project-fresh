@@ -91,16 +91,6 @@ export class UsersService implements IUsersService {
     return users;
   }
 
-  // async updateUser(
-  //   id: string,
-  //   updateData: { name?: string; phone?: string; roles?: Role[] },
-  // ): Promise<User | null> {
-  //   return this.userModel
-  //     .findByIdAndUpdate(id, updateData, { new: true })
-  //     .lean()
-  //     .exec();
-  // }
-
   async updateUser(
     id: string,
     updateData: {
