@@ -24,6 +24,7 @@ describe('QuizzesService', () => {
   const validQuizId = new Types.ObjectId().toString();
   const validLessonId = new Types.ObjectId().toString();
   const validStudentId = new Types.ObjectId().toString();
+  const validModuleId = new Types.ObjectId().toString();
 
   const mockQuizData = {
     _id: validQuizId,
@@ -35,7 +36,13 @@ describe('QuizzesService', () => {
   const mockLessonData = {
     _id: validLessonId,
     title: 'Test Lesson',
-    moduleId: new Types.ObjectId().toString(),
+    moduleId: validModuleId,
+  };
+
+  const mockModuleData = {
+    _id: validModuleId,
+    title: 'Test Module',
+    lessons: [validLessonId],
   };
 
   // Мок для quizModel как функция-конструктор
@@ -84,6 +91,15 @@ describe('QuizzesService', () => {
     }),
   };
 
+  // Мок для moduleModel
+  const mockModuleModel = {
+    findOne: jest.fn().mockReturnValue({
+      lean: jest.fn().mockReturnValue({
+        exec: jest.fn().mockResolvedValue(mockModuleData),
+      }),
+    }),
+  };
+
   const mockCacheManager = {
     get: jest.fn().mockResolvedValue(null),
     set: jest.fn().mockResolvedValue(undefined),
@@ -94,7 +110,6 @@ describe('QuizzesService', () => {
     updateStudentProgress: jest.fn().mockResolvedValue(undefined),
   };
 
-  const mockModuleModel = {};
   const mockCourseModel = {};
 
   beforeEach(async () => {
@@ -138,6 +153,9 @@ describe('QuizzesService', () => {
       expect(mockQuizModel.findById).toHaveBeenCalledWith(validQuizId);
       expect(mockQuizSubmissionModel).toHaveBeenCalled();
       expect(mockLessonModel.findById).toHaveBeenCalledWith(validLessonId);
+      expect(mockModuleModel.findOne).toHaveBeenCalledWith({
+        lessons: validLessonId,
+      });
       expect(result).toHaveProperty('score', 100);
     });
 
