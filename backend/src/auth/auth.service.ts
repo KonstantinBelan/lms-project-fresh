@@ -1,7 +1,8 @@
+// backend/src/auth/auth.service.ts
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { UsersService } from '../users/users.service';
-import { User } from '../users/schemas/user.schema'; // Используем User для lean()
+import { User } from '../users/schemas/user.schema';
 import { Role } from './roles.enum';
 import * as bcrypt from 'bcrypt';
 import * as nodemailer from 'nodemailer';
@@ -21,7 +22,7 @@ export class AuthService {
 
   async validateUser(email: string, pass: string): Promise<any> {
     console.log('Validating user:', { email, pass });
-    console.log('Raw password bytes:', Buffer.from(pass, 'utf8')); // Лог байтов пароля
+    console.log('Raw password bytes:', Buffer.from(pass, 'utf8'));
     console.log('Bcrypt version:', bcrypt.version);
     const user = await this.usersService.findByEmail(email);
     console.log('User found:', user);
@@ -58,9 +59,11 @@ export class AuthService {
     name?: string,
   ): Promise<User> {
     console.log('Processing signup:', { email, roles, name });
+    const hashedPassword = await bcrypt.hash(password, 10); // Хэшируем здесь
+    console.log('Hashed password in signUp:', hashedPassword);
     const newUser = await this.usersService.create({
       email,
-      password,
+      password: hashedPassword, // Передаём хэшированный пароль
       roles,
       name,
     });
@@ -71,14 +74,13 @@ export class AuthService {
     email: string,
     password: string,
   ): Promise<{ access_token: string }> {
-    console.log('Login attempt:', { email, password });
+    // console.log('Login attempt:', { email, password });
     const validatedUser = await this.validateUser(email, password);
     if (!validatedUser) {
       console.error('Validation failed for:', { email });
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    // Используем validatedUser, который уже проверен и не содержит пароль
     const payload = {
       sub: (validatedUser._id as Types.ObjectId).toString(),
       roles: validatedUser.roles,
@@ -93,11 +95,11 @@ export class AuthService {
     name?: string,
   ): Promise<User> {
     console.log('Registering user:', { email, name });
-    const hashedPassword = await bcrypt.hash(password, 10);
-    console.log('Hashed password:', hashedPassword);
+    const hashedPassword = await bcrypt.hash(password, 10); // Хэшируем здесь
+    console.log('Hashed password in register:', hashedPassword);
     const user = await this.usersService.create({
       email,
-      password: hashedPassword,
+      password: hashedPassword, // Передаём хэшированный пароль
       name,
     });
     console.log('Registered user:', user);

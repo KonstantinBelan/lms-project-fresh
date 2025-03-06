@@ -23,22 +23,20 @@ export class UsersService {
     phone,
   }: {
     email: string;
-    password: string;
+    password: string; // Принимаем уже хэшированный пароль
     roles?: Role[];
     name?: string;
     phone?: string;
   }): Promise<User> {
-    console.log('Hashing password:', { email, saltRounds: 10 });
-    const hashedPassword = await bcrypt.hash(password, 10);
-    console.log('Hashed password:', hashedPassword);
+    console.log('Creating user with pre-hashed password:', { email, password });
     const newUser = new this.userModel({
       email,
-      password: hashedPassword,
+      password, // Сохраняем пароль как есть
       roles: roles || [Role.STUDENT],
       name,
     });
     const savedUser = await newUser.save();
-    return savedUser.toObject(); // Преобразуем в обычный объект, чтобы соответствовать .lean()
+    return savedUser.toObject();
   }
 
   async findById(id: string): Promise<User | null> {
