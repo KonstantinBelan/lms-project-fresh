@@ -16,8 +16,8 @@ interface MockModel {
   };
   findById: jest.Mock;
   findOne?: jest.Mock;
-  findByIdAndUpdate: jest.Mock; // Делаем обязательным
-  deleteOne: jest.Mock; // Делаем обязательным
+  findByIdAndUpdate: jest.Mock;
+  deleteOne: jest.Mock;
 }
 
 describe('QuizzesService', () => {
@@ -71,22 +71,9 @@ describe('QuizzesService', () => {
     }),
   })) as any;
 
-  mockQuizModel.findById = jest.fn().mockReturnValue({
-    lean: jest.fn().mockReturnValue({
-      exec: jest.fn().mockResolvedValue(mockQuizData),
-    }),
-  });
-
-  mockQuizModel.findByIdAndUpdate = jest.fn().mockReturnValue({
-    lean: jest.fn().mockReturnValue({
-      exec: jest.fn().mockResolvedValue({
-        ...mockQuizData,
-        title: 'Updated Quiz',
-      }),
-    }),
-  });
-
-  mockQuizModel.deleteOne = jest.fn().mockResolvedValue({ deletedCount: 1 });
+  mockQuizModel.findById = jest.fn();
+  mockQuizModel.findByIdAndUpdate = jest.fn();
+  mockQuizModel.deleteOne = jest.fn();
 
   // Мок для quizSubmissionModel как функция-конструктор
   const mockQuizSubmissionModel: MockModel = jest
@@ -99,47 +86,31 @@ describe('QuizzesService', () => {
       }),
     })) as any;
 
-  mockQuizSubmissionModel.findOne = jest.fn().mockReturnValue({
-    lean: jest.fn().mockReturnValue({
-      exec: jest.fn().mockResolvedValue(null),
-    }),
-  });
+  mockQuizSubmissionModel.findOne = jest.fn();
 
   // Мок для lessonModel
   const mockLessonModel = {
-    findById: jest.fn().mockReturnValue({
-      lean: jest.fn().mockReturnValue({
-        exec: jest.fn().mockResolvedValue(mockLessonData),
-      }),
-    }),
+    findById: jest.fn(),
   };
 
   // Мок для moduleModel
   const mockModuleModel = {
-    findOne: jest.fn().mockReturnValue({
-      lean: jest.fn().mockReturnValue({
-        exec: jest.fn().mockResolvedValue(mockModuleData),
-      }),
-    }),
+    findOne: jest.fn(),
   };
 
   // Мок для courseModel
   const mockCourseModel = {
-    findOne: jest.fn().mockReturnValue({
-      lean: jest.fn().mockReturnValue({
-        exec: jest.fn().mockResolvedValue(mockCourseData),
-      }),
-    }),
+    findOne: jest.fn(),
   };
 
   const mockCacheManager = {
-    get: jest.fn().mockResolvedValue(null),
-    set: jest.fn().mockResolvedValue(undefined),
-    del: jest.fn().mockResolvedValue(undefined),
+    get: jest.fn(),
+    set: jest.fn(),
+    del: jest.fn(),
   };
 
   const mockEnrollmentsService = {
-    updateStudentProgress: jest.fn().mockResolvedValue(undefined),
+    updateStudentProgress: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -160,6 +131,46 @@ describe('QuizzesService', () => {
     }).compile();
 
     service = module.get<QuizzesService>(QuizzesService);
+
+    // Устанавливаем базовые значения моков
+    mockQuizModel.findById.mockReturnValue({
+      lean: jest.fn().mockReturnValue({
+        exec: jest.fn().mockResolvedValue(mockQuizData),
+      }),
+    });
+    mockQuizModel.findByIdAndUpdate.mockReturnValue({
+      lean: jest.fn().mockReturnValue({
+        exec: jest.fn().mockResolvedValue({
+          ...mockQuizData,
+          title: 'Updated Quiz',
+        }),
+      }),
+    });
+    mockQuizModel.deleteOne.mockResolvedValue({ deletedCount: 1 });
+    mockQuizSubmissionModel.findOne.mockReturnValue({
+      lean: jest.fn().mockReturnValue({
+        exec: jest.fn().mockResolvedValue(null),
+      }),
+    });
+    mockLessonModel.findById.mockReturnValue({
+      lean: jest.fn().mockReturnValue({
+        exec: jest.fn().mockResolvedValue(mockLessonData),
+      }),
+    });
+    mockModuleModel.findOne.mockReturnValue({
+      lean: jest.fn().mockReturnValue({
+        exec: jest.fn().mockResolvedValue(mockModuleData),
+      }),
+    });
+    mockCourseModel.findOne.mockReturnValue({
+      lean: jest.fn().mockReturnValue({
+        exec: jest.fn().mockResolvedValue(mockCourseData),
+      }),
+    });
+    mockCacheManager.get.mockResolvedValue(null);
+    mockCacheManager.set.mockResolvedValue(undefined);
+    mockCacheManager.del.mockResolvedValue(undefined);
+    mockEnrollmentsService.updateStudentProgress.mockResolvedValue(undefined);
   });
 
   afterEach(() => jest.clearAllMocks());
@@ -176,10 +187,10 @@ describe('QuizzesService', () => {
 
   describe('submitQuiz', () => {
     it('should submit quiz and calculate score', async () => {
-      mockCacheManager.get.mockResolvedValueOnce(null); // Нет таймера
       const result = await service.submitQuiz(validStudentId, validQuizId, [
         [0],
-      ]);
+        [1],
+      ]); // Ответы для обоих вопросов
       expect(mockQuizModel.findById).toHaveBeenCalledWith(validQuizId);
       expect(mockQuizSubmissionModel).toHaveBeenCalled();
       expect(mockLessonModel.findById).toHaveBeenCalledWith(validLessonId);
@@ -252,7 +263,7 @@ describe('QuizzesService', () => {
         title: 'Updated Quiz',
       });
       expect(mockQuizModel.findByIdAndUpdate).toHaveBeenCalled();
-      expect(mockCacheManager.del).not.toHaveBeenCalled(); // Кэш не очищается, если квиз не найден
+      expect(mockCacheManager.del).not.toHaveBeenCalled();
       expect(result).toBeNull();
     });
   });
@@ -278,8 +289,8 @@ describe('QuizzesService', () => {
       });
       await service.deleteQuiz(validQuizId);
       expect(mockQuizModel.findById).toHaveBeenCalledWith(validQuizId);
-      expect(mockQuizModel.deleteOne).not.toHaveBeenCalled(); // Не вызывается, если квиз не найден
-      expect(mockCacheManager.del).not.toHaveBeenCalled(); // Кэш не очищается
+      expect(mockQuizModel.deleteOne).not.toHaveBeenCalled();
+      expect(mockCacheManager.del).not.toHaveBeenCalled();
     });
   });
 });
