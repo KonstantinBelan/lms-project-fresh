@@ -1,5 +1,5 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document, Types } from 'mongoose';
+import { Document, Types, Schema as MongooseSchema } from 'mongoose';
 
 export type QuizSubmissionDocument = QuizSubmission & Document;
 
@@ -11,7 +11,7 @@ export class QuizSubmission {
   @Prop({ type: Types.ObjectId, ref: 'User', required: true })
   studentId: Types.ObjectId;
 
-  @Prop({ type: [Schema.Types.Mixed], required: true }) // Поддержка number[] или string
+  @Prop({ type: [MongooseSchema.Types.Mixed], required: true }) // Поддержка number[] или string
   answers: (number[] | string)[];
 
   @Prop({ required: true })
