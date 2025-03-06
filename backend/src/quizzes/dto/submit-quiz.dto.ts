@@ -4,16 +4,7 @@ import {
   IsNotEmpty,
   IsInt,
   ArrayNotEmpty,
-  ValidateNested,
 } from 'class-validator';
-import { Type } from 'class-transformer';
-
-export class AnswerArrayDto {
-  @IsArray()
-  @ArrayNotEmpty()
-  @IsInt({ each: true })
-  answers: number[];
-}
 
 export class SubmitQuizDto {
   @IsString()
@@ -22,7 +13,6 @@ export class SubmitQuizDto {
 
   @IsArray()
   @ArrayNotEmpty()
-  @ValidateNested({ each: true })
-  @Type(() => AnswerArrayDto)
-  answers: AnswerArrayDto[];
+  @IsInt({ each: true }) // Применяем IsInt к каждому элементу вложенных массивов
+  answers: number[][];
 }
