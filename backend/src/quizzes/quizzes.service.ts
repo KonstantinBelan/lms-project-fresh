@@ -132,16 +132,19 @@ export class QuizzesService {
     const lesson = await this.lessonModel.findById(quiz.lessonId).lean().exec();
     if (!lesson) throw new Error('Lesson not found');
 
+    // Используем populate для загрузки модулей
     const course = await this.courseModel
-      .findOne({ 'modules.lessons': quiz.lessonId })
+      .findOne({ modules: { $exists: true } }) // Находим курс, где есть модули
+      .populate('modules') // Загружаем полные объекты модулей
       .lean()
       .exec();
     if (!course) throw new Error('Course not found for this lesson');
 
     // Находим модуль, содержащий урок
-    const module = course.modules.find((mod) =>
+    const module = (course.modules as any[]).find((mod) =>
       mod.lessons.some(
-        (lessonId) => lessonId.toString() === quiz.lessonId.toString(),
+        (lessonId: Types.ObjectId) =>
+          lessonId.toString() === quiz.lessonId.toString(),
       ),
     );
     if (!module) throw new Error('Module not found for this lesson');
@@ -152,7 +155,7 @@ export class QuizzesService {
     await this.enrollmentsService.updateStudentProgress(
       studentId,
       course._id.toString(),
-      moduleId, // Теперь всегда string
+      moduleId,
       quiz.lessonId.toString(),
     );
 
