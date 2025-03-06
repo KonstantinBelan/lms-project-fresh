@@ -69,19 +69,41 @@ export class AuthService {
     email: string,
     password: string,
   ): Promise<{ access_token: string }> {
-    const user = await this.usersService.findByEmail(email); // Получаем User с паролем
-    if (!user || !user.password) {
-      // Проверяем наличие user и password
+    console.log('Login attempt:', { email, password }); // Лог входных данных
+    const user = await this.usersService.findByEmail(email);
+    console.log('User retrieved:', user);
+
+    if (!user) {
+      console.error('User not found in login:', { email });
       throw new UnauthorizedException('Invalid credentials');
     }
+
+    if (!user.password) {
+      console.error('Password missing for user:', { email, user });
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
     const passwordMatch = await bcrypt.compare(password, user.password);
+    console.log('Password match result:', {
+      match: passwordMatch,
+      input: password,
+      stored: user.password,
+    });
+
     if (!passwordMatch) {
+      console.error('Password mismatch:', {
+        email,
+        input: password,
+        stored: user.password,
+      });
       throw new UnauthorizedException('Invalid credentials');
     }
+
     const payload = {
       sub: (user._id as Types.ObjectId).toString(),
       roles: user.roles,
     };
+    console.log('Generating token with payload:', payload);
     return { access_token: this.jwtService.sign(payload) };
   }
 
@@ -90,17 +112,20 @@ export class AuthService {
     password: string,
     name?: string,
   ): Promise<User> {
+    console.log('Registering user:', { email, name });
     const hashedPassword = await bcrypt.hash(password, 10);
+    console.log('Hashed password:', hashedPassword);
     const user = await this.usersService.create({
       email,
       password: hashedPassword,
       name,
-    }); // Возвращаем User
+    });
+    console.log('Registered user:', user);
     return user;
   }
 
   async generateResetToken(email: string): Promise<string> {
-    const user = await this.usersService.findByEmail(email); // User из-за .lean()
+    const user = await this.usersService.findByEmail(email);
     if (!user) throw new UnauthorizedException('User not found');
     const token = Math.random().toString(36).slice(-8);
     await this.usersService.updateUser(
@@ -126,7 +151,7 @@ export class AuthService {
     token: string,
     newPassword: string,
   ): Promise<void> {
-    const user = await this.usersService.findByEmail(email); // User из-за .lean()
+    const user = await this.usersService.findByEmail(email);
     if (!user || user.settings?.resetToken !== token) {
       throw new UnauthorizedException('Invalid token');
     }
