@@ -9,6 +9,7 @@ import {
 import { AuthService } from './auth.service';
 import { Role } from './roles.enum';
 import { CreateUserDto } from '../users/dto/create-user.dto';
+import { LoginDto } from './dto/login.dto';
 import { Types } from 'mongoose';
 
 @Controller('auth')
@@ -21,6 +22,11 @@ export class AuthController {
   ): Promise<{ access_token: string }> {
     return this.authService.login(body.email, body.password);
   }
+  // @Post('login')
+  // @UsePipes(new ValidationPipe({ transform: true }))
+  // async login(@Body() loginDto: LoginDto) {
+  //   return this.authService.login(loginDto);
+  // }
 
   @Post('register')
   async register(

@@ -28,6 +28,8 @@ export class UsersController {
   ) {}
 
   @Post()
+  @SetMetadata('roles', [Role.ADMIN])
+  @UseGuards(AuthGuard('jwt'))
   @UsePipes(new ValidationPipe())
   async create(@Body() createUserDto: CreateUserDto) {
     return this.usersService.create({

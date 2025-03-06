@@ -20,36 +20,48 @@ export class AuthService {
     private jwtService: JwtService,
   ) {}
 
+  // async validateUser(email: string, pass: string): Promise<any> {
+  //   console.log('Validating user:', { email, pass });
+  //   console.log('Raw password bytes:', Buffer.from(pass, 'utf8'));
+  //   console.log('Bcrypt version:', bcrypt.version);
+  //   const user = await this.usersService.findByEmail(email);
+  //   console.log('User found:', user);
+
+  //   if (!user) {
+  //     console.error('User not found:', { email });
+  //     return null;
+  //   }
+
+  //   const passwordMatch = await bcrypt.compare(pass, user.password);
+  //   console.log('Password comparison result (detailed):', {
+  //     match: passwordMatch,
+  //     input: pass,
+  //     inputLength: pass.length,
+  //     stored: user.password,
+  //   });
+
+  //   if (passwordMatch) {
+  //     const { password, ...result } = user;
+  //     return result;
+  //   }
+  //   console.error('Invalid password for user:', {
+  //     email,
+  //     inputPass: pass,
+  //     storedPass: user.password,
+  //   });
+  //   return null;
+  // }
   async validateUser(email: string, pass: string): Promise<any> {
-    console.log('Validating user:', { email, pass });
-    console.log('Raw password bytes:', Buffer.from(pass, 'utf8'));
-    console.log('Bcrypt version:', bcrypt.version);
-    const user = await this.usersService.findByEmail(email);
-    console.log('User found:', user);
-
-    if (!user) {
-      console.error('User not found:', { email });
-      return null;
-    }
-
-    const passwordMatch = await bcrypt.compare(pass, user.password);
-    console.log('Password comparison result (detailed):', {
-      match: passwordMatch,
-      input: pass,
-      inputLength: pass.length,
-      stored: user.password,
-    });
-
-    if (passwordMatch) {
+    try {
+      const user = await this.usersService.findByEmail(email);
+      if (!user || !(await bcrypt.compare(pass, user.password))) {
+        throw new UnauthorizedException('Invalid credentials');
+      }
       const { password, ...result } = user;
       return result;
+    } catch (error) {
+      throw new UnauthorizedException('Validation failed');
     }
-    console.error('Invalid password for user:', {
-      email,
-      inputPass: pass,
-      storedPass: user.password,
-    });
-    return null;
   }
 
   async signUp(

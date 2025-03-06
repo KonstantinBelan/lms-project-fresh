@@ -77,7 +77,7 @@ export class EnrollmentsController {
     return this.enrollmentsService.findEnrollmentsByStudent(studentId);
   }
 
-  @Get('student/:studentId/progress/:courseId')
+  @Get('student/:studentId/course/:courseId/progress')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @SetMetadata('roles', [
     Role.STUDENT,
@@ -104,6 +104,13 @@ export class EnrollmentsController {
   ])
   async getDetailedStudentProgress(@Param('studentId') studentId: string) {
     return this.enrollmentsService.getDetailedStudentProgress(studentId);
+  }
+
+  @Get('course/:courseId')
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @SetMetadata('roles', [Role.ADMIN, Role.TEACHER])
+  async getCourseEnrollments(@Param('courseId') courseId: string) {
+    return this.enrollmentsService.findEnrollmentsByCourse(courseId);
   }
 
   @Get(':id')

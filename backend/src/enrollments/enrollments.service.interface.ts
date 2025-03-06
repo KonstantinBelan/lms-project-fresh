@@ -38,3 +38,32 @@ export interface IEnrollmentsService {
   ): Promise<void>;
   exportEnrollmentsToCsv(): Promise<string>;
 }
+
+export interface StudentProgress {
+  studentId: string;
+  courseId: string;
+  completedModules: number;
+  totalModules: number;
+  completedLessons: number;
+  totalLessons: number;
+  completionPercentage: number;
+}
+
+export interface DetailedCourseProgress {
+  courseId: string;
+  courseTitle: string;
+  completionPercentage: number;
+  lessonCompletionPercentage: number;
+  completedModules: number;
+  totalModules: number;
+  completedLessons: number;
+  totalLessons: number;
+  grade?: number;
+  isCompleted: boolean;
+  deadline: string | null;
+}
+
+export interface DetailedStudentProgress {
+  studentId: string;
+  progress: DetailedCourseProgress[];
+}

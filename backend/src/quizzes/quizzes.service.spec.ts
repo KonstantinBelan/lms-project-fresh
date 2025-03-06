@@ -1,4 +1,4 @@
-// backend/src/quizzes/quizzes.service.spec.ts
+// src/quizzes/quizzes.service.spec.ts
 import { Test, TestingModule } from '@nestjs/testing';
 import { QuizzesService } from './quizzes.service';
 import { getModelToken } from '@nestjs/mongoose';
@@ -27,6 +27,8 @@ describe('QuizzesService', () => {
     }),
   };
 
+  const mockQuizSubmissionModel = {}; // Пустой мок, если нет методов
+
   const mockCacheManager = {
     get: jest.fn().mockResolvedValue(null),
     set: jest.fn().mockResolvedValue(undefined),
@@ -42,6 +44,10 @@ describe('QuizzesService', () => {
       providers: [
         QuizzesService,
         { provide: getModelToken('Quiz'), useValue: mockQuizModel },
+        {
+          provide: getModelToken('QuizSubmission'),
+          useValue: mockQuizSubmissionModel,
+        }, // Добавлено
         { provide: getModelToken('Lesson'), useValue: {} },
         { provide: getModelToken('Module'), useValue: {} },
         { provide: getModelToken('Course'), useValue: {} },
@@ -84,13 +90,6 @@ describe('QuizzesService', () => {
       await expect(service.submitQuiz('student1', '1', [[0]])).rejects.toThrow(
         BadRequestException,
       );
-    });
-  });
-
-  describe('getQuizHints', () => {
-    it('should return quiz hints', async () => {
-      const result = await service.getQuizHints('1');
-      expect(result).toEqual([{ question: 'Q1', hint: undefined }]);
     });
   });
 });

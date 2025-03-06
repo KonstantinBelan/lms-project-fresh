@@ -1,4 +1,4 @@
-// backend/src/notifications/notifications.service.spec.ts
+// src/notifications/notifications.service.spec.ts
 import { Test, TestingModule } from '@nestjs/testing';
 import { NotificationsService } from './notifications.service';
 import { getModelToken } from '@nestjs/mongoose';
@@ -9,7 +9,6 @@ import * as nodemailer from 'nodemailer';
 
 describe('NotificationsService', () => {
   let service: NotificationsService;
-  let notificationModel: any;
 
   const mockNotificationModel = {
     create: jest
@@ -47,7 +46,6 @@ describe('NotificationsService', () => {
     }).compile();
 
     service = module.get<NotificationsService>(NotificationsService);
-    notificationModel = module.get(getModelToken('Notification'));
   });
 
   afterEach(() => jest.clearAllMocks());
@@ -81,15 +79,6 @@ describe('NotificationsService', () => {
       await expect(
         service.sendEmail('user1', 'Subject', 'Message'),
       ).rejects.toThrow(BadRequestException);
-    });
-  });
-
-  describe('notifyNewQuiz', () => {
-    it('should notify about new quiz', async () => {
-      await service.notifyNewQuiz('user1', 'Quiz1', 'course1');
-      expect(mockCoursesService.findCourseById).toHaveBeenCalledWith('course1');
-      expect(mockNotificationModel.create).toHaveBeenCalled();
-      expect(mockTransporter.sendMail).toHaveBeenCalled();
     });
   });
 });

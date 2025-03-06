@@ -1,4 +1,9 @@
-import { Inject, Injectable, BadRequestException } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  BadRequestException,
+  Logger,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Quiz, QuizDocument } from './schemas/quiz.schema';
@@ -18,6 +23,8 @@ const CACHE_TTL = parseInt(process.env.CACHE_TTL ?? '3600', 10); // 1 час
 
 @Injectable()
 export class QuizzesService {
+  private readonly logger = new Logger(QuizzesService.name);
+
   constructor(
     @InjectModel(Quiz.name) private quizModel: Model<QuizDocument>,
     @InjectModel(QuizSubmission.name)
@@ -115,6 +122,7 @@ export class QuizzesService {
     quizId: string,
     answers: (number[] | string)[],
   ): Promise<QuizSubmission> {
+    this.logger.log(`Submitting quiz ${quizId} for student ${studentId}`);
     const existingSubmission = await this.quizSubmissionModel
       .findOne({
         quizId: new Types.ObjectId(quizId),

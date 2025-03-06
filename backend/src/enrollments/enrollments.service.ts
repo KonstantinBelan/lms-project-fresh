@@ -7,7 +7,11 @@ import {
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Enrollment, EnrollmentDocument } from './schemas/enrollment.schema';
-import { IEnrollmentsService } from './enrollments.service.interface';
+import {
+  IEnrollmentsService,
+  StudentProgress,
+  DetailedStudentProgress,
+} from './enrollments.service.interface';
 import { UsersService } from '../users/users.service';
 import { CoursesService } from '../courses/courses.service';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -206,12 +210,34 @@ export class EnrollmentsService implements IEnrollmentsService {
       .exec();
   }
 
-  async findEnrollmentsByCourse(
-    courseId: string,
-  ): Promise<EnrollmentDocument[]> {
+  // async findEnrollmentsByCourse(
+  //   courseId: string,
+  // ): Promise<EnrollmentDocument[]> {
+  //   const cacheKey = `enrollments:course:${courseId}`;
+  //   const cachedEnrollments =
+  //     await this.cacheManager.get<EnrollmentDocument[]>(cacheKey);
+  //   if (cachedEnrollments) {
+  //     this.logger.debug(
+  //       'Enrollments found in cache for course:',
+  //       cachedEnrollments,
+  //     );
+  //     return cachedEnrollments;
+  //   }
+
+  //   const objectId = new Types.ObjectId(courseId);
+  //   const enrollments = await this.enrollmentModel
+  //     .find({ courseId: objectId })
+  //     .lean()
+  //     .exec();
+  //   this.logger.debug('Enrollments found in DB for course:', enrollments);
+  //   if (enrollments.length > 0)
+  //     await this.cacheManager.set(cacheKey, enrollments, 3600); // Кэшируем на 1 час
+  //   return enrollments;
+  // }
+
+  async findEnrollmentsByCourse(courseId: string): Promise<any[]> {
     const cacheKey = `enrollments:course:${courseId}`;
-    const cachedEnrollments =
-      await this.cacheManager.get<EnrollmentDocument[]>(cacheKey);
+    const cachedEnrollments = await this.cacheManager.get<any[]>(cacheKey);
     if (cachedEnrollments) {
       this.logger.debug(
         'Enrollments found in cache for course:',
@@ -225,10 +251,35 @@ export class EnrollmentsService implements IEnrollmentsService {
       .find({ courseId: objectId })
       .lean()
       .exec();
-    this.logger.debug('Enrollments found in DB for course:', enrollments);
-    if (enrollments.length > 0)
-      await this.cacheManager.set(cacheKey, enrollments, 3600); // Кэшируем на 1 час
-    return enrollments;
+    if (!enrollments.length) return [];
+
+    const course = await this.coursesService.findCourseById(courseId);
+    if (!course) throw new BadRequestException('Course not found');
+
+    const totalLessons =
+      await this.coursesService.getTotalLessonsForCourse(courseId);
+    const totalModules = course.modules.length;
+
+    const enrichedEnrollments = enrollments.map((enrollment) => ({
+      studentId: enrollment.studentId.toString(),
+      completedModules: enrollment.completedModules.length,
+      totalModules,
+      completedLessons: enrollment.completedLessons.length,
+      totalLessons,
+      completionPercentage:
+        totalLessons > 0
+          ? Math.round(
+              (enrollment.completedLessons.length / totalLessons) * 100,
+            )
+          : 0,
+      grade: enrollment.grade,
+      isCompleted: enrollment.isCompleted,
+      deadline: enrollment.deadline ? enrollment.deadline.toISOString() : null,
+    }));
+
+    await this.cacheManager.set(cacheKey, enrichedEnrollments, 3600);
+    this.logger.debug('Enrollments enriched for course:', enrichedEnrollments);
+    return enrichedEnrollments;
   }
 
   async findEnrollmentById(
@@ -316,9 +367,13 @@ export class EnrollmentsService implements IEnrollmentsService {
     return updatedEnrollment;
   }
 
-  async getStudentProgress(studentId: string, courseId: string): Promise<any> {
+  async getStudentProgress(
+    studentId: string,
+    courseId: string,
+  ): Promise<StudentProgress> {
     const cacheKey = `progress:student:${studentId}:course:${courseId}`;
-    const cachedProgress = await this.cacheManager.get<any>(cacheKey);
+    const cachedProgress =
+      await this.cacheManager.get<StudentProgress>(cacheKey);
     if (cachedProgress) {
       this.logger.debug('Progress found in cache:', cachedProgress);
       return cachedProgress;
@@ -331,10 +386,11 @@ export class EnrollmentsService implements IEnrollmentsService {
       })
       .lean()
       .exec();
-    if (!enrollment) throw new Error('Enrollment not found');
+    console.log('studentId:' + studentId + ' courseId: ' + courseId);
+    if (!enrollment) throw new BadRequestException('Enrollment not found');
 
     const course = await this.coursesService.findCourseById(courseId);
-    if (!course) throw new Error('Course not found');
+    if (!course) throw new BadRequestException('Course not found');
 
     const totalModules = course.modules.length || 0;
     const totalLessons =
@@ -347,10 +403,16 @@ export class EnrollmentsService implements IEnrollmentsService {
       totalModules,
       completedLessons: enrollment.completedLessons.length,
       totalLessons,
+      // completionPercentage:
+      //   totalModules > 0
+      //     ? Math.round(
+      //         (enrollment.completedModules.length / totalModules) * 100,
+      //       )
+      //     : 0,
       completionPercentage:
-        totalModules > 0
+        totalLessons > 0
           ? Math.round(
-              (enrollment.completedModules.length / totalModules) * 100,
+              (enrollment.completedLessons.length / totalLessons) * 100,
             )
           : 0,
     };
@@ -360,9 +422,12 @@ export class EnrollmentsService implements IEnrollmentsService {
     return progress;
   }
 
-  async getDetailedStudentProgress(studentId: string): Promise<any> {
+  async getDetailedStudentProgress(
+    studentId: string,
+  ): Promise<DetailedStudentProgress> {
     const cacheKey = `detailed-progress:student:${studentId}`;
-    const cachedProgress = await this.cacheManager.get<any>(cacheKey);
+    const cachedProgress =
+      await this.cacheManager.get<DetailedStudentProgress>(cacheKey);
     if (cachedProgress) {
       this.logger.debug(
         'Detailed student progress found in cache:',
@@ -376,6 +441,24 @@ export class EnrollmentsService implements IEnrollmentsService {
       enrollments.map(async (enrollment) => {
         const courseId = enrollment.courseId.toString();
         const course = await this.coursesService.findCourseById(courseId);
+
+        if (!course) {
+          return {
+            courseId,
+            courseTitle: 'Course not found',
+            completionPercentage: 0,
+            lessonCompletionPercentage: 0,
+            completedModules: 0,
+            totalModules: 0,
+            completedLessons: enrollment.completedLessons.length,
+            totalLessons: 0,
+            grade: enrollment.grade,
+            isCompleted: enrollment.isCompleted,
+            deadline: enrollment.deadline
+              ? enrollment.deadline.toISOString()
+              : null,
+          };
+        }
 
         const totalModules = course?.modules.length || 0;
         const totalLessons =
