@@ -4,7 +4,7 @@ import { Model } from 'mongoose';
 import { Course, CourseDocument } from './schemas/course.schema';
 import { Module, ModuleDocument } from './schemas/module.schema';
 import { Lesson, LessonDocument } from './schemas/lesson.schema';
-import { ICoursesService } from './courses.service.interface';
+import { ICoursesService, CourseAnalytics } from './courses.service.interface';
 import { CreateCourseDto } from './dto/create-course.dto';
 import { UpdateCourseDto } from './dto/update-course.dto';
 import { CreateModuleDto } from './dto/create-module.dto';
@@ -366,24 +366,10 @@ export class CoursesService implements ICoursesService {
   }
 
   // Аналитика
-  async getCourseAnalytics(courseId: string): Promise<{
-    totalStudents: number;
-    completedStudents: number;
-    completionRate: number;
-    averageGrade: number;
-    moduleCompletion: {
-      totalModules: number;
-      completedModules: number;
-      completionRate: number;
-    };
-    lessonCompletion: {
-      totalLessons: number;
-      completedLessons: number;
-      completionRate: number;
-    };
-  }> {
+  async getCourseAnalytics(courseId: string): Promise<CourseAnalytics> {
     const cacheKey = `course:analytics:${courseId}`;
-    const cachedAnalytics = await this.cacheManager.get<any>(cacheKey);
+    const cachedAnalytics =
+      await this.cacheManager.get<CourseAnalytics>(cacheKey);
     if (cachedAnalytics) {
       console.log('Analytics found in cache:', cachedAnalytics);
       return cachedAnalytics;
@@ -399,7 +385,7 @@ export class CoursesService implements ICoursesService {
     // Агрегация данных из enrollments
     const analytics = await this.courseModel.db
       .collection('enrollments')
-      .aggregate([
+      .aggregate<CourseAnalytics>([
         { $match: { courseId: new Types.ObjectId(courseId) } },
         {
           $group: {
@@ -469,7 +455,7 @@ export class CoursesService implements ICoursesService {
       ])
       .toArray();
 
-    const result = analytics[0] || {
+    const result: CourseAnalytics = analytics[0] || {
       totalStudents: 0,
       completedStudents: 0,
       completionRate: 0,
@@ -486,14 +472,15 @@ export class CoursesService implements ICoursesService {
       },
     };
     console.log('Analytics calculated:', result);
-    await this.cacheManager.set(cacheKey, result, CACHE_TTL); // Используем настраиваемый TTL
+    await this.cacheManager.set(cacheKey, result, CACHE_TTL);
     return result;
   }
 
   async exportCourseAnalyticsToCSV(courseId: string): Promise<string> {
     const analytics = await this.getCourseAnalytics(courseId);
+    const filePath = `course_${courseId}_analytics_${Date.now()}.csv`;
     const csvWriter = createObjectCsvWriter({
-      path: `course_${courseId}_analytics_${Date.now()}.csv`,
+      path: filePath,
       header: [
         { id: 'metric', title: 'Metric' },
         { id: 'value', title: 'Value' },
@@ -535,6 +522,6 @@ export class CoursesService implements ICoursesService {
     ];
 
     await csvWriter.writeRecords(records);
-    return csvWriter.options.path;
+    return filePath; // Возвращаем путь напрямую
   }
 }
