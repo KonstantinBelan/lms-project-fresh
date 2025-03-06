@@ -1,11 +1,11 @@
 import {
   IsString,
-  IsArray,
   IsNotEmpty,
+  IsArray,
   ArrayNotEmpty,
   Validate,
 } from 'class-validator';
-import { ArrayOfArraysOfIntegers } from '../../validators/array-of-arrays.validator';
+import { ArrayOrStringValidator } from '../../validators/array-of-arrays.validator';
 
 export class SubmitQuizDto {
   @IsString()
@@ -14,6 +14,6 @@ export class SubmitQuizDto {
 
   @IsArray()
   @ArrayNotEmpty()
-  @Validate(ArrayOfArraysOfIntegers)
-  answers: number[][];
+  @Validate(ArrayOrStringValidator)
+  answers: (number[] | string)[];
 }

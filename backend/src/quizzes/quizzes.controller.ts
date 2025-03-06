@@ -31,6 +31,7 @@ export class QuizzesController {
       body.lessonId,
       body.title,
       body.questions,
+      body.timeLimit,
     );
   }
 
@@ -67,7 +68,6 @@ export class QuizzesController {
     @Param('quizId') quizId: string,
     @Body() body: SubmitQuizDto,
   ) {
-    console.log('Received body:', JSON.stringify(body)); // Отладочный вывод
     return this.quizzesService.submitQuiz(body.studentId, quizId, body.answers);
   }
 
@@ -77,5 +77,11 @@ export class QuizzesController {
     @Param('studentId') studentId: string,
   ) {
     return this.quizzesService.getQuizSubmission(quizId, studentId);
+  }
+
+  @Get(':quizId/hints')
+  @SetMetadata('roles', [Role.STUDENT])
+  async getQuizHints(@Param('quizId') quizId: string) {
+    return this.quizzesService.getQuizHints(quizId);
   }
 }

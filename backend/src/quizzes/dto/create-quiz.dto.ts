@@ -6,6 +6,7 @@ import {
   Min,
   Max,
   IsOptional,
+  IsNumber,
 } from 'class-validator';
 
 export class QuizQuestionDto {
@@ -13,21 +14,31 @@ export class QuizQuestionDto {
   @IsNotEmpty()
   question: string;
 
+  @IsOptional()
   @IsArray()
   @IsString({ each: true })
   @IsNotEmpty({ each: true })
-  options: string[];
+  options?: string[];
 
+  @IsOptional()
   @IsArray()
   @IsInt({ each: true })
   @Min(0, { each: true })
   @Max(999, { each: true })
-  correctAnswers: number[];
+  correctAnswers?: number[];
+
+  @IsOptional()
+  @IsString()
+  correctTextAnswer?: string;
 
   @IsOptional()
   @IsInt()
   @Min(1)
   weight?: number = 1;
+
+  @IsOptional()
+  @IsString()
+  hint?: string;
 }
 
 export class CreateQuizDto {
@@ -42,4 +53,9 @@ export class CreateQuizDto {
   @IsArray()
   @IsNotEmpty()
   questions: QuizQuestionDto[];
+
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  timeLimit?: number;
 }

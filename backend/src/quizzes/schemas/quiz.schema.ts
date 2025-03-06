@@ -4,6 +4,27 @@ import { Document, Types } from 'mongoose';
 export type QuizDocument = Quiz & Document;
 
 @Schema()
+export class QuizQuestion {
+  @Prop({ required: true })
+  question: string;
+
+  @Prop({ type: [String], required: false }) // Опционально для множественного выбора
+  options?: string[];
+
+  @Prop({ type: [Number], required: false }) // Опционально для множественного выбора
+  correctAnswers?: number[];
+
+  @Prop({ type: String, required: false }) // Опционально для текстового ответа
+  correctTextAnswer?: string;
+
+  @Prop({ default: 1 })
+  weight: number;
+
+  @Prop({ type: String, required: false }) // Опциональная подсказка
+  hint?: string;
+}
+
+@Schema()
 export class Quiz {
   @Prop({ type: Types.ObjectId, ref: 'Lesson', required: true })
   lessonId: Types.ObjectId;
@@ -11,23 +32,11 @@ export class Quiz {
   @Prop({ required: true })
   title: string;
 
-  @Prop({
-    type: [
-      {
-        question: { type: String, required: true },
-        options: { type: [String], required: true },
-        correctAnswers: { type: [Number], required: true }, // Массив правильных ответов
-        weight: { type: Number, default: 1 }, // Вес вопроса
-      },
-    ],
-    required: true,
-  })
-  questions: {
-    question: string;
-    options: string[];
-    correctAnswers: number[];
-    weight: number;
-  }[];
+  @Prop({ type: [QuizQuestion], required: true })
+  questions: QuizQuestion[];
+
+  @Prop({ type: Number, required: false }) // Опциональный таймер в минутах
+  timeLimit?: number;
 }
 
 export const QuizSchema = SchemaFactory.createForClass(Quiz);

@@ -11,11 +11,11 @@ export class QuizSubmission {
   @Prop({ type: Types.ObjectId, ref: 'User', required: true })
   studentId: Types.ObjectId;
 
-  @Prop({ type: [[Number]], required: true }) // Массив массивов ответов
-  answers: number[][];
+  @Prop({ type: [Schema.Types.Mixed], required: true }) // Поддержка number[] или string
+  answers: (number[] | string)[];
 
   @Prop({ required: true })
-  score: number; // Оценка в процентах (0-100)
+  score: number;
 
   @Prop({ type: Date, default: Date.now })
   submittedAt: Date;
@@ -23,4 +23,4 @@ export class QuizSubmission {
 
 export const QuizSubmissionSchema =
   SchemaFactory.createForClass(QuizSubmission);
-QuizSubmissionSchema.index({ quizId: 1, studentId: 1 }, { unique: true }); // Уникальность для пары quizId-studentId
+QuizSubmissionSchema.index({ quizId: 1, studentId: 1 }, { unique: true });

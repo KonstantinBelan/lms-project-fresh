@@ -34,15 +34,19 @@ export class QuizzesService {
     title: string,
     questions: {
       question: string;
-      options: string[];
-      correctAnswers: number[];
+      options?: string[];
+      correctAnswers?: number[];
+      correctTextAnswer?: string;
       weight?: number;
+      hint?: string;
     }[],
+    timeLimit?: number,
   ): Promise<Quiz> {
     const quiz = new this.quizModel({
       lessonId: new Types.ObjectId(lessonId),
       title,
       questions,
+      timeLimit,
     });
     const savedQuiz = await quiz.save();
     return savedQuiz.toObject();
@@ -77,10 +81,13 @@ export class QuizzesService {
       title?: string;
       questions?: {
         question: string;
-        options: string[];
-        correctAnswers: number[];
+        options?: string[];
+        correctAnswers?: number[];
+        correctTextAnswer?: string;
         weight?: number;
+        hint?: string;
       }[];
+      timeLimit?: number;
     },
   ): Promise<Quiz | null> {
     const quiz = await this.quizModel
@@ -106,7 +113,7 @@ export class QuizzesService {
   async submitQuiz(
     studentId: string,
     quizId: string,
-    answers: number[][],
+    answers: (number[] | string)[],
   ): Promise<QuizSubmission> {
     const existingSubmission = await this.quizSubmissionModel
       .findOne({
@@ -122,17 +129,50 @@ export class QuizzesService {
     const quiz = await this.findQuizById(quizId);
     if (!quiz) throw new BadRequestException('Quiz not found');
 
+    // Проверка таймера
+    if (quiz.timeLimit) {
+      const quizStartTime = await this.cacheManager.get<number>(
+        `quiz:start:${quizId}:${studentId}`,
+      );
+      const now = Date.now();
+      if (!quizStartTime) {
+        // Если студент ещё не начал квиз, устанавливаем время начала
+        await this.cacheManager.set(
+          `quiz:start:${quizId}:${studentId}`,
+          now,
+          quiz.timeLimit * 60 * 1000,
+        );
+      } else {
+        const elapsedTime = (now - quizStartTime) / (1000 * 60); // В минутах
+        if (elapsedTime > quiz.timeLimit) {
+          throw new BadRequestException('Time limit exceeded');
+        }
+      }
+    }
+
+    // Подсчёт баллов
     let totalScore = 0;
     let maxScore = 0;
     quiz.questions.forEach((q, index) => {
-      const studentAnswers = answers[index] || [];
-      const isCorrect =
-        q.correctAnswers.length === studentAnswers.length &&
-        q.correctAnswers.every((answer) => studentAnswers.includes(answer));
+      const studentAnswer = answers[index];
+      let isCorrect = false;
+
+      if (q.correctAnswers && Array.isArray(studentAnswer)) {
+        // Множественный выбор
+        isCorrect =
+          q.correctAnswers.length === studentAnswer.length &&
+          q.correctAnswers.every((answer) => studentAnswer.includes(answer));
+      } else if (q.correctTextAnswer && typeof studentAnswer === 'string') {
+        // Текстовый ответ (регистронезависимое сравнение)
+        isCorrect =
+          q.correctTextAnswer.trim().toLowerCase() ===
+          studentAnswer.trim().toLowerCase();
+      }
+
       totalScore += isCorrect ? q.weight : 0;
       maxScore += q.weight;
     });
-    const score = (totalScore / maxScore) * 100;
+    const score = maxScore > 0 ? (totalScore / maxScore) * 100 : 0;
 
     const submission = new this.quizSubmissionModel({
       quizId: new Types.ObjectId(quizId),
@@ -169,6 +209,11 @@ export class QuizzesService {
       quiz.lessonId.toString(),
     );
 
+    // Очищаем таймер после успешной отправки
+    if (quiz.timeLimit) {
+      await this.cacheManager.del(`quiz:start:${quizId}:${studentId}`);
+    }
+
     return savedSubmission.toObject();
   }
 
@@ -183,5 +228,14 @@ export class QuizzesService {
       })
       .lean()
       .exec();
+  }
+
+  // Новый метод для получения подсказок
+  async getQuizHints(
+    quizId: string,
+  ): Promise<{ question: string; hint?: string }[]> {
+    const quiz = await this.findQuizById(quizId);
+    if (!quiz) throw new BadRequestException('Quiz not found');
+    return quiz.questions.map((q) => ({ question: q.question, hint: q.hint }));
   }
 }
