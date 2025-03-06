@@ -21,6 +21,7 @@ export class AuthService {
 
   async validateUser(email: string, pass: string): Promise<any> {
     console.log('Validating user:', { email, pass });
+    console.log('Raw password bytes:', Buffer.from(pass, 'utf8')); // Лог байтов пароля
     console.log('Bcrypt version:', bcrypt.version);
     const user = await this.usersService.findByEmail(email);
     console.log('User found:', user);
@@ -34,6 +35,7 @@ export class AuthService {
     console.log('Password comparison result (detailed):', {
       match: passwordMatch,
       input: pass,
+      inputLength: pass.length,
       stored: user.password,
     });
 
@@ -69,39 +71,17 @@ export class AuthService {
     email: string,
     password: string,
   ): Promise<{ access_token: string }> {
-    console.log('Login attempt:', { email, password }); // Лог входных данных
-    const user = await this.usersService.findByEmail(email);
-    console.log('User retrieved:', user);
-
-    if (!user) {
-      console.error('User not found in login:', { email });
+    console.log('Login attempt:', { email, password });
+    const validatedUser = await this.validateUser(email, password);
+    if (!validatedUser) {
+      console.error('Validation failed for:', { email });
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    if (!user.password) {
-      console.error('Password missing for user:', { email, user });
-      throw new UnauthorizedException('Invalid credentials');
-    }
-
-    const passwordMatch = await bcrypt.compare(password, user.password);
-    console.log('Password match result:', {
-      match: passwordMatch,
-      input: password,
-      stored: user.password,
-    });
-
-    if (!passwordMatch) {
-      console.error('Password mismatch:', {
-        email,
-        input: password,
-        stored: user.password,
-      });
-      throw new UnauthorizedException('Invalid credentials');
-    }
-
+    // Используем validatedUser, который уже проверен и не содержит пароль
     const payload = {
-      sub: (user._id as Types.ObjectId).toString(),
-      roles: user.roles,
+      sub: (validatedUser._id as Types.ObjectId).toString(),
+      roles: validatedUser.roles,
     };
     console.log('Generating token with payload:', payload);
     return { access_token: this.jwtService.sign(payload) };
