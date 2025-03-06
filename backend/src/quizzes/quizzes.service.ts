@@ -108,7 +108,7 @@ export class QuizzesService {
       .lean()
       .exec();
     if (existingSubmission) {
-      throw new BadRequestException('You have already submitted this quiz'); // Заменяем Error на BadRequestException
+      throw new BadRequestException('You have already submitted this quiz');
     }
 
     const quiz = await this.findQuizById(quizId);
@@ -131,19 +131,23 @@ export class QuizzesService {
     const lesson = await this.lessonModel.findById(quiz.lessonId).lean().exec();
     if (!lesson) throw new BadRequestException('Lesson not found');
 
+    // Находим курс, содержащий урок в modules.lessons
     const course = await this.courseModel
-      .findOne({ modules: { $exists: true } })
-      .populate('modules')
+      .findOne({ 'modules.lessons': quiz.lessonId }) // Ищем курс по уроку
+      .populate('modules') // Загружаем модули
       .lean()
       .exec();
     if (!course)
       throw new BadRequestException('Course not found for this lesson');
 
-    const module = (course.modules as any[]).find((mod) =>
-      mod.lessons.some(
-        (lessonId: Types.ObjectId) =>
-          lessonId.toString() === quiz.lessonId.toString(),
-      ),
+    // Находим модуль, содержащий урок
+    const module = (course.modules as any[]).find(
+      (mod) =>
+        mod.lessons &&
+        mod.lessons.some(
+          (lessonId: Types.ObjectId) =>
+            lessonId.toString() === quiz.lessonId.toString(),
+        ),
     );
     if (!module)
       throw new BadRequestException('Module not found for this lesson');
