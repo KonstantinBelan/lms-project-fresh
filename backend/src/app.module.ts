@@ -15,6 +15,8 @@ import { CacheModule } from '@nestjs/cache-manager'; // Импортируем C
 import { cacheManagerConfig } from './cache.config'; // Создаём конфигурацию кэша (см. ниже)
 import { RealTimeAnalyticsModule } from './real-time-analytics/real-time-analytics.module'; // Убедимся, что путь корректен
 import { AdminModule } from './admin/admin.module';
+import { QuizzesModule } from './quizzes/quizzes.module';
+
 import {
   Homework,
   HomeworkDocument,
@@ -44,6 +46,7 @@ import { Types } from 'mongoose';
     CacheModule.register(cacheManagerConfig),
     RealTimeAnalyticsModule,
     AdminModule,
+    QuizzesModule,
   ],
   controllers: [AppController],
   providers: [AppService],
@@ -63,6 +66,7 @@ export class AppModule implements OnModuleInit {
       'CacheModule.register(cacheManagerConfig)',
       'RealTimeAnalyticsModule',
       'AdminModule',
+      'QuizzesModule',
     ]);
   }
 
