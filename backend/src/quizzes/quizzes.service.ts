@@ -96,10 +96,20 @@ export class QuizzesService {
     quizId: string,
     answers: number[],
   ): Promise<QuizSubmission> {
+    const existingSubmission = await this.quizSubmissionModel
+      .findOne({
+        quizId: new Types.ObjectId(quizId),
+        studentId: new Types.ObjectId(studentId),
+      })
+      .lean()
+      .exec();
+    if (existingSubmission) {
+      throw new Error('You have already submitted this quiz');
+    }
+
     const quiz = await this.findQuizById(quizId);
     if (!quiz) throw new Error('Quiz not found');
 
-    // Подсчёт оценки
     let correctCount = 0;
     quiz.questions.forEach((q, index) => {
       if (answers[index] === q.correctAnswer) correctCount++;
@@ -114,10 +124,16 @@ export class QuizzesService {
     });
     const savedSubmission = await submission.save();
 
-    // Обновляем прогресс студента
+    const lesson = await this.lessonModel.findById(quiz.lessonId).lean().exec();
+    const course = await this.courseModel
+      .findOne({ 'modules.lessons': quiz.lessonId })
+      .lean()
+      .exec();
+    if (!course) throw new Error('Course not found for this lesson');
+
     await this.enrollmentsService.updateStudentProgress(
       studentId,
-      quiz.lessonId.toString(),
+      course._id.toString(),
       null,
       quiz.lessonId.toString(),
     );

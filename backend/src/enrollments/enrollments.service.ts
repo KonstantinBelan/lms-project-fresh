@@ -249,7 +249,7 @@ export class EnrollmentsService implements IEnrollmentsService {
   async updateStudentProgress(
     studentId: string,
     courseId: string,
-    moduleId: string,
+    moduleId: string | null,
     lessonId: string,
   ): Promise<EnrollmentDocument | null> {
     const cacheKey = `enrollment:student:${studentId}:course:${courseId}`;

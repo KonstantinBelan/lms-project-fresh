@@ -18,7 +18,7 @@ async function bootstrap() {
   }
 
   const config = new DocumentBuilder()
-    .setTitle('LMS API')
+    .setTitle('Deasy LMS API')
     .setDescription(
       'API для управления курсами, зачислениями и домашними заданиями',
     )

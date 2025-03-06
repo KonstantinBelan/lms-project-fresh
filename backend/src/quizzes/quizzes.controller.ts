@@ -8,32 +8,25 @@ import {
   Body,
   UseGuards,
   SetMetadata,
+  UsePipes,
+  ValidationPipe,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { QuizzesService } from './quizzes.service';
 import { Role } from '../auth/roles.enum';
 import { RolesGuard } from '../auth/guards/roles.guard';
+import { CreateQuizDto } from './dto/create-quiz.dto';
+import { SubmitQuizDto } from './dto/submit-quiz.dto';
 
 @Controller('quizzes')
-// @UseGuards(JwtAuthGuard, RolesGuard)
 @UseGuards(AuthGuard('jwt'), RolesGuard)
 export class QuizzesController {
   constructor(private quizzesService: QuizzesService) {}
 
   @Post()
   @SetMetadata('roles', [Role.ADMIN, Role.TEACHER])
-  async createQuiz(
-    @Body()
-    body: {
-      lessonId: string;
-      title: string;
-      questions: {
-        question: string;
-        options: string[];
-        correctAnswer: number;
-      }[];
-    },
-  ) {
+  @UsePipes(new ValidationPipe({ transform: true }))
+  async createQuiz(@Body() body: CreateQuizDto) {
     return this.quizzesService.createQuiz(
       body.lessonId,
       body.title,
@@ -53,17 +46,10 @@ export class QuizzesController {
 
   @Put(':quizId')
   @SetMetadata('roles', [Role.ADMIN, Role.TEACHER])
+  @UsePipes(new ValidationPipe({ transform: true }))
   async updateQuiz(
     @Param('quizId') quizId: string,
-    @Body()
-    body: {
-      title?: string;
-      questions?: {
-        question: string;
-        options: string[];
-        correctAnswer: number;
-      }[];
-    },
+    @Body() body: Partial<CreateQuizDto>,
   ) {
     return this.quizzesService.updateQuiz(quizId, body);
   }
@@ -76,9 +62,10 @@ export class QuizzesController {
 
   @Post(':quizId/submit')
   @SetMetadata('roles', [Role.STUDENT])
+  @UsePipes(new ValidationPipe({ transform: true }))
   async submitQuiz(
     @Param('quizId') quizId: string,
-    @Body() body: { studentId: string; answers: number[] },
+    @Body() body: SubmitQuizDto,
   ) {
     return this.quizzesService.submitQuiz(body.studentId, quizId, body.answers);
   }

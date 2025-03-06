@@ -18,8 +18,6 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 
 // Настраиваемый TTL кэша (в секундах)
-// const CACHE_TTL = 3600; // 1 час по умолчанию
-// const CSV_EXPIRY_DAYS = 90; // Срок хранения файлов в днях
 const CACHE_TTL = parseInt(process.env.CACHE_TTL ?? '3600', 10); // 1 час по умолчанию
 const CSV_EXPIRY_DAYS = parseInt(process.env.CSV_EXPIRY_DAYS ?? '90', 10); // Срок хранения файлов в днях
 
