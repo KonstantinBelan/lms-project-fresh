@@ -73,7 +73,8 @@ export class UsersController {
   @Delete(':id')
   @SetMetadata('roles', [Role.ADMIN])
   async delete(@Param('id') id: string) {
-    return this.usersService.deleteUser(id); // Нужно добавить метод в сервис
+    await this.usersService.deleteUser(id); // Теперь метод существует
+    return { message: 'User deleted' };
   }
 
   // @Get()

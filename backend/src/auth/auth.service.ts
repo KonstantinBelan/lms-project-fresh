@@ -1,7 +1,7 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { UsersService } from '../users/users.service';
-import { User } from '../users/schemas/user.schema';
+import { User, UserDocument } from '../users/schemas/user.schema';
 import { Role } from './roles.enum';
 import * as bcrypt from 'bcrypt';
 import * as nodemailer from 'nodemailer';
@@ -75,7 +75,7 @@ export class AuthService {
     email: string,
     password: string,
   ): Promise<{ access_token: string }> {
-    const user = await this.usersService.findByEmail(email);
+    const user = (await this.usersService.findByEmail(email)) as UserDocument; // Явно указываем тип
     if (!user || !(await bcrypt.compare(password, user.password))) {
       throw new UnauthorizedException('Invalid credentials');
     }
@@ -89,18 +89,22 @@ export class AuthService {
     name?: string,
   ): Promise<UserDocument> {
     const hashedPassword = await bcrypt.hash(password, 10);
-    return this.usersService.create({ email, password: hashedPassword, name });
+    return this.usersService.create({
+      email,
+      password: hashedPassword,
+      name,
+    }) as UserDocument; // Явно указываем тип
   }
 
   async generateResetToken(email: string): Promise<string> {
-    const user = await this.usersService.findByEmail(email);
+    const user = (await this.usersService.findByEmail(email)) as UserDocument; // Явно указываем тип
     if (!user) throw new UnauthorizedException('User not found');
     const token = Math.random().toString(36).slice(-8);
     await this.usersService.updateUser(user._id.toString(), {
       settings: {
         notifications: user.settings?.notifications ?? true,
         language: user.settings?.language ?? 'en',
-        resetToken: token,
+        resetToken: token, // Добавляем resetToken как опциональное поле
       },
     });
     await this.transporter.sendMail({
@@ -116,7 +120,7 @@ export class AuthService {
     token: string,
     newPassword: string,
   ): Promise<void> {
-    const user = await this.usersService.findByEmail(email);
+    const user = (await this.usersService.findByEmail(email)) as UserDocument; // Явно указываем тип
     if (!user || user.settings?.resetToken !== token)
       throw new UnauthorizedException('Invalid token');
     const hashedPassword = await bcrypt.hash(newPassword, 10);
@@ -125,7 +129,7 @@ export class AuthService {
       settings: {
         notifications: user.settings?.notifications ?? true,
         language: user.settings?.language ?? 'en',
-        resetToken: undefined,
+        resetToken: undefined, // Удаляем resetToken
       },
     });
   }

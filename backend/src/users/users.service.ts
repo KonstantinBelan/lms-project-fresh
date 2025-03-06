@@ -130,4 +130,10 @@ export class UsersService implements IUsersService {
     }
     return this.userModel.findByIdAndUpdate(id, update, { new: true }).exec();
   }
+
+  async deleteUser(id: string): Promise<void> {
+    await this.userModel.findByIdAndDelete(id).exec();
+    await this.cacheManager.del(`user:${id}`);
+    await this.cacheManager.del('users:all');
+  }
 }

@@ -26,16 +26,16 @@ export class User {
   phone?: string;
 
   @Prop({})
-  avatar?: string; // URL аватара
+  avatar?: string;
 
   @Prop({
-    type: { notifications: Boolean, language: String },
-    default: { notifications: true, language: 'en' },
+    type: { notifications: Boolean, language: String, resetToken: String },
+    default: { notifications: true, language: 'en', resetToken: undefined },
   })
-  settings?: { notifications: boolean; language: string }; // Настройки пользователя
+  settings?: { notifications: boolean; language: string; resetToken?: string }; // resetToken опционально
 
   @Prop({ type: [{ type: Types.ObjectId, ref: 'Group' }] })
-  groups?: Types.ObjectId[]; // Ссылки на группы
+  groups?: Types.ObjectId[];
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);
