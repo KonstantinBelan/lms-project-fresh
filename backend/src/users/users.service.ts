@@ -3,14 +3,13 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { User, UserDocument } from './schemas/user.schema';
 import * as bcrypt from 'bcrypt';
-import { IUsersService } from './users.service.interface';
-import { Role } from '../auth/roles.enum'; // Импортируем Role
-import { CACHE_MANAGER } from '@nestjs/cache-manager'; // Импортируем CACHE_MANAGER
-import { Cache } from 'cache-manager'; // Импортируем Cache
+import { Role } from '../auth/roles.enum';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { Cache } from 'cache-manager';
 import { Types } from 'mongoose';
 
 @Injectable()
-export class UsersService implements IUsersService {
+export class UsersService {
   constructor(
     @InjectModel(User.name) private userModel: Model<UserDocument>,
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
@@ -38,12 +37,12 @@ export class UsersService implements IUsersService {
       roles: roles || [Role.STUDENT],
       name,
     });
-    return newUser.save();
+    const savedUser = await newUser.save();
+    return savedUser.toObject(); // Преобразуем в обычный объект, чтобы соответствовать .lean()
   }
 
   async findById(id: string): Promise<User | null> {
     console.log('Finding user by ID:', { id });
-
     const cacheKey = `user:${id}`;
     const cachedUser = await this.cacheManager.get<User>(cacheKey);
     if (cachedUser) {
@@ -51,10 +50,10 @@ export class UsersService implements IUsersService {
       return cachedUser;
     }
 
-    const objectId = new Types.ObjectId(id); // Явно создаём ObjectId из строки
+    const objectId = new Types.ObjectId(id);
     const user = await this.userModel.findById(objectId).lean().exec();
     console.log('User found in DB:', user);
-    if (user) await this.cacheManager.set(cacheKey, user, 3600); // Кэшируем на 1 час
+    if (user) await this.cacheManager.set(cacheKey, user, 3600);
     return user;
   }
 
@@ -67,13 +66,9 @@ export class UsersService implements IUsersService {
       return cachedUser;
     }
 
-    const user = await this.userModel
-      .findOne({ email })
-      // .select('+password')
-      .lean()
-      .exec();
+    const user = await this.userModel.findOne({ email }).lean().exec();
     console.log('User found in DB:', user);
-    if (user) await this.cacheManager.set(cacheKey, user, 3600); // Кэшируем на 1 час
+    if (user) await this.cacheManager.set(cacheKey, user, 3600);
     return user;
   }
 
@@ -87,7 +82,7 @@ export class UsersService implements IUsersService {
 
     const users = await this.userModel.find().lean().exec();
     console.log('Users found in DB:', users);
-    await this.cacheManager.set(cacheKey, users, 3600); // Кэшируем на 1 час
+    await this.cacheManager.set(cacheKey, users, 3600);
     return users;
   }
 
@@ -103,22 +98,26 @@ export class UsersService implements IUsersService {
         language: string;
         resetToken?: string;
       };
-      groups?: { $addToSet?: string; $pull?: string }; // Добавляем поддержку операторов MongoDB
+      groups?: { $addToSet?: string; $pull?: string };
     },
-  ): Promise<UserDocument | null> {
-    const update = {};
-    if (updateData.password) update['password'] = updateData.password;
-    if (updateData.name) update['name'] = updateData.name;
-    if (updateData.phone) update['phone'] = updateData.phone;
-    if (updateData.roles) update['roles'] = updateData.roles;
-    if (updateData.settings) update['settings'] = updateData.settings;
+  ): Promise<User | null> {
+    // Изменяем тип возврата на User для .lean()
+    const update: any = {};
+    if (updateData.password) update.password = updateData.password;
+    if (updateData.name) update.name = updateData.name;
+    if (updateData.phone) update.phone = updateData.phone;
+    if (updateData.roles) update.roles = updateData.roles;
+    if (updateData.settings) update.settings = updateData.settings;
     if (updateData.groups) {
       if (updateData.groups.$addToSet)
-        update['$addToSet'] = { groups: updateData.groups.$addToSet };
+        update.$addToSet = { groups: updateData.groups.$addToSet };
       if (updateData.groups.$pull)
-        update['$pull'] = { groups: updateData.groups.$pull };
+        update.$pull = { groups: updateData.groups.$pull };
     }
-    return this.userModel.findByIdAndUpdate(id, update, { new: true }).exec();
+    return this.userModel
+      .findByIdAndUpdate(id, update, { new: true })
+      .lean()
+      .exec(); // Используем .lean()
   }
 
   async deleteUser(id: string): Promise<void> {

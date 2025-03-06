@@ -6,7 +6,6 @@ import {
   UsePipes,
   ValidationPipe,
 } from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
 import { AuthService } from './auth.service';
 import { Role } from './roles.enum';
 import { CreateUserDto } from '../users/dto/create-user.dto';
@@ -14,21 +13,6 @@ import { CreateUserDto } from '../users/dto/create-user.dto';
 @Controller('auth')
 export class AuthController {
   constructor(private authService: AuthService) {}
-
-  // @Post('login')
-  // async login(@Body() loginDto: { email: string; password: string }) {
-  //   console.log('Login attempt:', loginDto);
-  //   const user = await this.authService.validateUser(
-  //     loginDto.email,
-  //     loginDto.password,
-  //   );
-  //   console.log('Login request body:', JSON.stringify(loginDto, null, 2));
-  //   if (!user) {
-  //     console.error('Login failed: Invalid credentials for', loginDto.email);
-  //     throw new Error('Invalid credentials');
-  //   }
-  //   return this.authService.login(user);
-  // }
 
   @Post('login')
   async login(
@@ -41,12 +25,15 @@ export class AuthController {
   async register(
     @Body() body: { email: string; password: string; name?: string },
   ): Promise<{ message: string; userId: string }> {
-    const user = (await this.authService.register(
+    const user = await this.authService.register(
       body.email,
       body.password,
       body.name,
-    )) as UserDocument; // Указываем тип
-    return { message: 'User registered', userId: user._id.toString() };
+    ); // Убираем приведение к UserDocument
+    return {
+      message: 'User registered',
+      userId: (user._id as Types.ObjectId).toString(),
+    }; // Явно указываем _id как Types.ObjectId
   }
 
   @Post('forgot-password')
@@ -71,7 +58,15 @@ export class AuthController {
 
   @Post('signup')
   @UsePipes(new ValidationPipe())
-  async signup(@Body() createUserDto: CreateUserDto) {
+  async signup(
+    @Body()
+    createUserDto: {
+      email: string;
+      password: string;
+      roles?: Role[];
+      name?: string;
+    },
+  ) {
     console.log('Signing up user:', createUserDto);
     return this.authService.signUp(
       createUserDto.email,

@@ -1,11 +1,11 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { UsersService } from '../users/users.service';
-import { User } from '../users/schemas/user.schema';
-import { UserDocument } from '../users/schemas/user.schema';
+import { User } from '../users/schemas/user.schema'; // Используем User для lean()
 import { Role } from './roles.enum';
 import * as bcrypt from 'bcrypt';
 import * as nodemailer from 'nodemailer';
+import { Types } from 'mongoose';
 
 @Injectable()
 export class AuthService {
@@ -65,22 +65,18 @@ export class AuthService {
     return newUser;
   }
 
-  // async login(user: any) {
-  //   console.log('Logging in user:', user); // Логируем user для диагностики
-  //   const payload = { email: user.email, sub: user._id, roles: user.roles };
-  //   return {
-  //     access_token: this.jwtService.sign(payload),
-  //   };
-  // }
   async login(
     email: string,
     password: string,
   ): Promise<{ access_token: string }> {
-    const user = (await this.usersService.findByEmail(email)) as UserDocument; // Приведение к UserDocument
+    const user = await this.usersService.findByEmail(email); // User из-за .lean()
     if (!user || !(await bcrypt.compare(password, user.password))) {
       throw new UnauthorizedException('Invalid credentials');
     }
-    const payload = { sub: user._id.toString(), roles: user.roles };
+    const payload = {
+      sub: (user._id as Types.ObjectId).toString(),
+      roles: user.roles,
+    }; // Явно указываем _id как Types.ObjectId
     return { access_token: this.jwtService.sign(payload) };
   }
 
@@ -88,27 +84,30 @@ export class AuthService {
     email: string,
     password: string,
     name?: string,
-  ): Promise<UserDocument> {
+  ): Promise<User> {
     const hashedPassword = await bcrypt.hash(password, 10);
     const user = await this.usersService.create({
       email,
       password: hashedPassword,
       name,
-    }); // Без приведения, т.к. create возвращает UserDocument
+    }); // Возвращаем User
     return user;
   }
 
   async generateResetToken(email: string): Promise<string> {
-    const user = (await this.usersService.findByEmail(email)) as UserDocument;
+    const user = await this.usersService.findByEmail(email); // User из-за .lean()
     if (!user) throw new UnauthorizedException('User not found');
     const token = Math.random().toString(36).slice(-8);
-    await this.usersService.updateUser(user._id.toString(), {
-      settings: {
-        notifications: user.settings?.notifications ?? true,
-        language: user.settings?.language ?? 'en',
-        resetToken: token,
+    await this.usersService.updateUser(
+      (user._id as Types.ObjectId).toString(),
+      {
+        settings: {
+          notifications: user.settings?.notifications ?? true,
+          language: user.settings?.language ?? 'en',
+          resetToken: token,
+        },
       },
-    });
+    );
     await this.transporter.sendMail({
       to: email,
       subject: 'Password Reset',
@@ -122,17 +121,21 @@ export class AuthService {
     token: string,
     newPassword: string,
   ): Promise<void> {
-    const user = (await this.usersService.findByEmail(email)) as UserDocument;
-    if (!user || user.settings?.resetToken !== token)
+    const user = await this.usersService.findByEmail(email); // User из-за .lean()
+    if (!user || user.settings?.resetToken !== token) {
       throw new UnauthorizedException('Invalid token');
+    }
     const hashedPassword = await bcrypt.hash(newPassword, 10);
-    await this.usersService.updateUser(user._id.toString(), {
-      password: hashedPassword,
-      settings: {
-        notifications: user.settings?.notifications ?? true,
-        language: user.settings?.language ?? 'en',
-        resetToken: undefined,
+    await this.usersService.updateUser(
+      (user._id as Types.ObjectId).toString(),
+      {
+        password: hashedPassword,
+        settings: {
+          notifications: user.settings?.notifications ?? true,
+          language: user.settings?.language ?? 'en',
+          resetToken: undefined,
+        },
       },
-    });
+    );
   }
 }
