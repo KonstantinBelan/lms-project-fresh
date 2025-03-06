@@ -10,6 +10,7 @@ import {
   ValidationPipe,
   UseGuards,
   SetMetadata,
+  Res,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -20,6 +21,7 @@ import { CreateModuleDto } from './dto/create-module.dto';
 import { CreateLessonDto } from './dto/create-lesson.dto';
 import { BatchCourseDto } from './dto/batch-course.dto';
 import { Role } from '../auth/roles.enum';
+import { Response } from 'express';
 
 @Controller('courses')
 export class CoursesController {
@@ -191,5 +193,22 @@ export class CoursesController {
     @Param('lessonId') lessonId: string,
   ) {
     return this.coursesService.deleteLesson(courseId, moduleId, lessonId);
+  }
+
+  @Get(':courseId/analytics')
+  @SetMetadata('roles', [Role.ADMIN, Role.TEACHER])
+  async getCourseAnalytics(@Param('courseId') courseId: string) {
+    return this.coursesService.getCourseAnalytics(courseId);
+  }
+
+  @Get(':courseId/export/csv')
+  @SetMetadata('roles', [Role.ADMIN, Role.TEACHER])
+  async exportCourseAnalytics(
+    @Param('courseId') courseId: string,
+    @Res() res: Response,
+  ) {
+    const filePath =
+      await this.coursesService.exportCourseAnalyticsToCSV(courseId);
+    res.download(filePath);
   }
 }

@@ -13,6 +13,7 @@ import { BatchCourseDto } from './dto/batch-course.dto';
 import { Types } from 'mongoose';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
+import { createObjectCsvWriter } from 'csv-writer';
 
 @Injectable()
 export class CoursesService implements ICoursesService {
@@ -358,5 +359,81 @@ export class CoursesService implements ICoursesService {
     await this.lessonModel.findByIdAndDelete(lessonId).exec();
     await this.cacheManager.del(`module:${moduleId}`);
     await this.cacheManager.del(`course:${courseId}`);
+  }
+
+  async getCourseAnalytics(courseId: string): Promise<{
+    totalStudents: number;
+    completedStudents: number;
+    completionRate: number;
+    averageGrade: number;
+  }> {
+    const cacheKey = `course:analytics:${courseId}`;
+    const cachedAnalytics = await this.cacheManager.get<any>(cacheKey);
+    if (cachedAnalytics) {
+      console.log('Analytics found in cache:', cachedAnalytics);
+      return cachedAnalytics;
+    }
+
+    const analytics = await this.courseModel.db
+      .collection('enrollments')
+      .aggregate([
+        { $match: { courseId: new Types.ObjectId(courseId) } },
+        {
+          $group: {
+            _id: '$courseId',
+            totalStudents: { $sum: 1 },
+            completedStudents: { $sum: { $cond: ['$isCompleted', 1, 0] } },
+            averageGrade: { $avg: '$grade' },
+          },
+        },
+        {
+          $project: {
+            totalStudents: 1,
+            completedStudents: 1,
+            averageGrade: { $ifNull: ['$averageGrade', 0] },
+            completionRate: {
+              $multiply: [
+                { $divide: ['$completedStudents', '$totalStudents'] },
+                100,
+              ],
+            },
+          },
+        },
+      ])
+      .toArray();
+
+    const result = analytics[0] || {
+      totalStudents: 0,
+      completedStudents: 0,
+      completionRate: 0,
+      averageGrade: 0,
+    };
+    console.log('Analytics calculated:', result);
+    await this.cacheManager.set(cacheKey, result, 3600); // Кэшируем на 1 час
+    return result;
+  }
+
+  async exportCourseAnalyticsToCSV(courseId: string): Promise<string> {
+    const analytics = await this.getCourseAnalytics(courseId);
+    const csvWriter = createObjectCsvWriter({
+      path: `course_${courseId}_analytics_${Date.now()}.csv`,
+      header: [
+        { id: 'metric', title: 'Metric' },
+        { id: 'value', title: 'Value' },
+      ],
+    });
+
+    const records = [
+      { metric: 'Total Students', value: analytics.totalStudents },
+      { metric: 'Completed Students', value: analytics.completedStudents },
+      {
+        metric: 'Completion Rate (%)',
+        value: analytics.completionRate.toFixed(2),
+      },
+      { metric: 'Average Grade', value: analytics.averageGrade.toFixed(2) },
+    ];
+
+    await csvWriter.writeRecords(records);
+    return csvWriter.options.path; // Возвращаем путь к файлу
   }
 }
