@@ -15,6 +15,10 @@ import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 import { createObjectCsvWriter } from 'csv-writer';
 
+// Настраиваемый TTL кэша (в секундах)
+const CACHE_TTL = 3600; // 1 час по умолчанию
+// const CACHE_TTL = parseInt(process.env.CACHE_TTL, 10) || 3600; // 1 час по умолчанию
+
 @Injectable()
 export class CoursesService implements ICoursesService {
   private readonly logger = new Logger(CoursesService.name);
@@ -361,11 +365,22 @@ export class CoursesService implements ICoursesService {
     await this.cacheManager.del(`course:${courseId}`);
   }
 
+  // Аналитика
   async getCourseAnalytics(courseId: string): Promise<{
     totalStudents: number;
     completedStudents: number;
     completionRate: number;
     averageGrade: number;
+    moduleCompletion: {
+      totalModules: number;
+      completedModules: number;
+      completionRate: number;
+    };
+    lessonCompletion: {
+      totalLessons: number;
+      completedLessons: number;
+      completionRate: number;
+    };
   }> {
     const cacheKey = `course:analytics:${courseId}`;
     const cachedAnalytics = await this.cacheManager.get<any>(cacheKey);
@@ -374,6 +389,14 @@ export class CoursesService implements ICoursesService {
       return cachedAnalytics;
     }
 
+    // Подсчёт общего количества модулей и уроков в курсе
+    const course = await this.courseModel.findById(courseId).lean().exec();
+    const totalModules = course?.modules?.length || 0;
+    const totalLessons = await this.lessonModel.countDocuments({
+      moduleId: { $in: course?.modules || [] },
+    });
+
+    // Агрегация данных из enrollments
     const analytics = await this.courseModel.db
       .collection('enrollments')
       .aggregate([
@@ -384,6 +407,8 @@ export class CoursesService implements ICoursesService {
             totalStudents: { $sum: 1 },
             completedStudents: { $sum: { $cond: ['$isCompleted', 1, 0] } },
             averageGrade: { $avg: '$grade' },
+            completedModulesCount: { $sum: { $size: '$completedModules' } },
+            completedLessonsCount: { $sum: { $size: '$completedLessons' } },
           },
         },
         {
@@ -397,6 +422,48 @@ export class CoursesService implements ICoursesService {
                 100,
               ],
             },
+            moduleCompletion: {
+              totalModules: { $literal: totalModules },
+              completedModules: '$completedModulesCount',
+              completionRate: {
+                $cond: [
+                  { $eq: [totalModules, 0] },
+                  0,
+                  {
+                    $multiply: [
+                      {
+                        $divide: [
+                          '$completedModulesCount',
+                          { $multiply: ['$totalStudents', totalModules] },
+                        ],
+                      },
+                      100,
+                    ],
+                  },
+                ],
+              },
+            },
+            lessonCompletion: {
+              totalLessons: { $literal: totalLessons },
+              completedLessons: '$completedLessonsCount',
+              completionRate: {
+                $cond: [
+                  { $eq: [totalLessons, 0] },
+                  0,
+                  {
+                    $multiply: [
+                      {
+                        $divide: [
+                          '$completedLessonsCount',
+                          { $multiply: ['$totalStudents', totalLessons] },
+                        ],
+                      },
+                      100,
+                    ],
+                  },
+                ],
+              },
+            },
           },
         },
       ])
@@ -407,9 +474,19 @@ export class CoursesService implements ICoursesService {
       completedStudents: 0,
       completionRate: 0,
       averageGrade: 0,
+      moduleCompletion: {
+        totalModules,
+        completedModules: 0,
+        completionRate: 0,
+      },
+      lessonCompletion: {
+        totalLessons,
+        completedLessons: 0,
+        completionRate: 0,
+      },
     };
     console.log('Analytics calculated:', result);
-    await this.cacheManager.set(cacheKey, result, 3600); // Кэшируем на 1 час
+    await this.cacheManager.set(cacheKey, result, CACHE_TTL); // Используем настраиваемый TTL
     return result;
   }
 
@@ -431,9 +508,33 @@ export class CoursesService implements ICoursesService {
         value: analytics.completionRate.toFixed(2),
       },
       { metric: 'Average Grade', value: analytics.averageGrade.toFixed(2) },
+      {
+        metric: 'Total Modules',
+        value: analytics.moduleCompletion.totalModules,
+      },
+      {
+        metric: 'Completed Modules',
+        value: analytics.moduleCompletion.completedModules,
+      },
+      {
+        metric: 'Module Completion Rate (%)',
+        value: analytics.moduleCompletion.completionRate.toFixed(2),
+      },
+      {
+        metric: 'Total Lessons',
+        value: analytics.lessonCompletion.totalLessons,
+      },
+      {
+        metric: 'Completed Lessons',
+        value: analytics.lessonCompletion.completedLessons,
+      },
+      {
+        metric: 'Lesson Completion Rate (%)',
+        value: analytics.lessonCompletion.completionRate.toFixed(2),
+      },
     ];
 
     await csvWriter.writeRecords(records);
-    return csvWriter.options.path; // Возвращаем путь к файлу
+    return csvWriter.options.path;
   }
 }
