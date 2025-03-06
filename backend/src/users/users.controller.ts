@@ -18,10 +18,14 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { Role } from '../auth/roles.enum';
+import { GroupsService } from '../groups/groups.service';
 
 @Controller('users')
 export class UsersController {
-  constructor(private readonly usersService: UsersService) {}
+  constructor(
+    private readonly usersService: UsersService,
+    private groupsService: GroupsService,
+  ) {}
 
   @Post()
   @UsePipes(new ValidationPipe())
@@ -81,7 +85,7 @@ export class UsersController {
   @SetMetadata('roles', [Role.ADMIN])
   async addToGroup(@Param('id') id: string, @Param('groupId') groupId: string) {
     await this.groupsService.addStudent(groupId, id);
-    return this.usersService.updateUser(id, { $addToSet: { groups: groupId } });
+    return this.usersService.updateUser(id, { groups: { $addToSet: groupId } }); // Исправляем синтаксис
   }
 
   @Delete(':id/groups/:groupId')
@@ -91,7 +95,7 @@ export class UsersController {
     @Param('groupId') groupId: string,
   ) {
     await this.groupsService.removeStudent(groupId, id);
-    return this.usersService.updateUser(id, { $pull: { groups: groupId } });
+    return this.usersService.updateUser(id, { groups: { $pull: groupId } }); // Исправляем синтаксис
   }
 
   @Get()

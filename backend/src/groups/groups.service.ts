@@ -1,3 +1,4 @@
+// backend/src/groups/groups.service.ts
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
@@ -20,7 +21,10 @@ export class GroupsService {
     return this.groupModel.findById(id).exec();
   }
 
-  async addStudent(groupId: string, studentId: string): Promise<GroupDocument> {
+  async addStudent(
+    groupId: string,
+    studentId: string,
+  ): Promise<GroupDocument | null> {
     return this.groupModel
       .findByIdAndUpdate(
         groupId,
@@ -33,7 +37,7 @@ export class GroupsService {
   async removeStudent(
     groupId: string,
     studentId: string,
-  ): Promise<GroupDocument> {
+  ): Promise<GroupDocument | null> {
     return this.groupModel
       .findByIdAndUpdate(
         groupId,

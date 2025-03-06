@@ -71,12 +71,15 @@ export class AuthService {
   //     access_token: this.jwtService.sign(payload),
   //   };
   // }
-  async login(email: string, password: string) {
+  async login(
+    email: string,
+    password: string,
+  ): Promise<{ access_token: string }> {
     const user = await this.usersService.findByEmail(email);
     if (!user || !(await bcrypt.compare(password, user.password))) {
       throw new UnauthorizedException('Invalid credentials');
     }
-    const payload = { sub: user._id, roles: user.roles };
+    const payload = { sub: user._id.toString(), roles: user.roles }; // _id как строка
     return { access_token: this.jwtService.sign(payload) };
   }
 
@@ -92,9 +95,13 @@ export class AuthService {
   async generateResetToken(email: string): Promise<string> {
     const user = await this.usersService.findByEmail(email);
     if (!user) throw new UnauthorizedException('User not found');
-    const token = Math.random().toString(36).slice(-8); // Простой токен для примера
+    const token = Math.random().toString(36).slice(-8);
     await this.usersService.updateUser(user._id.toString(), {
-      settings: { ...user.settings, resetToken: token },
+      settings: {
+        notifications: user.settings?.notifications ?? true,
+        language: user.settings?.language ?? 'en',
+        resetToken: token,
+      },
     });
     await this.transporter.sendMail({
       to: email,
@@ -115,7 +122,11 @@ export class AuthService {
     const hashedPassword = await bcrypt.hash(newPassword, 10);
     await this.usersService.updateUser(user._id.toString(), {
       password: hashedPassword,
-      settings: { ...user.settings, resetToken: null },
+      settings: {
+        notifications: user.settings?.notifications ?? true,
+        language: user.settings?.language ?? 'en',
+        resetToken: undefined,
+      },
     });
   }
 }

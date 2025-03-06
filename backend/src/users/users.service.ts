@@ -113,15 +113,21 @@ export class UsersService implements IUsersService {
         language: string;
         resetToken?: string;
       };
+      groups?: { $addToSet?: string; $pull?: string }; // Добавляем поддержку операторов MongoDB
     },
   ): Promise<UserDocument | null> {
-    return this.userModel
-      .findByIdAndUpdate(id, updateData, { new: true })
-      .lean()
-      .exec();
-  }
-
-  async deleteUser(id: string): Promise<void> {
-    await this.userModel.findByIdAndDelete(id).exec();
+    const update = {};
+    if (updateData.password) update['password'] = updateData.password;
+    if (updateData.name) update['name'] = updateData.name;
+    if (updateData.phone) update['phone'] = updateData.phone;
+    if (updateData.roles) update['roles'] = updateData.roles;
+    if (updateData.settings) update['settings'] = updateData.settings;
+    if (updateData.groups) {
+      if (updateData.groups.$addToSet)
+        update['$addToSet'] = { groups: updateData.groups.$addToSet };
+      if (updateData.groups.$pull)
+        update['$pull'] = { groups: updateData.groups.$pull };
+    }
+    return this.userModel.findByIdAndUpdate(id, update, { new: true }).exec();
   }
 }
