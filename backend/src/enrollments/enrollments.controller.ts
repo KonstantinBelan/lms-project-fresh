@@ -25,13 +25,23 @@ import { AlreadyEnrolledException } from './exceptions/already-enrolled.exceptio
 import { BatchEnrollmentDto } from './dto/batch-enrollment.dto';
 import { Response } from 'express';
 import { Role } from '../auth/roles.enum';
+import { ApiTags, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
 
+@ApiTags('Enrollments')
 @Controller('enrollments')
 @Catch(AlreadyEnrolledException)
 export class EnrollmentsController {
   constructor(private readonly enrollmentsService: EnrollmentsService) {}
 
   @Post()
+  @ApiOperation({ summary: 'Create a new enrollment' })
+  @ApiResponse({
+    status: 201,
+    description: 'Enrollment created',
+    type: CreateEnrollmentDto,
+  })
+  @ApiResponse({ status: 400, description: 'Bad Request' })
+  @ApiResponse({ status: 409, description: 'Already enrolled' })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @SetMetadata('roles', [Role.STUDENT, Role.TEACHER, Role.ADMIN, Role.MANAGER])
   @UsePipes(new ValidationPipe())
@@ -57,6 +67,13 @@ export class EnrollmentsController {
   }
 
   @Post('batch')
+  @ApiOperation({ summary: 'Create multiple enrollments' })
+  @ApiResponse({
+    status: 201,
+    description: 'Enrollments created',
+    type: BatchEnrollmentDto,
+  })
+  @ApiResponse({ status: 400, description: 'Bad Request' })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @SetMetadata('roles', [Role.ADMIN, Role.MANAGER])
   @UsePipes(new ValidationPipe())
@@ -65,6 +82,18 @@ export class EnrollmentsController {
   }
 
   @Get('student/:studentId')
+  @ApiOperation({ summary: 'Get enrollments by student ID' })
+  @ApiParam({
+    name: 'studentId',
+    description: 'Student ID',
+    example: '507f1f77bcf86cd799439011',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Enrollments retrieved successfully',
+  })
+  @ApiResponse({ status: 404, description: 'Enrollments not found' })
+  @ApiResponse({ status: 403, description: 'Forbidden' })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @SetMetadata('roles', [
     Role.STUDENT,
@@ -78,6 +107,23 @@ export class EnrollmentsController {
   }
 
   @Get('student/:studentId/course/:courseId/progress')
+  @ApiOperation({ summary: 'Get student progress by course ID' })
+  @ApiParam({
+    name: 'studentId',
+    description: 'Student ID',
+    example: '507f1f77bcf86cd799439011',
+  })
+  @ApiParam({
+    name: 'courseId',
+    description: 'Course ID',
+    example: '507f1f77bcf86cd799439011',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Progress retrieved successfully',
+  })
+  @ApiResponse({ status: 404, description: 'Progress not found' })
+  @ApiResponse({ status: 403, description: 'Forbidden' })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @SetMetadata('roles', [
     Role.STUDENT,
@@ -94,6 +140,18 @@ export class EnrollmentsController {
   }
 
   @Get('student/:studentId/detailed-progress')
+  @ApiOperation({ summary: 'Get detailed student progress' })
+  @ApiParam({
+    name: 'studentId',
+    description: 'Student ID',
+    example: '507f1f77bcf86cd799439011',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Detailed progress retrieved successfully',
+  })
+  @ApiResponse({ status: 404, description: 'Detailed progress not found' })
+  @ApiResponse({ status: 403, description: 'Forbidden' })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @SetMetadata('roles', [
     Role.STUDENT,
@@ -107,6 +165,18 @@ export class EnrollmentsController {
   }
 
   @Get('course/:courseId')
+  @ApiOperation({ summary: 'Get enrollments by course ID' })
+  @ApiParam({
+    name: 'courseId',
+    description: 'Course ID',
+    example: '507f1f77bcf86cd799439011',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Enrollments retrieved successfully',
+  })
+  @ApiResponse({ status: 404, description: 'Enrollments not found' })
+  @ApiResponse({ status: 403, description: 'Forbidden' })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @SetMetadata('roles', [Role.ADMIN, Role.TEACHER])
   async getCourseEnrollments(@Param('courseId') courseId: string) {
@@ -114,6 +184,18 @@ export class EnrollmentsController {
   }
 
   @Get(':id')
+  @ApiOperation({ summary: 'Get enrollment by ID' })
+  @ApiParam({
+    name: 'id',
+    description: 'Enrollment ID',
+    example: '507f1f77bcf86cd799439011',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Enrollment found',
+  })
+  @ApiResponse({ status: 404, description: 'Enrollment not found' })
+  @ApiResponse({ status: 403, description: 'Forbidden' })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @SetMetadata('roles', [
     Role.STUDENT,
@@ -127,6 +209,19 @@ export class EnrollmentsController {
   }
 
   @Put(':id/progress')
+  @ApiOperation({ summary: 'Update student progress' })
+  @ApiParam({
+    name: 'id',
+    description: 'Enrollment ID',
+    example: '507f1f77bcf86cd799439011',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Progress updated',
+    type: UpdateProgressDto,
+  })
+  @ApiResponse({ status: 404, description: 'Enrollment not found' })
+  @ApiResponse({ status: 400, description: 'Bad Request' })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @SetMetadata('roles', [Role.STUDENT, Role.ASSISTANT])
   @UsePipes(new ValidationPipe())
@@ -147,6 +242,19 @@ export class EnrollmentsController {
   }
 
   @Put(':id/complete')
+  @ApiOperation({ summary: 'Complete a course' })
+  @ApiParam({
+    name: 'id',
+    description: 'Enrollment ID',
+    example: '507f1f77bcf86cd799439011',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Course completed',
+    type: CompleteCourseDto,
+  })
+  @ApiResponse({ status: 404, description: 'Enrollment not found' })
+  @ApiResponse({ status: 400, description: 'Bad Request' })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @SetMetadata('roles', [Role.TEACHER, Role.ADMIN, Role.MANAGER])
   @UsePipes(new ValidationPipe())
@@ -158,6 +266,21 @@ export class EnrollmentsController {
   }
 
   @Delete(':id')
+  @ApiOperation({ summary: 'Delete an enrollment' })
+  @ApiParam({
+    name: 'id',
+    description: 'Enrollment ID',
+    example: '507f1f77bcf86cd799439011',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Enrollment deleted',
+    schema: {
+      example: { message: 'Enrollment deleted' },
+    },
+  })
+  @ApiResponse({ status: 404, description: 'Enrollment not found' })
+  @ApiResponse({ status: 403, description: 'Forbidden' })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @SetMetadata('roles', [Role.ADMIN, Role.MANAGER])
   async delete(@Param('id') id: string) {
@@ -165,6 +288,13 @@ export class EnrollmentsController {
   }
 
   @Get('export/csv')
+  @ApiOperation({ summary: 'Export enrollments to CSV' })
+  @ApiResponse({
+    status: 200,
+    description: 'Enrollments exported successfully',
+  })
+  @ApiResponse({ status: 404, description: 'Enrollments not found' })
+  @ApiResponse({ status: 403, description: 'Forbidden' })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @SetMetadata('roles', [Role.ADMIN, Role.MANAGER])
   async exportCsv(@Res() res: Response) {
@@ -175,6 +305,22 @@ export class EnrollmentsController {
   }
 
   @Get('test-index/:studentId/:courseId')
+  @ApiOperation({ summary: 'Test index' })
+  @ApiParam({
+    name: 'studentId',
+    description: 'Student ID',
+    example: '507f1f77bcf86cd799439011',
+  })
+  @ApiParam({
+    name: 'courseId',
+    description: 'Course ID',
+    example: '507f1f77bcf86cd799439011',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Test index retrieved successfully',
+  })
+  @ApiResponse({ status: 404, description: 'Test index not found' })
   async testIndex(
     @Param('studentId') studentId: string,
     @Param('courseId') courseId: string,

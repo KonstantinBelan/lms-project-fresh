@@ -22,12 +22,21 @@ import { CreateLessonDto } from './dto/create-lesson.dto';
 import { BatchCourseDto } from './dto/batch-course.dto';
 import { Role } from '../auth/roles.enum';
 import { Response } from 'express';
+import { ApiTags, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
 
+@ApiTags('Courses')
 @Controller('courses')
 export class CoursesController {
   constructor(private readonly coursesService: CoursesService) {}
 
   @Post()
+  @ApiOperation({ summary: 'Create a new course' })
+  @ApiResponse({
+    status: 201,
+    description: 'Course created',
+    type: CreateCourseDto,
+  })
+  @ApiResponse({ status: 400, description: 'Bad Request' })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @SetMetadata('roles', [Role.TEACHER, Role.ADMIN, Role.MANAGER])
   @UsePipes(new ValidationPipe())
@@ -36,6 +45,13 @@ export class CoursesController {
   }
 
   @Post('batch')
+  @ApiOperation({ summary: 'Create multiple courses' })
+  @ApiResponse({
+    status: 201,
+    description: 'Courses created',
+    type: BatchCourseDto,
+  })
+  @ApiResponse({ status: 400, description: 'Bad Request' })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @SetMetadata('roles', [Role.ADMIN, Role.MANAGER])
   @UsePipes(new ValidationPipe())
@@ -44,6 +60,13 @@ export class CoursesController {
   }
 
   @Get()
+  @ApiOperation({ summary: 'Get all courses' })
+  @ApiResponse({
+    status: 200,
+    description: 'Courses retrieved successfully',
+    type: [CreateCourseDto],
+  })
+  @ApiResponse({ status: 403, description: 'Forbidden' })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @SetMetadata('roles', [
     Role.STUDENT,
@@ -57,6 +80,19 @@ export class CoursesController {
   }
 
   @Get(':id')
+  @ApiOperation({ summary: 'Get course by ID' })
+  @ApiParam({
+    name: 'id',
+    description: 'Course ID',
+    example: '507f1f77bcf86cd799439011',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Course found',
+    type: CreateCourseDto,
+  })
+  @ApiResponse({ status: 404, description: 'Course not found' })
+  @ApiResponse({ status: 403, description: 'Forbidden' })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @SetMetadata('roles', [
     Role.STUDENT,
@@ -70,6 +106,18 @@ export class CoursesController {
   }
 
   @Get(':courseId/structure')
+  @ApiOperation({ summary: 'Get course structure' })
+  @ApiParam({
+    name: 'courseId',
+    description: 'Course ID',
+    example: '507f1f77bcf86cd799439011',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Course structure retrieved successfully',
+  })
+  @ApiResponse({ status: 404, description: 'Course not found' })
+  @ApiResponse({ status: 403, description: 'Forbidden' })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @SetMetadata('roles', [
     Role.STUDENT,
@@ -83,6 +131,19 @@ export class CoursesController {
   }
 
   @Put(':id')
+  @ApiOperation({ summary: 'Update a course' })
+  @ApiParam({
+    name: 'id',
+    description: 'Course ID',
+    example: '507f1f77bcf86cd799439011',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Course updated',
+    type: UpdateCourseDto,
+  })
+  @ApiResponse({ status: 404, description: 'Course not found' })
+  @ApiResponse({ status: 400, description: 'Bad Request' })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @SetMetadata('roles', [Role.TEACHER, Role.ADMIN, Role.MANAGER])
   @UsePipes(new ValidationPipe())
@@ -94,6 +155,21 @@ export class CoursesController {
   }
 
   @Delete(':id')
+  @ApiOperation({ summary: 'Delete a course' })
+  @ApiParam({
+    name: 'id',
+    description: 'Course ID',
+    example: '507f1f77bcf86cd799439011',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Course deleted',
+    schema: {
+      example: { message: 'Course deleted' },
+    },
+  })
+  @ApiResponse({ status: 404, description: 'Course not found' })
+  @ApiResponse({ status: 403, description: 'Forbidden' })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @SetMetadata('roles', [Role.ADMIN, Role.MANAGER])
   async delete(@Param('id') id: string) {
@@ -101,6 +177,19 @@ export class CoursesController {
   }
 
   @Post(':courseId/modules')
+  @ApiOperation({ summary: 'Create a new module' })
+  @ApiParam({
+    name: 'courseId',
+    description: 'Course ID',
+    example: '507f1f77bcf86cd799439011',
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'Module created',
+    type: CreateModuleDto,
+  })
+  @ApiResponse({ status: 400, description: 'Bad Request' })
+  @ApiResponse({ status: 404, description: 'Course not found' })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @SetMetadata('roles', [Role.TEACHER, Role.ADMIN, Role.MANAGER])
   @UsePipes(new ValidationPipe())
@@ -112,6 +201,23 @@ export class CoursesController {
   }
 
   @Get(':courseId/modules/:moduleId')
+  @ApiOperation({ summary: 'Get module by ID' })
+  @ApiParam({
+    name: 'courseId',
+    description: 'Course ID',
+    example: '507f1f77bcf86cd799439011',
+  })
+  @ApiParam({
+    name: 'moduleId',
+    description: 'Module ID',
+    example: '507f1f77bcf86cd799439011',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Module found',
+  })
+  @ApiResponse({ status: 404, description: 'Module not found' })
+  @ApiResponse({ status: 403, description: 'Forbidden' })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @SetMetadata('roles', [
     Role.STUDENT,
@@ -132,6 +238,24 @@ export class CoursesController {
   }
 
   @Post(':courseId/modules/:moduleId/lessons')
+  @ApiOperation({ summary: 'Create a new lesson' })
+  @ApiParam({
+    name: 'courseId',
+    description: 'Course ID',
+    example: '507f1f77bcf86cd799439011',
+  })
+  @ApiParam({
+    name: 'moduleId',
+    description: 'Module ID',
+    example: '507f1f77bcf86cd799439011',
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'Lesson created',
+    type: CreateLessonDto,
+  })
+  @ApiResponse({ status: 400, description: 'Bad Request' })
+  @ApiResponse({ status: 404, description: 'Course or module not found' })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @SetMetadata('roles', [
     Role.TEACHER,
@@ -153,6 +277,28 @@ export class CoursesController {
   }
 
   @Get(':courseId/modules/:moduleId/lessons/:lessonId')
+  @ApiOperation({ summary: 'Get lesson by ID' })
+  @ApiParam({
+    name: 'courseId',
+    description: 'Course ID',
+    example: '507f1f77bcf86cd799439011',
+  })
+  @ApiParam({
+    name: 'moduleId',
+    description: 'Module ID',
+    example: '507f1f77bcf86cd799439011',
+  })
+  @ApiParam({
+    name: 'lessonId',
+    description: 'Lesson ID',
+    example: '507f1f77bcf86cd799439011',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Lesson found',
+  })
+  @ApiResponse({ status: 404, description: 'Lesson not found' })
+  @ApiResponse({ status: 403, description: 'Forbidden' })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @SetMetadata('roles', [
     Role.STUDENT,
@@ -176,6 +322,18 @@ export class CoursesController {
   }
 
   @Get(':id/statistics')
+  @ApiOperation({ summary: 'Get course statistics' })
+  @ApiParam({
+    name: 'id',
+    description: 'Course ID',
+    example: '507f1f77bcf86cd799439011',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Course statistics retrieved successfully',
+  })
+  @ApiResponse({ status: 404, description: 'Course not found' })
+  @ApiResponse({ status: 403, description: 'Forbidden' })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @SetMetadata('roles', [Role.TEACHER, Role.ADMIN, Role.MANAGER])
   async getCourseStatistics(@Param('id') courseId: string) {
@@ -183,12 +341,36 @@ export class CoursesController {
   }
 
   @Put(':courseId/modules/:moduleId/lessons/:lessonId')
+  @ApiOperation({ summary: 'Update a lesson' })
+  @ApiParam({
+    name: 'courseId',
+    description: 'Course ID',
+    example: '507f1f77bcf86cd799439011',
+  })
+  @ApiParam({
+    name: 'moduleId',
+    description: 'Module ID',
+    example: '507f1f77bcf86cd799439011',
+  })
+  @ApiParam({
+    name: 'lessonId',
+    description: 'Lesson ID',
+    example: '507f1f77bcf86cd799439011',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Lesson updated',
+    type: CreateLessonDto, // Можно создать отдельный UpdateLessonDto
+  })
+  @ApiResponse({ status: 404, description: 'Lesson not found' })
+  @ApiResponse({ status: 400, description: 'Bad Request' })
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
   @SetMetadata('roles', [Role.ADMIN])
   async updateLesson(
     @Param('courseId') courseId: string,
     @Param('moduleId') moduleId: string,
     @Param('lessonId') lessonId: string,
-    @Body() updateLessonDto: CreateLessonDto, // Можно создать отдельный UpdateLessonDto
+    @Body() updateLessonDto: CreateLessonDto,
   ) {
     return this.coursesService.updateLesson(
       courseId,
@@ -199,6 +381,32 @@ export class CoursesController {
   }
 
   @Delete(':courseId/modules/:moduleId/lessons/:lessonId')
+  @ApiOperation({ summary: 'Delete a lesson' })
+  @ApiParam({
+    name: 'courseId',
+    description: 'Course ID',
+    example: '507f1f77bcf86cd799439011',
+  })
+  @ApiParam({
+    name: 'moduleId',
+    description: 'Module ID',
+    example: '507f1f77bcf86cd799439011',
+  })
+  @ApiParam({
+    name: 'lessonId',
+    description: 'Lesson ID',
+    example: '507f1f77bcf86cd799439011',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Lesson deleted',
+    schema: {
+      example: { message: 'Lesson deleted' },
+    },
+  })
+  @ApiResponse({ status: 404, description: 'Lesson not found' })
+  @ApiResponse({ status: 403, description: 'Forbidden' })
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
   @SetMetadata('roles', [Role.ADMIN])
   async deleteLesson(
     @Param('courseId') courseId: string,
@@ -209,12 +417,38 @@ export class CoursesController {
   }
 
   @Get(':courseId/analytics')
+  @ApiOperation({ summary: 'Get course analytics' })
+  @ApiParam({
+    name: 'courseId',
+    description: 'Course ID',
+    example: '507f1f77bcf86cd799439011',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Course analytics retrieved successfully',
+  })
+  @ApiResponse({ status: 404, description: 'Course not found' })
+  @ApiResponse({ status: 403, description: 'Forbidden' })
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
   @SetMetadata('roles', [Role.ADMIN, Role.TEACHER])
   async getCourseAnalytics(@Param('courseId') courseId: string) {
     return this.coursesService.getCourseAnalytics(courseId);
   }
 
   @Get(':courseId/export/csv')
+  @ApiOperation({ summary: 'Export course analytics to CSV' })
+  @ApiParam({
+    name: 'courseId',
+    description: 'Course ID',
+    example: '507f1f77bcf86cd799439011',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Course analytics exported successfully',
+  })
+  @ApiResponse({ status: 404, description: 'Course not found' })
+  @ApiResponse({ status: 403, description: 'Forbidden' })
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
   @SetMetadata('roles', [Role.ADMIN, Role.TEACHER])
   async exportCourseAnalytics(
     @Param('courseId') courseId: string,

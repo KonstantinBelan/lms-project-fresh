@@ -4,9 +4,8 @@ import {
   IsOptional,
   IsDateString,
   ArrayNotEmpty,
-  ValidationOptions,
 } from 'class-validator';
-import { Type } from 'class-transformer';
+import { ApiProperty } from '@nestjs/swagger';
 
 export class DateStringDto {
   @IsDateString(
@@ -20,16 +19,29 @@ export class DateStringDto {
 }
 
 export class BatchEnrollmentDto {
+  @ApiProperty({
+    example: ['507f1f77bcf86cd799439011', '507f1f77bcf86cd799439012'],
+    description: 'Array of student IDs',
+  })
   @ArrayNotEmpty()
   @IsNotEmpty({ each: true })
   @IsMongoId({ each: true })
   studentIds: string[];
 
+  @ApiProperty({
+    example: ['507f1f77bcf86cd799439013', '507f1f77bcf86cd799439014'],
+    description: 'Array of course IDs',
+  })
   @ArrayNotEmpty()
   @IsNotEmpty({ each: true })
   @IsMongoId({ each: true })
   courseIds: string[];
 
+  @ApiProperty({
+    example: ['2025-12-31T23:59:59.999Z', '2025-12-31T23:59:59.999Z'],
+    description: 'Optional array of deadlines for the enrollments',
+    required: false,
+  })
   @IsOptional()
   @IsDateString(
     {},

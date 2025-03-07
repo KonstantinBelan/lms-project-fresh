@@ -2,7 +2,6 @@ import {
   Controller,
   Post,
   Body,
-  UseGuards,
   UsePipes,
   ValidationPipe,
 } from '@nestjs/common';
@@ -13,16 +12,11 @@ import { LoginDto } from './dto/login.dto';
 import { Types } from 'mongoose';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 
+@ApiTags('auth')
 @Controller('auth')
 export class AuthController {
   constructor(private authService: AuthService) {}
 
-  // @Post('login')
-  // async login(
-  //   @Body() body: { email: string; password: string },
-  // ): Promise<{ access_token: string }> {
-  //   return this.authService.login(body.email, body.password);
-  // }
   @Post('login')
   @ApiOperation({
     summary: 'User login',
@@ -41,26 +35,6 @@ export class AuthController {
   async login(@Body() loginDto: LoginDto) {
     return this.authService.login(loginDto.email, loginDto.password);
   }
-  // @Post('login')
-  // @UsePipes(new ValidationPipe({ transform: true }))
-  // async login(@Body() loginDto: LoginDto) {
-  //   return this.authService.login(loginDto);
-  // }
-
-  // @Post('register')
-  // async register(
-  //   @Body() body: { email: string; password: string; name?: string },
-  // ): Promise<{ message: string; userId: string }> {
-  //   const user = await this.authService.register(
-  //     body.email,
-  //     body.password,
-  //     body.name,
-  //   ); // Убираем приведение к UserDocument
-  //   return {
-  //     message: 'User registered',
-  //     userId: (user._id as Types.ObjectId).toString(),
-  //   }; // Явно указываем _id как Types.ObjectId
-  // }
 
   @Post('register')
   @ApiOperation({
@@ -88,6 +62,17 @@ export class AuthController {
   }
 
   @Post('forgot-password')
+  @ApiOperation({
+    summary: 'Forgot Password',
+    description: "Generates a reset token and sends it to the user's email.",
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Reset token sent to your email',
+    schema: {
+      example: { message: 'Reset token sent to your email' },
+    },
+  })
   async forgotPassword(
     @Body('email') email: string,
   ): Promise<{ message: string }> {
@@ -96,6 +81,21 @@ export class AuthController {
   }
 
   @Post('reset-password')
+  @ApiOperation({
+    summary: 'Reset Password',
+    description: "Resets the user's password using the provided token.",
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Password reset successful',
+    schema: {
+      example: { message: 'Password reset successful' },
+    },
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - Invalid token or email',
+  })
   async resetPassword(
     @Body() body: { email: string; token: string; newPassword: string },
   ): Promise<{ message: string }> {
@@ -108,6 +108,19 @@ export class AuthController {
   }
 
   @Post('signup')
+  @ApiOperation({
+    summary: 'Sign Up',
+    description: 'Registers a new user with the given details.',
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'User signed up successfully',
+    type: CreateUserDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Bad Request - Invalid data',
+  })
   @UsePipes(new ValidationPipe())
   async signup(
     @Body()

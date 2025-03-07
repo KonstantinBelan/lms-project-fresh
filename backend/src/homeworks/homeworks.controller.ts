@@ -21,12 +21,21 @@ import { CreateSubmissionDto } from './dto/create-submission.dto';
 import { UpdateSubmissionDto } from './dto/update-submission.dto';
 import { Role } from '../auth/roles.enum';
 import { Types } from 'mongoose'; // Импортируем Types для проверки ObjectId
+import { ApiTags, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
 
+@ApiTags('Homeworks')
 @Controller('homeworks')
 export class HomeworksController {
   constructor(private readonly homeworksService: HomeworksService) {}
 
   @Post()
+  @ApiOperation({ summary: 'Create a new homework' })
+  @ApiResponse({
+    status: 201,
+    description: 'Homework created',
+    type: CreateHomeworkDto,
+  })
+  @ApiResponse({ status: 400, description: 'Bad Request' })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @SetMetadata('roles', [Role.TEACHER, Role.ADMIN, Role.MANAGER])
   @UsePipes(new ValidationPipe())
@@ -35,6 +44,18 @@ export class HomeworksController {
   }
 
   @Put(':id')
+  @ApiOperation({ summary: 'Update homework' })
+  @ApiParam({
+    name: 'id',
+    description: 'Homework ID',
+    example: '507f1f77bcf86cd799439011',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Homework updated',
+    type: UpdateHomeworkDto,
+  })
+  @ApiResponse({ status: 400, description: 'Bad Request' })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @SetMetadata('roles', [Role.TEACHER, Role.ADMIN, Role.MANAGER])
   @UsePipes(new ValidationPipe())
@@ -46,6 +67,17 @@ export class HomeworksController {
   }
 
   @Delete(':id')
+  @ApiOperation({ summary: 'Delete homework' })
+  @ApiParam({
+    name: 'id',
+    description: 'Homework ID',
+    example: '507f1f77bcf86cd799439011',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Homework deleted',
+  })
+  @ApiResponse({ status: 400, description: 'Bad Request' })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @SetMetadata('roles', [Role.TEACHER, Role.ADMIN, Role.MANAGER])
   async deleteHomework(@Param('id') id: string) {
@@ -53,6 +85,18 @@ export class HomeworksController {
   }
 
   @Get(':id')
+  @ApiOperation({ summary: 'Get homework by ID' })
+  @ApiParam({
+    name: 'id',
+    description: 'Homework ID',
+    example: '507f1f77bcf86cd799439011',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Homework retrieved successfully',
+  })
+  @ApiResponse({ status: 404, description: 'Homework not found' })
+  @ApiResponse({ status: 403, description: 'Forbidden' })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @SetMetadata('roles', [
     Role.STUDENT,
@@ -66,6 +110,18 @@ export class HomeworksController {
   }
 
   @Get('lesson/:lessonId')
+  @ApiOperation({ summary: 'Get homeworks by lesson ID' })
+  @ApiParam({
+    name: 'lessonId',
+    description: 'Lesson ID',
+    example: '507f1f77bcf86cd799439011',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Homeworks retrieved successfully',
+  })
+  @ApiResponse({ status: 404, description: 'Homeworks not found' })
+  @ApiResponse({ status: 403, description: 'Forbidden' })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @SetMetadata('roles', [
     Role.STUDENT,
@@ -79,6 +135,13 @@ export class HomeworksController {
   }
 
   @Post('submissions')
+  @ApiOperation({ summary: 'Create a new submission' })
+  @ApiResponse({
+    status: 201,
+    description: 'Submission created',
+    type: CreateSubmissionDto,
+  })
+  @ApiResponse({ status: 400, description: 'Bad Request' })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @SetMetadata('roles', [Role.STUDENT])
   @UsePipes(new ValidationPipe())
@@ -87,6 +150,18 @@ export class HomeworksController {
   }
 
   @Put('submissions/:id')
+  @ApiOperation({ summary: 'Update submission' })
+  @ApiParam({
+    name: 'id',
+    description: 'Submission ID',
+    example: '507f1f77bcf86cd799439011',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Submission updated',
+    type: UpdateSubmissionDto,
+  })
+  @ApiResponse({ status: 400, description: 'Bad Request' })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @SetMetadata('roles', [
     Role.TEACHER,
@@ -103,6 +178,18 @@ export class HomeworksController {
   }
 
   @Get('submissions/:id')
+  @ApiOperation({ summary: 'Get submission by ID' })
+  @ApiParam({
+    name: 'id',
+    description: 'Submission ID',
+    example: '507f1f77bcf86cd799439011',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Submission retrieved successfully',
+  })
+  @ApiResponse({ status: 404, description: 'Submission not found' })
+  @ApiResponse({ status: 403, description: 'Forbidden' })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @SetMetadata('roles', [
     Role.STUDENT,
@@ -116,6 +203,18 @@ export class HomeworksController {
   }
 
   @Get('submissions/homework/:homeworkId')
+  @ApiOperation({ summary: 'Get submissions by homework ID' })
+  @ApiParam({
+    name: 'homeworkId',
+    description: 'Homework ID',
+    example: '507f1f77bcf86cd799439011',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Submissions retrieved successfully',
+  })
+  @ApiResponse({ status: 404, description: 'Submissions not found' })
+  @ApiResponse({ status: 403, description: 'Forbidden' })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @SetMetadata('roles', [
     Role.TEACHER,
@@ -128,6 +227,18 @@ export class HomeworksController {
   }
 
   @Get('submissions/student/:studentId')
+  @ApiOperation({ summary: 'Get submissions by student ID' })
+  @ApiParam({
+    name: 'studentId',
+    description: 'Student ID',
+    example: '507f1f77bcf86cd799439011',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Submissions retrieved successfully',
+  })
+  @ApiResponse({ status: 404, description: 'Submissions not found' })
+  @ApiResponse({ status: 403, description: 'Forbidden' })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @SetMetadata('roles', [
     Role.STUDENT,
@@ -142,6 +253,14 @@ export class HomeworksController {
 
   // Обновлённый роут для автоматической проверки решений с улучшенной валидацией submissionId
   @Post('submissions/auto-check')
+  @ApiOperation({ summary: 'Auto-check submission' })
+  @ApiResponse({
+    status: 200,
+    description: 'Submission auto-checked successfully',
+  })
+  @ApiResponse({ status: 400, description: 'Bad Request' })
+  @ApiResponse({ status: 404, description: 'Submission not found' })
+  @ApiResponse({ status: 403, description: 'Forbidden' })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @SetMetadata('roles', [
     Role.TEACHER,

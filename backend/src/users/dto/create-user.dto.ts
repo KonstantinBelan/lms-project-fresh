@@ -11,18 +11,24 @@ import {
 import { Role } from '../../auth/roles.enum';
 
 export class CreateUserDto {
-  @ApiProperty({ description: 'User email', example: 'user@example.com' })
+  @ApiProperty({
+    example: 'user@example.com',
+    description: 'The email of the user',
+  })
   @IsEmail()
   email: string;
 
-  @ApiProperty({ description: 'User password', example: 'password123' })
+  @ApiProperty({
+    example: 'password123',
+    description: 'The password of the user',
+  })
   @IsString()
   @MinLength(6)
   password: string;
 
   @ApiProperty({
-    description: 'User name',
     example: 'John Doe',
+    description: 'The name of the user',
     required: false,
   })
   @IsOptional()
