@@ -610,7 +610,10 @@ describe('CoursesService', () => {
           exec: jest.fn().mockResolvedValue(null),
         }),
       });
-      const updateLessonDto = { title: 'Updated Lesson' };
+      const updateLessonDto = {
+        title: 'Updated Lesson',
+        content: 'Updated Content',
+      };
       const result = await service.updateLesson(
         validCourseId,
         validModuleId,
