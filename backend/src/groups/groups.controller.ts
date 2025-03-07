@@ -12,13 +12,22 @@ import { AuthGuard } from '@nestjs/passport';
 import { GroupsService } from './groups.service';
 import { Role } from '../auth/roles.enum';
 import { RolesGuard } from '../auth/guards/roles.guard';
+import { CreateGroupDto } from './dto/create-group.dto';
+import { ApiTags, ApiParam, ApiOperation, ApiResponse } from '@nestjs/swagger';
 
+@ApiTags('Groups')
 @Controller('groups')
 @UseGuards(AuthGuard('jwt'), RolesGuard)
 export class GroupsController {
   constructor(private groupsService: GroupsService) {}
 
   @Post()
+  @ApiOperation({ summary: 'Create a new group' })
+  @ApiResponse({
+    status: 201,
+    description: 'Group created',
+    type: CreateGroupDto,
+  })
   @SetMetadata('roles', [Role.ADMIN])
   async create(@Body() body: { name: string; description?: string }) {
     return this.groupsService.create(body.name, body.description);

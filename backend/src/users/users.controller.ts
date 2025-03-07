@@ -19,7 +19,15 @@ import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { Role } from '../auth/roles.enum';
 import { GroupsService } from '../groups/groups.service';
+import {
+  ApiTags,
+  ApiParam,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
 
+@ApiTags('Users')
 @Controller('users')
 export class UsersController {
   constructor(
@@ -28,6 +36,13 @@ export class UsersController {
   ) {}
 
   @Post()
+  @ApiOperation({ summary: 'Create a new user' })
+  @ApiResponse({
+    status: 201,
+    description: 'User created',
+    type: CreateUserDto,
+  })
+  @ApiResponse({ status: 400, description: 'Bad Request' })
   @SetMetadata('roles', [Role.ADMIN])
   @UseGuards(AuthGuard('jwt'))
   @UsePipes(new ValidationPipe())
@@ -52,6 +67,22 @@ export class UsersController {
   }
 
   @Get(':id')
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Get user by ID',
+    description: 'Returns a user by their ID (admin only).',
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'User ID',
+    example: '507f1f77bcf86cd799439011',
+  })
+  @ApiResponse({ status: 200, description: 'User found', type: CreateUserDto })
+  @ApiResponse({ status: 404, description: 'User not found' })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Admin access required',
+  })
   @SetMetadata('roles', [Role.ADMIN, Role.TEACHER])
   async findById(@Param('id') id: string) {
     return this.usersService.findById(id);
@@ -85,6 +116,11 @@ export class UsersController {
   // }
 
   @Post(':id/groups/:groupId')
+  @ApiOperation({ summary: 'Add user to group' })
+  @ApiParam({ name: 'id', description: 'User ID', example: '123' })
+  @ApiParam({ name: 'groupId', description: 'Group ID', example: '456' })
+  @ApiResponse({ status: 201, description: 'User added to group' })
+  @ApiResponse({ status: 404, description: 'User or group not found' })
   @SetMetadata('roles', [Role.ADMIN])
   async addToGroup(@Param('id') id: string, @Param('groupId') groupId: string) {
     await this.groupsService.addStudent(groupId, id);

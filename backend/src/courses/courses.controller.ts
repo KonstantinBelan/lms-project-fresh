@@ -69,6 +69,19 @@ export class CoursesController {
     return this.coursesService.findCourseById(id);
   }
 
+  @Get(':courseId/structure')
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @SetMetadata('roles', [
+    Role.STUDENT,
+    Role.TEACHER,
+    Role.ADMIN,
+    Role.MANAGER,
+    Role.ASSISTANT,
+  ])
+  async courseStructure(@Param('courseId') courseId: string) {
+    return this.coursesService.getCourseStructure(courseId);
+  }
+
   @Put(':id')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @SetMetadata('roles', [Role.TEACHER, Role.ADMIN, Role.MANAGER])
