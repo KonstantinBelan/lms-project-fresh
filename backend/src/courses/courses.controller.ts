@@ -11,6 +11,9 @@ import {
   UseGuards,
   SetMetadata,
   Res,
+  Query,
+  DefaultValuePipe,
+  ParseIntPipe,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -23,7 +26,13 @@ import { BatchCourseDto } from './dto/batch-course.dto';
 import { LeaderboardEntry } from './dto/leaderboard-entry.dto';
 import { Role } from '../auth/roles.enum';
 import { Response } from 'express';
-import { ApiTags, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiParam,
+  ApiQuery,
+} from '@nestjs/swagger';
 
 @ApiTags('Courses')
 @Controller('courses')
@@ -461,24 +470,19 @@ export class CoursesController {
   }
 
   @Get(':courseId/leaderboard')
-  @ApiOperation({
-    summary: 'Get course leaderboard',
-    description: 'Returns the top 10 students by points earned in the course.',
+  @ApiOperation({ summary: 'Get course leaderboard' })
+  @ApiParam({ name: 'courseId', description: 'Course ID' })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Number of entries to return',
   })
-  @ApiParam({
-    name: 'courseId',
-    description: 'Course ID',
-    example: '507f1f77bcf86cd799439012',
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Leaderboard retrieved',
-    type: [LeaderboardEntry],
-  })
-  @ApiResponse({ status: 400, description: 'Invalid courseId' })
+  @ApiResponse({ status: 200, type: [LeaderboardEntry] })
   async getLeaderboard(
     @Param('courseId') courseId: string,
+    @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number,
   ): Promise<LeaderboardEntry[]> {
-    return this.coursesService.getLeaderboard(courseId);
+    return this.coursesService.getLeaderboard(courseId, limit);
   }
 }
