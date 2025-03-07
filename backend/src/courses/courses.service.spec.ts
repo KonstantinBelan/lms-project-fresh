@@ -5,8 +5,15 @@ import { getModelToken } from '@nestjs/mongoose';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Types } from 'mongoose';
 import * as fs from 'fs/promises';
+import { createObjectCsvWriter } from 'csv-writer';
 
 jest.mock('fs/promises'); // Мокаем fs/promises
+
+jest.mock('csv-writer', () => ({
+  createObjectCsvWriter: jest.fn(() => ({
+    writeRecords: jest.fn().mockResolvedValue(undefined),
+  })),
+}));
 
 describe('CoursesService', () => {
   let service: CoursesService;
@@ -211,6 +218,9 @@ describe('CoursesService', () => {
       mtimeMs: Date.now() - 1000 * 60 * 60 * 24 * 91,
     } as any);
     mockedFs.unlink.mockResolvedValue(undefined);
+    (createObjectCsvWriter as jest.Mock).mockReturnValue({
+      writeRecords: jest.fn().mockResolvedValue(undefined),
+    });
   });
 
   afterEach(() => jest.clearAllMocks());
@@ -493,7 +503,9 @@ describe('CoursesService', () => {
 
   describe('exportCourseAnalyticsToCSV', () => {
     it('should export analytics to CSV and clean old files', async () => {
-      const filePath = `analytics/course_${validCourseId}/course_${validCourseId}_analytics_${Date.now()}.csv`;
+      const filePathRegex = new RegExp(
+        `analytics/course_${validCourseId}/course_${validCourseId}_analytics_\\d+\.csv`,
+      );
       const result = await service.exportCourseAnalyticsToCSV(validCourseId);
       expect(mockCacheManager.get).toHaveBeenCalledWith(
         `course:analytics:${validCourseId}`,
@@ -512,7 +524,17 @@ describe('CoursesService', () => {
       expect(mockedFs.unlink).toHaveBeenCalledWith(
         `analytics/course_${validCourseId}/old_file.csv`,
       );
-      expect(result).toMatch(/analytics\/course_.*\.csv/); // Проверяем формат пути
+      expect(createObjectCsvWriter).toHaveBeenCalledWith({
+        path: expect.stringMatching(filePathRegex),
+        header: [
+          { id: 'metric', title: 'Metric' },
+          { id: 'value', title: 'Value' },
+        ],
+      });
+      expect(
+        (createObjectCsvWriter as jest.Mock).mock.results[0].value.writeRecords,
+      ).toHaveBeenCalled();
+      expect(result).toMatch(filePathRegex);
     });
   });
 });
