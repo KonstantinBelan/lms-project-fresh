@@ -9,6 +9,7 @@ import { Model } from 'mongoose';
 import { Course, CourseDocument } from './schemas/course.schema';
 import { Module, ModuleDocument } from './schemas/module.schema';
 import { Lesson, LessonDocument } from './schemas/lesson.schema';
+import { User } from '../users/schemas/user.schema';
 import { ICoursesService, CourseAnalytics } from './courses.service.interface';
 import { CreateCourseDto } from './dto/create-course.dto';
 import { UpdateCourseDto } from './dto/update-course.dto';
@@ -571,54 +572,62 @@ export class CoursesService implements ICoursesService {
     }
   }
 
-  async getLeaderboard(courseId: string): Promise<LeaderboardEntry[]> {
-    const cacheKey = `leaderboard:${courseId}`;
+  // src/courses/courses.service.ts
+  async getLeaderboard(
+    courseId: string,
+    limit: number = 10,
+  ): Promise<LeaderboardEntry[]> {
+    const cacheKey = `leaderboard:${courseId}:limit:${limit}`;
     const cachedLeaderboard =
       await this.cacheManager.get<LeaderboardEntry[]>(cacheKey);
     if (cachedLeaderboard) {
-      this.logger.debug(
-        `Leaderboard found in cache for course ${courseId}:`,
-        cachedLeaderboard,
-      );
+      this.logger.debug(`Leaderboard from cache for course ${courseId}`);
       return cachedLeaderboard;
     }
 
-    if (!Types.ObjectId.isValid(courseId)) {
+    if (!Types.ObjectId.isValid(courseId))
       throw new BadRequestException('Invalid courseId');
-    }
+
+    const course = await this.courseModel.findById(courseId).lean().exec();
+    if (!course) throw new BadRequestException('Course not found');
 
     const enrollments = await this.enrollmentsService.findByCourseId(courseId);
     if (!enrollments.length) {
-      this.logger.warn(`No enrollments found for course ${courseId}`);
+      this.logger.warn(`No enrollments for course ${courseId}`);
       return [];
     }
 
-    const leaderboardPromises = enrollments.map(async (enrollment) => {
-      const studentId = enrollment.studentId.toString();
-      const user = await this.usersService.findById(studentId);
-      const progress = await this.enrollmentsService.getStudentProgress(
-        studentId,
-        courseId,
-      );
+    // Собираем studentIds и получаем пользователей одним запросом
+    const studentIds = enrollments.map((e) => e.studentId.toString());
+    const users = await this.usersService.findManyByIds(studentIds);
+    const userMap = new Map<string, User>(
+      users.map((u) => [u._id.toString(), u]),
+    );
 
+    const totalLessons = await this.getTotalLessonsForCourse(courseId);
+    const { lessons: lessonPoints, modules: modulePoints } =
+      course.pointsConfig;
+
+    const leaderboard = enrollments.map((enrollment) => {
+      const studentId = enrollment.studentId.toString();
+      const user = userMap.get(studentId);
+      const completedLessons = enrollment.completedLessons.length;
+      const completedModules = enrollment.completedModules.length;
       return {
         studentId,
         name: user?.name ?? 'Unknown',
-        completionPercentage: progress.completionPercentage,
-        points: progress.completedLessons * 10, // 10 баллов за урок
+        completionPercentage:
+          totalLessons > 0 ? (completedLessons / totalLessons) * 100 : 0,
+        points:
+          completedLessons * lessonPoints + completedModules * modulePoints,
       };
     });
 
-    const leaderboard = await Promise.all(leaderboardPromises);
     const sortedLeaderboard = leaderboard
-      .sort((a, b) => b.points - a.points) // Сортировка по убыванию баллов
-      .slice(0, 10); // Топ-10
-
+      .sort((a, b) => b.points - a.points)
+      .slice(0, limit);
     await this.cacheManager.set(cacheKey, sortedLeaderboard, CACHE_TTL);
-    this.logger.debug(
-      `Calculated leaderboard for course ${courseId}:`,
-      sortedLeaderboard,
-    );
+    this.logger.debug(`Leaderboard calculated for course ${courseId}`);
     return sortedLeaderboard;
   }
 }

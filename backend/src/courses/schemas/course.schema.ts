@@ -15,6 +15,20 @@ export class Course {
   @Prop({ type: [{ type: Types.ObjectId, ref: 'Module' }] })
   modules: Types.ObjectId[];
 
+  @Prop({
+    type: {
+      lessons: { type: Number, default: 10 },
+      modules: { type: Number, default: 50 },
+      quizzes: { type: Number, default: 20 },
+    },
+    default: { lessons: 10, modules: 50, quizzes: 20 },
+  })
+  pointsConfig: {
+    lessons: number;
+    modules: number;
+    quizzes: number;
+  };
+
   _id: Types.ObjectId;
 
   __v: number;

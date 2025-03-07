@@ -101,6 +101,15 @@ export class UsersService {
     return user;
   }
 
+  async findManyByIds(ids: string[]): Promise<User[]> {
+    const objectIds = ids.map((id) => new Types.ObjectId(id));
+    const users = await this.userModel
+      .find({ _id: { $in: objectIds } })
+      .lean()
+      .exec();
+    return users;
+  }
+
   async findAll(): Promise<User[]> {
     const cacheKey = 'users:all';
     const cachedUsers = await this.cacheManager.get<User[]>(cacheKey);
