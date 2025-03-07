@@ -133,10 +133,14 @@ describe('CoursesService', () => {
   })) as jest.Mock & {
     countDocuments: jest.Mock;
     find: jest.Mock;
+    findByIdAndUpdate: jest.Mock;
+    findByIdAndDelete: jest.Mock;
   };
 
   mockLessonModel.countDocuments = jest.fn();
   mockLessonModel.find = jest.fn();
+  mockLessonModel.findByIdAndUpdate = jest.fn();
+  mockLessonModel.findByIdAndDelete = jest.fn();
 
   // Мок для cacheManager
   const mockCacheManager = {
@@ -208,6 +212,14 @@ describe('CoursesService', () => {
       lean: jest.fn().mockReturnValue({
         exec: jest.fn().mockResolvedValue([mockLessonData]),
       }),
+    });
+    mockLessonModel.findByIdAndUpdate.mockReturnValue({
+      lean: jest.fn().mockReturnValue({
+        exec: jest.fn().mockResolvedValue(mockLessonData),
+      }),
+    });
+    mockLessonModel.findByIdAndDelete.mockReturnValue({
+      exec: jest.fn().mockResolvedValue(mockLessonData),
     });
     mockCacheManager.get.mockResolvedValue(null);
     mockCacheManager.set.mockResolvedValue(undefined);
@@ -535,6 +547,106 @@ describe('CoursesService', () => {
         (createObjectCsvWriter as jest.Mock).mock.results[0].value.writeRecords,
       ).toHaveBeenCalled();
       expect(result).toMatch(filePathRegex);
+    });
+  });
+
+  describe('findModuleById', () => {
+    it('should find a module by ID', async () => {
+      const result = await service.findModuleById(validModuleId);
+      expect(mockModuleModel.findById).toHaveBeenCalledWith(validModuleId);
+      expect(result).toEqual(mockModuleData);
+    });
+
+    it('should return null if module not found', async () => {
+      mockModuleModel.findById.mockReturnValueOnce({
+        lean: jest.fn().mockReturnValue({
+          exec: jest.fn().mockResolvedValue(null),
+        }),
+      });
+      const result = await service.findModuleById(validModuleId);
+      expect(mockModuleModel.findById).toHaveBeenCalledWith(validModuleId);
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('updateLesson', () => {
+    it('should update a lesson and clear cache', async () => {
+      const updateLessonDto = {
+        title: 'Updated Lesson',
+        content: 'Updated Content',
+      };
+      mockLessonModel.findByIdAndUpdate.mockReturnValueOnce({
+        lean: jest.fn().mockReturnValue({
+          exec: jest.fn().mockResolvedValue({
+            ...mockLessonData,
+            ...updateLessonDto,
+          }),
+        }),
+      });
+      const result = await service.updateLesson(
+        validCourseId,
+        validModuleId,
+        validLessonId,
+        updateLessonDto,
+      );
+      expect(mockLessonModel.findByIdAndUpdate).toHaveBeenCalledWith(
+        validLessonId,
+        updateLessonDto,
+        { new: true },
+      );
+      expect(mockCacheManager.del).toHaveBeenCalledWith(
+        `module:${validModuleId}`,
+      );
+      expect(mockCacheManager.del).toHaveBeenCalledWith(
+        `course:${validCourseId}`,
+      );
+      expect(result).toHaveProperty('title', 'Updated Lesson');
+      expect(result).toHaveProperty('content', 'Updated Content');
+    });
+
+    it('should return null if lesson not found', async () => {
+      mockLessonModel.findByIdAndUpdate.mockReturnValueOnce({
+        lean: jest.fn().mockReturnValue({
+          exec: jest.fn().mockResolvedValue(null),
+        }),
+      });
+      const updateLessonDto = { title: 'Updated Lesson' };
+      const result = await service.updateLesson(
+        validCourseId,
+        validModuleId,
+        validLessonId,
+        updateLessonDto,
+      );
+      expect(mockLessonModel.findByIdAndUpdate).toHaveBeenCalledWith(
+        validLessonId,
+        updateLessonDto,
+        { new: true },
+      );
+      expect(mockCacheManager.del).toHaveBeenCalledWith(
+        `module:${validModuleId}`,
+      );
+      expect(mockCacheManager.del).toHaveBeenCalledWith(
+        `course:${validCourseId}`,
+      );
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('deleteLesson', () => {
+    it('should delete a lesson and clear cache', async () => {
+      mockLessonModel.findByIdAndDelete.mockReturnValueOnce({
+        exec: jest.fn().mockResolvedValue(mockLessonData),
+      });
+      await service.deleteLesson(validCourseId, validModuleId, validLessonId);
+      expect(mockLessonModel.findByIdAndDelete).toHaveBeenCalledWith(
+        validLessonId,
+      );
+      expect(mockCacheManager.del).toHaveBeenCalledWith(
+        `module:${validModuleId}`,
+      );
+      expect(mockCacheManager.del).toHaveBeenCalledWith(
+        `course:${validCourseId}`,
+      );
     });
   });
 });
