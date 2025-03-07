@@ -572,7 +572,6 @@ export class CoursesService implements ICoursesService {
     }
   }
 
-  // src/courses/courses.service.ts
   async getLeaderboard(
     courseId: string,
     limit: number = 10,
@@ -597,7 +596,6 @@ export class CoursesService implements ICoursesService {
       return [];
     }
 
-    // Собираем studentIds и получаем пользователей одним запросом
     const studentIds = enrollments.map((e) => e.studentId.toString());
     const users = await this.usersService.findManyByIds(studentIds);
     const userMap = new Map<string, User>(
@@ -605,8 +603,13 @@ export class CoursesService implements ICoursesService {
     );
 
     const totalLessons = await this.getTotalLessonsForCourse(courseId);
-    const { lessons: lessonPoints, modules: modulePoints } =
-      course.pointsConfig;
+    // Устанавливаем значения по умолчанию, если pointsConfig отсутствует
+    const pointsConfig = course.pointsConfig || {
+      lessons: 10,
+      modules: 50,
+      quizzes: 20,
+    };
+    const { lessons: lessonPoints, modules: modulePoints } = pointsConfig;
 
     const leaderboard = enrollments.map((enrollment) => {
       const studentId = enrollment.studentId.toString();
