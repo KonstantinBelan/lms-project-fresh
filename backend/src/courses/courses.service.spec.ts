@@ -206,7 +206,7 @@ describe('CoursesService', () => {
     mockCacheManager.set.mockResolvedValue(undefined);
     mockCacheManager.del.mockResolvedValue(undefined);
     mockedFs.mkdir.mockResolvedValue(undefined);
-    mockedFs.readdir.mockResolvedValue(['old_file.csv']);
+    (mockedFs.readdir as jest.Mock).mockResolvedValue(['old_file.csv']);
     mockedFs.stat.mockResolvedValue({
       mtimeMs: Date.now() - 1000 * 60 * 60 * 24 * 91,
     } as any);
