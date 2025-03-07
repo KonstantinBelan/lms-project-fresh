@@ -8,12 +8,14 @@ import { CoursesModule } from '../courses/courses.module';
 import { AuthModule } from '../auth/auth.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { BullModule } from '@nestjs/bull';
+import { CacheModule } from '@nestjs/cache-manager';
 
 @Module({
   imports: [
     MongooseModule.forFeature([
       { name: Enrollment.name, schema: EnrollmentSchema },
     ]),
+    CacheModule.register(), // Регистрируем CacheModule
     UsersModule,
     forwardRef(() => CoursesModule),
     AuthModule,
@@ -31,6 +33,7 @@ export class EnrollmentsModule {
   constructor() {
     console.log('EnrollmentsModule initialized, imports:', [
       'MongooseModule',
+      'CacheModule',
       'UsersModule',
       'CoursesModule',
       'AuthModule',

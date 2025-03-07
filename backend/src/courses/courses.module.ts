@@ -10,7 +10,8 @@ import { CoursesController } from './courses.controller';
 import { CoursesService } from './courses.service';
 import { AuthModule } from '../auth/auth.module';
 import { EnrollmentsModule } from '../enrollments/enrollments.module';
-// import { QuizzesModule } from '../quizzes/quizzes.module';
+import { CacheModule } from '@nestjs/cache-manager'; // Добавляем для консистентности
+import { UsersModule } from '../users/users.module'; // Для UsersService
 
 @Module({
   imports: [
@@ -19,7 +20,9 @@ import { EnrollmentsModule } from '../enrollments/enrollments.module';
       { name: ModuleSchema.name, schema: ModuleSchemaDefinition },
       { name: Lesson.name, schema: LessonSchema },
     ]),
+    CacheModule.register(), // Убеждаемся, что кэш доступен
     AuthModule,
+    UsersModule,
     forwardRef(() => EnrollmentsModule),
   ],
   controllers: [CoursesController],
@@ -30,7 +33,9 @@ export class CoursesModule {
   constructor() {
     console.log('CoursesModule initialized, imports:', [
       'MongooseModule',
+      'CacheModule',
       'AuthModule',
+      'UsersModule',
       'EnrollmentsModule',
     ]);
   }
