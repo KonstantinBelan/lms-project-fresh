@@ -12,7 +12,7 @@ export const config = {
   },
   telegram: {
     botToken: process.env.TELEGRAM_BOT_TOKEN || 'your-telegram-bot-token',
-    chatId: process.env.TELEGRAM_CHAT_ID || 'your-chat-id',
+    // chatId: process.env.TELEGRAM_CHAT_ID || 'your-chat-id',
   },
 };
 
@@ -25,5 +25,5 @@ console.log('Config loaded - Email:', {
 });
 console.log('Config loaded - Telegram:', {
   botToken: process.env.TELEGRAM_BOT_TOKEN ? '***' : 'undefined',
-  chatId: process.env.TELEGRAM_CHAT_ID,
+  // chatId: process.env.TELEGRAM_CHAT_ID,
 });

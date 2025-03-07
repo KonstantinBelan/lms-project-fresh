@@ -28,6 +28,9 @@ export class User {
   @Prop({})
   avatar?: string;
 
+  @Prop({ type: String, required: false })
+  telegramId?: string;
+
   @Prop({
     type: { notifications: Boolean, language: String, resetToken: String },
     default: { notifications: true, language: 'en', resetToken: undefined },
@@ -50,6 +53,7 @@ export interface User {
   roles: Role[];
   phone?: string;
   avatar?: string;
+  telegramId?: string;
   settings?: { notifications: boolean; language: string; resetToken?: string };
   groups?: Types.ObjectId[];
 }

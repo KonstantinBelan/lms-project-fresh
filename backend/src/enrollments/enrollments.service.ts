@@ -9,9 +9,9 @@ import { Model, Types } from 'mongoose';
 import { Enrollment, EnrollmentDocument } from './schemas/enrollment.schema';
 import {
   IEnrollmentsService,
-  StudentProgress,
   DetailedStudentProgress,
 } from './enrollments.service.interface';
+import { StudentProgress } from './dto/progress.dto';
 import { UsersService } from '../users/users.service';
 import { CoursesService } from '../courses/courses.service';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -379,6 +379,13 @@ export class EnrollmentsService implements IEnrollmentsService {
       return cachedProgress;
     }
 
+    if (
+      !Types.ObjectId.isValid(studentId) ||
+      !Types.ObjectId.isValid(courseId)
+    ) {
+      throw new BadRequestException('Invalid studentId or courseId');
+    }
+
     const enrollment = await this.enrollmentModel
       .findOne({
         studentId: new Types.ObjectId(studentId),
@@ -386,7 +393,9 @@ export class EnrollmentsService implements IEnrollmentsService {
       })
       .lean()
       .exec();
-    console.log('studentId:' + studentId + ' courseId: ' + courseId);
+    this.logger.debug(
+      `Fetching progress for studentId: ${studentId}, courseId: ${courseId}`,
+    );
     if (!enrollment) throw new BadRequestException('Enrollment not found');
 
     const course = await this.coursesService.findCourseById(courseId);
@@ -396,6 +405,20 @@ export class EnrollmentsService implements IEnrollmentsService {
     const totalLessons =
       await this.coursesService.getTotalLessonsForCourse(courseId);
 
+    // const progress = {
+    //   studentId,
+    //   courseId,
+    //   completedModules: enrollment.completedModules.length,
+    //   totalModules,
+    //   completedLessons: enrollment.completedLessons.length,
+    //   totalLessons,
+    //   completionPercentage:
+    //     totalLessons > 0
+    //       ? Math.round(
+    //           (enrollment.completedLessons.length / totalLessons) * 100,
+    //         )
+    //       : 0,
+    // };
     const progress = {
       studentId,
       courseId,
@@ -403,18 +426,14 @@ export class EnrollmentsService implements IEnrollmentsService {
       totalModules,
       completedLessons: enrollment.completedLessons.length,
       totalLessons,
-      // completionPercentage:
-      //   totalModules > 0
-      //     ? Math.round(
-      //         (enrollment.completedModules.length / totalModules) * 100,
-      //       )
-      //     : 0,
       completionPercentage:
         totalLessons > 0
           ? Math.round(
               (enrollment.completedLessons.length / totalLessons) * 100,
             )
           : 0,
+      completedModuleIds: enrollment.completedModules,
+      completedLessonIds: enrollment.completedLessons,
     };
 
     await this.cacheManager.set(cacheKey, progress, 3600); // Кэшируем на 1 час

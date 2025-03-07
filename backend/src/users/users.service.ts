@@ -1,4 +1,9 @@
-import { Inject, Injectable, BadRequestException } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { User, UserDocument } from './schemas/user.schema';
@@ -110,6 +115,41 @@ export class UsersService {
     return users;
   }
 
+  // async updateUser(
+  //   id: string,
+  //   updateData: {
+  //     password?: string;
+  //     name?: string;
+  //     phone?: string;
+  //     roles?: Role[];
+  //     telegramId?: string;
+  //     settings?: {
+  //       notifications: boolean;
+  //       language: string;
+  //       resetToken?: string;
+  //     };
+  //     groups?: { $addToSet?: string; $pull?: string };
+  //   },
+  // ): Promise<User | null> {
+  //   // Изменяем тип возврата на User для .lean()
+  //   const update: any = {};
+  //   if (updateData.password) update.password = updateData.password;
+  //   if (updateData.name) update.name = updateData.name;
+  //   if (updateData.phone) update.phone = updateData.phone;
+  //   if (updateData.roles) update.roles = updateData.roles;
+  //   if (updateData.settings) update.settings = updateData.settings;
+  //   if (updateData.groups) {
+  //     if (updateData.groups.$addToSet)
+  //       update.$addToSet = { groups: updateData.groups.$addToSet };
+  //     if (updateData.groups.$pull)
+  //       update.$pull = { groups: updateData.groups.$pull };
+  //   }
+  //   return this.userModel
+  //     .findByIdAndUpdate(id, update, { new: true })
+  //     .lean()
+  //     .exec(); // Используем .lean()
+  // }
+
   async updateUser(
     id: string,
     updateData: {
@@ -117,6 +157,7 @@ export class UsersService {
       name?: string;
       phone?: string;
       roles?: Role[];
+      telegramId?: string; // Уже есть в типе, теперь добавим в логику
       settings?: {
         notifications: boolean;
         language: string;
@@ -125,23 +166,37 @@ export class UsersService {
       groups?: { $addToSet?: string; $pull?: string };
     },
   ): Promise<User | null> {
-    // Изменяем тип возврата на User для .lean()
-    const update: any = {};
-    if (updateData.password) update.password = updateData.password;
-    if (updateData.name) update.name = updateData.name;
-    if (updateData.phone) update.phone = updateData.phone;
-    if (updateData.roles) update.roles = updateData.roles;
-    if (updateData.settings) update.settings = updateData.settings;
-    if (updateData.groups) {
-      if (updateData.groups.$addToSet)
-        update.$addToSet = { groups: updateData.groups.$addToSet };
-      if (updateData.groups.$pull)
-        update.$pull = { groups: updateData.groups.$pull };
+    // Формируем объект обновления
+    const update: { $set?: any; $addToSet?: any; $pull?: any } = {};
+
+    // Простые поля для $set
+    const simpleFields = { ...updateData };
+    delete simpleFields.groups; // Убираем groups, так как он обрабатывается отдельно
+    if (Object.keys(simpleFields).length > 0) {
+      update.$set = simpleFields; // Включаем все поля, включая telegramId
     }
-    return this.userModel
+
+    // Обработка groups с операторами $addToSet и $pull
+    if (updateData.groups) {
+      if (updateData.groups.$addToSet) {
+        update.$addToSet = { groups: updateData.groups.$addToSet };
+      }
+      if (updateData.groups.$pull) {
+        update.$pull = { groups: updateData.groups.$pull };
+      }
+    }
+
+    // Выполняем обновление
+    const updatedUser = await this.userModel
       .findByIdAndUpdate(id, update, { new: true })
       .lean()
-      .exec(); // Используем .lean()
+      .exec();
+
+    if (!updatedUser) {
+      throw new NotFoundException(`User with ID ${id} not found`);
+    }
+
+    return updatedUser;
   }
 
   async deleteUser(id: string): Promise<void> {

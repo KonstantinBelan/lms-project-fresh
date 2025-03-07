@@ -4,19 +4,33 @@ import {
   Body,
   Get,
   Param,
+  Request,
+  Req,
   Put,
   Delete,
   UsePipes,
   ValidationPipe,
   UseGuards,
   SetMetadata,
+  BadRequestException,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { NotificationsService } from './notifications.service';
 import { CreateNotificationDto } from './dto/create-notification.dto';
 import { Role } from '../auth/roles.enum';
-import { ApiTags, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiParam,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
+
+// Определяем тип RequestWithUser
+interface RequestWithUser extends Request {
+  user: { sub?: string; _id?: string }; // Тип зависит от твоего JWT payload
+}
 
 @ApiTags('Notifications')
 @Controller('notifications')
@@ -130,18 +144,21 @@ export class NotificationsController {
   }
 
   @Post('test-telegram')
-  @ApiOperation({ summary: 'Send a test Telegram notification' })
-  @ApiResponse({
-    status: 200,
-    description: 'Test Telegram sent successfully',
-  })
+  @ApiOperation({ summary: 'Test Telegram notification' })
+  @ApiResponse({ status: 200, description: 'Telegram message sent' })
   @ApiResponse({ status: 400, description: 'Bad Request' })
-  @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @SetMetadata('roles', [Role.ADMIN]) // Ограничиваем доступ только для администратора
-  async testTelegram(@Body() body: { message: string }) {
-    const { message } = body;
-    await this.notificationsService.sendTelegram(message);
-    return { status: 'success', message: 'Test Telegram sent successfully' };
+  @ApiBearerAuth()
+  @UseGuards(AuthGuard('jwt'))
+  async testTelegram(
+    @Req() req: RequestWithUser,
+    @Body() body: { message: string },
+  ) {
+    const userId = req.user?.sub || req.user?._id;
+    if (!userId) {
+      throw new BadRequestException('User ID not found in token');
+    }
+    await this.notificationsService.sendTelegram(userId, body.message);
+    return { message: 'Telegram notification sent' };
   }
 
   @Post('test-sms')

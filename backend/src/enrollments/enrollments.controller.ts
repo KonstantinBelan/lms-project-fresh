@@ -19,6 +19,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { EnrollmentsService } from './enrollments.service';
 import { CreateEnrollmentDto } from './dto/create-enrollment.dto';
+import { StudentProgress } from './dto/progress.dto';
 import { UpdateProgressDto } from './dto/update-progress.dto';
 import { CompleteCourseDto } from './dto/complete-course.dto';
 import { AlreadyEnrolledException } from './exceptions/already-enrolled.exception';

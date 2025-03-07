@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { Inject, forwardRef } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
@@ -17,12 +17,13 @@ import { Course } from '../courses/schemas/course.schema';
 import { Module } from '../courses/schemas/module.schema';
 import { Lesson } from '../courses/schemas/lesson.schema';
 import { Types } from 'mongoose';
-import { CACHE_MANAGER } from '@nestjs/cache-manager'; // Импортируем CACHE_MANAGER
-import { Cache } from 'cache-manager'; // Импортируем Cache
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { Cache } from 'cache-manager';
 import axios from 'axios';
 
 @Injectable()
 export class NotificationsService implements INotificationsService {
+  private readonly logger = new Logger(NotificationsService.name);
   private transporter: nodemailer.Transporter;
   private telegramBot: TelegramBot;
 
@@ -33,11 +34,11 @@ export class NotificationsService implements INotificationsService {
     private enrollmentsService: EnrollmentsService,
     private usersService: UsersService,
     private coursesService: CoursesService,
-    @Inject(CACHE_MANAGER) private cacheManager: Cache, // Инжектируем кэш
+    @Inject(CACHE_MANAGER) private cacheManager: Cache,
   ) {
-    console.log(
+    this.logger.log(
       'NotificationsService initialized, enrollmentsService:',
-      this.enrollmentsService,
+      !!this.enrollmentsService,
     );
 
     this.transporter = nodemailer.createTransport({
@@ -49,12 +50,20 @@ export class NotificationsService implements INotificationsService {
         pass: config.email.pass,
       },
       tls: {
-        rejectUnauthorized: false, // Для тестов, убери в продакшене
+        rejectUnauthorized: false,
       },
     });
 
     this.telegramBot = new TelegramBot(config.telegram.botToken, {
-      polling: false,
+      polling: true,
+    });
+
+    this.telegramBot.onText(/\/start/, (msg) => {
+      const chatId = msg.chat.id.toString();
+      this.telegramBot.sendMessage(
+        chatId,
+        `Your Telegram chat ID is: ${chatId}. Use this ID to connect your account in the LMS.`,
+      );
     });
   }
 
@@ -62,18 +71,15 @@ export class NotificationsService implements INotificationsService {
     userId: string,
     message: string,
   ): Promise<Notification> {
-    console.log(
-      'Creating notification for userId:',
-      userId,
-      'message:',
-      message,
+    this.logger.log(
+      `Creating notification for userId: ${userId}, message: ${message}`,
     );
     const newNotification = new this.notificationModel({ userId, message });
     return newNotification.save();
   }
 
   async findNotificationsByUser(userId: string): Promise<Notification[]> {
-    console.log('Finding notifications for userId:', userId);
+    this.logger.log(`Finding notifications for userId: ${userId}`);
     return this.notificationModel
       .find({ userId })
       .sort({ createdAt: -1 })
@@ -81,42 +87,33 @@ export class NotificationsService implements INotificationsService {
   }
 
   async markAsRead(notificationId: string): Promise<Notification | null> {
-    console.log('Marking notification as read for id:', notificationId);
+    this.logger.log(`Marking notification as read for id: ${notificationId}`);
     return this.notificationModel
       .findByIdAndUpdate(notificationId, { isRead: true }, { new: true })
       .exec();
   }
 
   async deleteNotification(notificationId: string): Promise<void> {
-    console.log('Deleting notification for id:', notificationId);
+    this.logger.log(`Deleting notification for id: ${notificationId}`);
     await this.notificationModel.findByIdAndDelete(notificationId).exec();
   }
 
-  // Основные функции отправки email/telegram/sms
   public async sendEmail(
     userId: string,
     subject: string | null,
     message: string,
   ): Promise<void> {
-    console.log('userId: ' + userId);
-    const user = await this.usersService.findById(userId); // Используем findByEmail вместо findById
+    const user = await this.usersService.findById(userId);
     if (!user || !user.email) {
-      console.warn('User or email not found for ID:', userId);
+      this.logger.warn(`User or email not found for ID: ${userId}`);
       return;
     }
 
-    console.log(
-      'Attempting to send email to:',
-      user.email,
-      'with message:',
-      message,
-    );
+    this.logger.log(`Sending email to: ${user.email}, message: ${message}`);
 
     const mailOptions = {
-      // from: config.email.user,
       from: `"LMS Platform" <${process.env.EMAIL_USER}>`,
-      // to: user.email,
-      to: 'kosbelan@yandex.ru', // для тестирования, потом заменить на user.email
+      to: 'kosbelan@yandex.ru', // Замени на user.email в продакшене
       subject: subject,
       text: message,
       html: `<p>${message}</p>`,
@@ -124,68 +121,69 @@ export class NotificationsService implements INotificationsService {
 
     try {
       await this.transporter.sendMail(mailOptions);
-      console.log('Email sent successfully to:', user.email);
+      this.logger.log(`Email sent successfully to: ${user.email}`);
     } catch (error) {
-      console.error('Failed to send email:', error);
+      this.logger.error('Failed to send email:', error);
       throw new Error(`Failed to send email notification: ${error.message}`);
     }
   }
 
-  public async sendTelegram(message: string): Promise<void> {
+  public async sendTelegram(userId: string, message: string): Promise<void> {
+    const user = await this.usersService.findById(userId);
+    if (!user || !user.telegramId) {
+      this.logger.warn(`User or Telegram ID not found for ID: ${userId}`);
+      return;
+    }
+
     try {
-      await this.telegramBot.sendMessage(config.telegram.chatId, message);
-      console.log('Telegram message sent:', message);
+      await this.telegramBot.sendMessage(user.telegramId, message);
+      this.logger.log(
+        `Telegram message sent to ${user.telegramId}: ${message}`,
+      );
     } catch (error) {
-      console.error('Failed to send Telegram message:', error);
+      this.logger.error('Failed to send Telegram message:', error);
       throw new Error(`Failed to send Telegram notification: ${error.message}`);
     }
   }
 
   public async sendSMS(userId: string, message: string): Promise<void> {
+    const user = await this.usersService.findById(userId);
+    if (!user || !user.phone) {
+      this.logger.warn(`User or phone number not found for ID: ${userId}`);
+      return;
+    }
+
+    const phone = user.phone;
+    const apiKey = process.env.SMS_RU_API_KEY;
+    if (!apiKey) {
+      throw new Error('SMS_RU_API_KEY is not configured in .env');
+    }
+
+    this.logger.log(`Sending SMS to: ${phone}, message: ${message}`);
+
     try {
-      const user = await this.usersService.findById(userId);
-      if (!user || !user.phone) {
-        console.warn('User or phone number not found for ID:', userId);
-        return;
-      }
-
-      const phone = user.phone; // Номер получателя из базы
-      const apiKey = process.env.SMS_RU_API_KEY; // API-ключ из .env
-      if (!apiKey) {
-        throw new Error('SMS_RU_API_KEY is not configured in .env');
-      }
-
-      console.log(
-        'Attempting to send SMS to:',
-        phone,
-        'with message:',
-        message,
-      );
-
       const response = await axios.get('https://sms.ru/sms/send', {
         params: {
           api_id: apiKey,
           to: phone,
           text: message,
-          json: 1, // Возвращать ответ в формате JSON
+          json: 1,
         },
       });
 
-      console.log('SMS.ru API response:', response.data);
+      this.logger.log('SMS.ru API response:', response.data);
 
       if (response.data.status === 'OK') {
-        console.log('SMS sent successfully to:', phone);
+        this.logger.log(`SMS sent successfully to: ${phone}`);
       } else {
-        console.error('Failed to send SMS:', response.data);
+        this.logger.error('Failed to send SMS:', response.data);
         throw new Error(`Failed to send SMS: ${response.data.error}`);
       }
     } catch (error) {
-      console.error('Failed to send SMS:', error);
+      this.logger.error('Failed to send SMS:', error);
       throw new Error(`Failed to send SMS notification: ${error.message}`);
     }
   }
-
-  // Функции
 
   async notifyProgress(
     enrollmentId: string,
@@ -196,21 +194,12 @@ export class NotificationsService implements INotificationsService {
     const cacheKey = `notification:progress:${enrollmentId}:${moduleId}:${lessonId}`;
     const cachedNotification = await this.cacheManager.get<any>(cacheKey);
     if (cachedNotification) {
-      console.log(
-        'Notification found in cache for progress:',
-        cachedNotification,
+      this.logger.log(
+        `Notification found in cache for progress: ${cachedNotification}`,
       );
       return;
     }
 
-    console.log(
-      'Notifying progress for enrollmentId:',
-      enrollmentId,
-      'moduleId:',
-      moduleId,
-      'lessonId:',
-      lessonId,
-    );
     const enrollment =
       await this.enrollmentsService.findEnrollmentById(enrollmentId);
     if (!enrollment) throw new Error('Enrollment not found');
@@ -229,19 +218,19 @@ export class NotificationsService implements INotificationsService {
     const lesson = await this.coursesService.findLessonById(lessonId);
     const lessonTitle = lesson?.title || lessonId;
 
-    // const message = `You completed lesson "${lessonTitle}" in module "${moduleTitle}" of course "${course.title}"`;
     const message =
       customMessage ||
       (lessonId
         ? `You have completed lesson ${lessonTitle} in course "${course.title}".`
         : `Progress updated for module ${moduleTitle} in course "${course.title}".`);
     const subject = 'LMS Progress Update';
+
     await this.createNotification(enrollment.studentId, message);
     await this.sendEmail(enrollment.studentId, subject, message);
-    await this.sendTelegram(message);
+    await this.sendTelegram(enrollment.studentId, message);
     await this.sendSMS(enrollment.studentId, message);
 
-    await this.cacheManager.set(cacheKey, message, 3600); // Кэшируем уведомление на 1 час
+    await this.cacheManager.set(cacheKey, message, 3600);
   }
 
   async notifyNewCourse(
@@ -252,9 +241,8 @@ export class NotificationsService implements INotificationsService {
     const cacheKey = `notification:newcourse:${studentId}:${courseId}`;
     const cachedNotification = await this.cacheManager.get<any>(cacheKey);
     if (cachedNotification) {
-      console.log(
-        'Notification found in cache for new course:',
-        cachedNotification,
+      this.logger.log(
+        `Notification found in cache for new course: ${cachedNotification}`,
       );
       return;
     }
@@ -263,10 +251,10 @@ export class NotificationsService implements INotificationsService {
     const subject = 'New Course Available';
     await this.createNotification(studentId, message);
     await this.sendEmail(studentId, subject, message);
-    await this.sendTelegram(message);
+    await this.sendTelegram(studentId, message);
     await this.sendSMS(studentId, message);
 
-    await this.cacheManager.set(cacheKey, message, 3600); // Кэшируем уведомление на 1 час
+    await this.cacheManager.set(cacheKey, message, 3600);
   }
 
   async notifyDeadline(
@@ -277,9 +265,8 @@ export class NotificationsService implements INotificationsService {
     const cacheKey = `notification:deadline:${enrollmentId}:${daysLeft}`;
     const cachedNotification = await this.cacheManager.get<any>(cacheKey);
     if (cachedNotification) {
-      console.log(
-        'Notification found in cache for deadline:',
-        cachedNotification,
+      this.logger.log(
+        `Notification found in cache for deadline: ${cachedNotification}`,
       );
       return;
     }
@@ -292,9 +279,9 @@ export class NotificationsService implements INotificationsService {
     const subject = 'LMS Deadline Reminder';
     await this.createNotification(enrollment.studentId, message);
     await this.sendEmail(enrollment.studentId, subject, message);
-    await this.sendTelegram(message);
+    await this.sendTelegram(enrollment.studentId, message);
     await this.sendSMS(enrollment.studentId, message);
 
-    await this.cacheManager.set(cacheKey, message, 3600); // Кэшируем уведомление на 1 час
+    await this.cacheManager.set(cacheKey, message, 3600);
   }
 }

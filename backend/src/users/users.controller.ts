@@ -8,15 +8,17 @@ import {
   UseGuards,
   Param,
   Request,
+  Req,
   SetMetadata,
   UsePipes,
   ValidationPipe,
-  Query,
+  Patch,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
+import { ConnectTelegramDto } from './dto/connect-telegram.dto';
 import { Role } from '../auth/roles.enum';
 import { GroupsService } from '../groups/groups.service';
 import {
@@ -26,6 +28,11 @@ import {
   ApiResponse,
   ApiBearerAuth,
 } from '@nestjs/swagger';
+
+// Определяем тип RequestWithUser
+interface RequestWithUser extends Request {
+  user: { sub?: string; _id?: string }; // Тип зависит от твоего JWT payload
+}
 
 @ApiTags('Users')
 @Controller('users')
@@ -51,6 +58,44 @@ export class UsersController {
       email: createUserDto.email,
       password: createUserDto.password,
       roles: createUserDto.roles || [Role.STUDENT],
+    });
+  }
+
+  @Patch('me/telegram')
+  @ApiOperation({
+    summary: 'Connect Telegram account',
+    description: `
+    Links a Telegram chat ID to the user profile to receive notifications.
+    
+    **How to get your Telegram chat ID:**
+    1. Open Telegram and search for the bot @LMSNotificationBot.
+    2. Send the command /start to the bot.
+    3. The bot will reply with your chat ID (e.g., 123456789).
+    4. Copy this chat ID and use it in the 'telegramId' field below.
+    5. Send a PATCH request with your chat ID to this endpoint.
+    
+    Example: { "telegramId": "123456789" }
+  `,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Telegram connected',
+    type: CreateUserDto,
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiBearerAuth()
+  @UseGuards(AuthGuard('jwt'))
+  @UsePipes(new ValidationPipe())
+  async connectTelegram(
+    @Req() req: RequestWithUser,
+    @Body() connectDto: ConnectTelegramDto,
+  ) {
+    const userId = req.user?.sub || req.user?._id;
+    if (!userId) {
+      throw new Error('Invalid user ID in token');
+    }
+    return this.usersService.updateUser(userId, {
+      telegramId: connectDto.telegramId,
     });
   }
 

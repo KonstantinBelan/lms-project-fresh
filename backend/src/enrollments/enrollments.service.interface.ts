@@ -39,15 +39,15 @@ export interface IEnrollmentsService {
   exportEnrollmentsToCsv(): Promise<string>;
 }
 
-export interface StudentProgress {
-  studentId: string;
-  courseId: string;
-  completedModules: number;
-  totalModules: number;
-  completedLessons: number;
-  totalLessons: number;
-  completionPercentage: number;
-}
+// export interface StudentProgress {
+//   studentId: string;
+//   courseId: string;
+//   completedModules: number;
+//   totalModules: number;
+//   completedLessons: number;
+//   totalLessons: number;
+//   completionPercentage: number;
+// }
 
 export interface DetailedCourseProgress {
   courseId: string;
