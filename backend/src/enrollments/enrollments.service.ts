@@ -645,4 +645,14 @@ export class EnrollmentsService implements IEnrollmentsService {
     await this.cacheManager.set(cacheKey, csv, 3600); // Кэшируем CSV на 1 час
     return csv;
   }
+
+  async findByCourseId(courseId: string): Promise<Enrollment[]> {
+    if (!Types.ObjectId.isValid(courseId)) {
+      throw new BadRequestException('Invalid courseId');
+    }
+    return this.enrollmentModel
+      .find({ courseId: new Types.ObjectId(courseId) })
+      .lean()
+      .exec();
+  }
 }

@@ -20,6 +20,7 @@ import { UpdateCourseDto } from './dto/update-course.dto';
 import { CreateModuleDto } from './dto/create-module.dto';
 import { CreateLessonDto } from './dto/create-lesson.dto';
 import { BatchCourseDto } from './dto/batch-course.dto';
+import { LeaderboardEntry } from './dto/leaderboard-entry.dto';
 import { Role } from '../auth/roles.enum';
 import { Response } from 'express';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
@@ -457,5 +458,27 @@ export class CoursesController {
     const filePath =
       await this.coursesService.exportCourseAnalyticsToCSV(courseId);
     res.download(filePath);
+  }
+
+  @Get(':courseId/leaderboard')
+  @ApiOperation({
+    summary: 'Get course leaderboard',
+    description: 'Returns the top 10 students by points earned in the course.',
+  })
+  @ApiParam({
+    name: 'courseId',
+    description: 'Course ID',
+    example: '507f1f77bcf86cd799439012',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Leaderboard retrieved',
+    type: [LeaderboardEntry],
+  })
+  @ApiResponse({ status: 400, description: 'Invalid courseId' })
+  async getLeaderboard(
+    @Param('courseId') courseId: string,
+  ): Promise<LeaderboardEntry[]> {
+    return this.coursesService.getLeaderboard(courseId);
   }
 }

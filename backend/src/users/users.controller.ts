@@ -61,44 +61,6 @@ export class UsersController {
     });
   }
 
-  @Patch('me/telegram')
-  @ApiOperation({
-    summary: 'Connect Telegram account',
-    description: `
-    Links a Telegram chat ID to the user profile to receive notifications.
-    
-    **How to get your Telegram chat ID:**
-    1. Open Telegram and search for the bot @LMSNotificationBot.
-    2. Send the command /start to the bot.
-    3. The bot will reply with your chat ID (e.g., 123456789).
-    4. Copy this chat ID and use it in the 'telegramId' field below.
-    5. Send a PATCH request with your chat ID to this endpoint.
-    
-    Example: { "telegramId": "123456789" }
-  `,
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Telegram connected',
-    type: CreateUserDto,
-  })
-  @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @ApiBearerAuth()
-  @UseGuards(AuthGuard('jwt'))
-  @UsePipes(new ValidationPipe())
-  async connectTelegram(
-    @Req() req: RequestWithUser,
-    @Body() connectDto: ConnectTelegramDto,
-  ) {
-    const userId = req.user?.sub || req.user?._id;
-    if (!userId) {
-      throw new Error('Invalid user ID in token');
-    }
-    return this.usersService.updateUser(userId, {
-      telegramId: connectDto.telegramId,
-    });
-  }
-
   @Get('me')
   @ApiOperation({ summary: 'Get current user' })
   @ApiResponse({
@@ -244,5 +206,43 @@ export class UsersController {
   ) {
     await this.groupsService.removeStudent(groupId, id);
     return this.usersService.updateUser(id, { groups: { $pull: groupId } });
+  }
+
+  @Patch('me/telegram')
+  @ApiOperation({
+    summary: 'Connect Telegram account',
+    description: `
+    Links a Telegram chat ID to the user profile to receive notifications.
+    
+    **How to get your Telegram chat ID:**
+    1. Open Telegram and search for the bot @LMSNotificationBot.
+    2. Send the command /start to the bot.
+    3. The bot will reply with your chat ID (e.g., 123456789).
+    4. Copy this chat ID and use it in the 'telegramId' field below.
+    5. Send a PATCH request with your chat ID to this endpoint.
+    
+    Example: { "telegramId": "123456789" }
+  `,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Telegram connected',
+    type: CreateUserDto,
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiBearerAuth()
+  @UseGuards(AuthGuard('jwt'))
+  @UsePipes(new ValidationPipe())
+  async connectTelegram(
+    @Req() req: RequestWithUser,
+    @Body() connectDto: ConnectTelegramDto,
+  ) {
+    const userId = req.user?.sub || req.user?._id;
+    if (!userId) {
+      throw new Error('Invalid user ID in token');
+    }
+    return this.usersService.updateUser(userId, {
+      telegramId: connectDto.telegramId,
+    });
   }
 }

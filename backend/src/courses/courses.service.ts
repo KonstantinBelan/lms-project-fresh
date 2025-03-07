@@ -1,4 +1,9 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  Logger,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Course, CourseDocument } from './schemas/course.schema';
@@ -16,6 +21,9 @@ import { Cache } from 'cache-manager';
 import { createObjectCsvWriter } from 'csv-writer';
 import * as fs from 'fs/promises';
 import * as path from 'path';
+import { UsersService } from '../users/users.service'; // Добавляем зависимость
+import { EnrollmentsService } from '../enrollments/enrollments.service'; // Добавляем зависимость
+import { LeaderboardEntry } from './dto/leaderboard-entry.dto'; // DTO для лидерборда
 
 // Настраиваемый TTL кэша (в секундах)
 const CACHE_TTL = parseInt(process.env.CACHE_TTL ?? '3600', 10); // 1 час по умолчанию
@@ -30,6 +38,9 @@ export class CoursesService implements ICoursesService {
     @InjectModel(Module.name) private moduleModel: Model<ModuleDocument>,
     @InjectModel(Lesson.name) private lessonModel: Model<LessonDocument>,
     @Inject(CACHE_MANAGER) private cacheManager: Cache, // Инжектируем кэш
+
+    private usersService: UsersService, // Добавляем UsersService
+    private enrollmentsService: EnrollmentsService, // Добавляем EnrollmentsService
   ) {}
 
   async createCourse(createCourseDto: CreateCourseDto): Promise<Course> {
@@ -558,5 +569,56 @@ export class CoursesService implements ICoursesService {
         console.error('Error cleaning old CSV files:', error);
       }
     }
+  }
+
+  async getLeaderboard(courseId: string): Promise<LeaderboardEntry[]> {
+    const cacheKey = `leaderboard:${courseId}`;
+    const cachedLeaderboard =
+      await this.cacheManager.get<LeaderboardEntry[]>(cacheKey);
+    if (cachedLeaderboard) {
+      this.logger.debug(
+        `Leaderboard found in cache for course ${courseId}:`,
+        cachedLeaderboard,
+      );
+      return cachedLeaderboard;
+    }
+
+    if (!Types.ObjectId.isValid(courseId)) {
+      throw new BadRequestException('Invalid courseId');
+    }
+
+    const enrollments = await this.enrollmentsService.findByCourseId(courseId);
+    if (!enrollments.length) {
+      this.logger.warn(`No enrollments found for course ${courseId}`);
+      return [];
+    }
+
+    const leaderboardPromises = enrollments.map(async (enrollment) => {
+      const studentId = enrollment.studentId.toString();
+      const user = await this.usersService.findById(studentId);
+      const progress = await this.enrollmentsService.getStudentProgress(
+        studentId,
+        courseId,
+      );
+
+      return {
+        studentId,
+        name: 'user.name',
+        completionPercentage: progress.completionPercentage,
+        points: progress.completedLessons * 10, // 10 баллов за урок
+      };
+    });
+
+    const leaderboard = await Promise.all(leaderboardPromises);
+    const sortedLeaderboard = leaderboard
+      .sort((a, b) => b.points - a.points) // Сортировка по убыванию баллов
+      .slice(0, 10); // Топ-10
+
+    await this.cacheManager.set(cacheKey, sortedLeaderboard, CACHE_TTL);
+    this.logger.debug(
+      `Calculated leaderboard for course ${courseId}:`,
+      sortedLeaderboard,
+    );
+    return sortedLeaderboard;
   }
 }
