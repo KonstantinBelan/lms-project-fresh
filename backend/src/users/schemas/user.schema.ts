@@ -12,7 +12,7 @@ export class User {
   @Prop({ required: true, select: false }) // Добавляем select: false, чтобы по умолчанию не возвращать пароль
   password: string;
 
-  @Prop({})
+  @Prop({ type: String, required: false })
   name?: string;
 
   @Prop({
@@ -22,7 +22,7 @@ export class User {
   }) // Индекс для roles
   roles: Role[];
 
-  @Prop() // Добавляем поле phone (опционально, может быть null)
+  @Prop({ type: String, required: false }) // Добавляем поле phone (опционально, может быть null)
   phone?: string;
 
   @Prop({})

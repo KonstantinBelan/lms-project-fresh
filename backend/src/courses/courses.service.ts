@@ -603,7 +603,7 @@ export class CoursesService implements ICoursesService {
 
       return {
         studentId,
-        name: 'user.name',
+        name: user?.name ?? 'Unknown',
         completionPercentage: progress.completionPercentage,
         points: progress.completedLessons * 10, // 10 баллов за урок
       };

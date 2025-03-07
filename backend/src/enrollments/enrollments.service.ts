@@ -3,6 +3,7 @@ import {
   Injectable,
   Logger,
   BadRequestException,
+  forwardRef,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
@@ -32,14 +33,19 @@ export class EnrollmentsService implements IEnrollmentsService {
     private enrollmentModel: Model<EnrollmentDocument>,
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
     private usersService: UsersService,
-    private coursesService: CoursesService,
+    // private coursesService: CoursesService,
+    @Inject(forwardRef(() => CoursesService))
+    private coursesService: CoursesService, // Инжектируем CoursesService
     private notificationsService: NotificationsService,
     @InjectQueue('notifications') private notificationsQueue: Queue,
   ) {
-    this.logger.debug(
-      'EnrollmentsService initialized, notificationsService:',
-      this.notificationsService,
-    );
+    this.logger.debug('EnrollmentsService constructor called');
+    this.logger.debug('EnrollmentModel:', !!this.enrollmentModel);
+    this.logger.debug('CacheManager:', !!this.cacheManager);
+    this.logger.debug('UsersService:', !!this.usersService);
+    this.logger.debug('CoursesService:', !!this.coursesService);
+    this.logger.debug('NotificationsService:', !!this.notificationsService);
+    this.logger.debug('NotificationsQueue:', !!this.notificationsQueue);
   }
 
   async createEnrollment(

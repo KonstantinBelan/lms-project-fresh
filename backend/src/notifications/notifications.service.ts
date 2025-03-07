@@ -33,7 +33,9 @@ export class NotificationsService implements INotificationsService {
     @Inject(forwardRef(() => EnrollmentsService))
     private enrollmentsService: EnrollmentsService,
     private usersService: UsersService,
-    private coursesService: CoursesService,
+    // private coursesService: CoursesService,
+    @Inject(forwardRef(() => CoursesService))
+    private coursesService: CoursesService, // Инжектируем CoursesService
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
   ) {
     this.logger.log(
