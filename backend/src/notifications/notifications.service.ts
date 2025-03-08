@@ -189,11 +189,11 @@ export class NotificationsService implements INotificationsService {
 
   async notifyProgress(
     enrollmentId: string,
-    moduleId: string,
+    moduleId: string | undefined,
     lessonId: string,
     customMessage?: string,
   ): Promise<void> {
-    const cacheKey = `notification:progress:${enrollmentId}:${moduleId}:${lessonId}`;
+    const cacheKey = `notification:progress:${enrollmentId}:${moduleId || 'no-module'}:${lessonId}`;
     const cachedNotification = await this.cacheManager.get<any>(cacheKey);
     if (cachedNotification) {
       this.logger.log(
@@ -214,8 +214,10 @@ export class NotificationsService implements INotificationsService {
     )) as Course;
     if (!course) throw new Error('Course not found');
 
-    const module = await this.coursesService.findModuleById(moduleId);
-    const moduleTitle = module?.title || moduleId;
+    // const module = await this.coursesService.findModuleById(moduleId);
+    const moduleTitle = moduleId
+      ? (await this.coursesService.findModuleById(moduleId))?.title || moduleId
+      : 'Unknown Module'; // Обрабатываем случай, когда moduleId не указан
 
     const lesson = await this.coursesService.findLessonById(lessonId);
     const lessonTitle = lesson?.title || lessonId;

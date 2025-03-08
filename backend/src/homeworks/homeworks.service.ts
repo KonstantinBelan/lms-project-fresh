@@ -3,7 +3,6 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Homework, HomeworkDocument } from './schemas/homework.schema';
 import { Submission, SubmissionDocument } from './schemas/submission.schema';
-// import { Lesson, LessonDocument } from '../courses/schemas/lesson.schema';
 import { EnrollmentDocument } from '../enrollments/schemas/enrollment.schema';
 import { CreateHomeworkDto } from './dto/create-homework.dto';
 import { UpdateHomeworkDto } from './dto/update-homework.dto';
@@ -24,8 +23,6 @@ export class HomeworksService {
     @InjectModel(Homework.name) private homeworkModel: Model<HomeworkDocument>,
     @InjectModel(Submission.name)
     private submissionModel: Model<SubmissionDocument>,
-    // @InjectModel(Lesson.name) private lessonModel: Model<LessonDocument>,
-    // private enrollmentModel: Model<EnrollmentDocument>,
     private notificationsService: NotificationsService,
     private coursesService: CoursesService,
     private enrollmentsService: EnrollmentsService, // Добавляем зависимость EnrollmentsService
@@ -153,7 +150,7 @@ export class HomeworksService {
           );
           await this.notificationsService.notifyProgress(
             updatedEnrollment._id.toString(),
-            '', // moduleId не требуется
+            undefined, // moduleId не требуется
             homework.lessonId.toString(),
             `You earned ${pointsAwarded} points for submitting homework "${homework.description}"!`,
           );
