@@ -603,26 +603,17 @@ export class CoursesService implements ICoursesService {
     );
 
     const totalLessons = await this.getTotalLessonsForCourse(courseId);
-    // Устанавливаем значения по умолчанию, если pointsConfig отсутствует
-    const pointsConfig = course.pointsConfig || {
-      lessons: 10,
-      modules: 50,
-      quizzes: 20,
-    };
-    const { lessons: lessonPoints, modules: modulePoints } = pointsConfig;
 
     const leaderboard = enrollments.map((enrollment) => {
       const studentId = enrollment.studentId.toString();
       const user = userMap.get(studentId);
       const completedLessons = enrollment.completedLessons.length;
-      const completedModules = enrollment.completedModules.length;
       return {
         studentId,
         name: user?.name ?? 'Unknown',
         completionPercentage:
           totalLessons > 0 ? (completedLessons / totalLessons) * 100 : 0,
-        points:
-          completedLessons * lessonPoints + completedModules * modulePoints,
+        points: enrollment.points || 0, // Используем сохранённые баллы
       };
     });
 

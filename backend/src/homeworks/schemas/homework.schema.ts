@@ -25,6 +25,9 @@ export class Homework {
   @Prop({ default: false })
   isActive: boolean;
 
+  @Prop({ type: Number, default: 10 }) // Добавляем баллы за домашку
+  points: number;
+
   __v: number;
 }
 
@@ -40,6 +43,7 @@ export interface Homework {
   category: string;
   deadline?: Date; // Сделали deadline опциональным, чтобы соответствовать классу
   isActive: boolean;
+  points: number;
   createdAt: Date;
   updatedAt: Date;
 }

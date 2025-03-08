@@ -29,6 +29,9 @@ export class Enrollment extends Document {
   @Prop({ type: Date })
   deadline?: Date;
 
+  @Prop({ type: Number, default: 0 }) // Добавляем общее количество баллов
+  points: number;
+
   @Prop({ default: 0 })
   __v: number; // Mongoose version key
 }

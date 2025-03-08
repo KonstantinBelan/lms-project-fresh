@@ -18,6 +18,7 @@ import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 import { Types } from 'mongoose';
 import { EnrollmentsService } from '../enrollments/enrollments.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 const CACHE_TTL = parseInt(process.env.CACHE_TTL ?? '3600', 10); // 1 час
 
@@ -34,6 +35,7 @@ export class QuizzesService {
     @InjectModel(Module.name) private moduleModel: Model<ModuleDocument>,
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
     private enrollmentsService: EnrollmentsService,
+    private notificationsService: NotificationsService,
   ) {}
 
   async createQuiz(
@@ -137,28 +139,25 @@ export class QuizzesService {
     const quiz = await this.findQuizById(quizId);
     if (!quiz) throw new BadRequestException('Quiz not found');
 
-    // Проверка таймера
     if (quiz.timeLimit) {
       const quizStartTime = await this.cacheManager.get<number>(
         `quiz:start:${quizId}:${studentId}`,
       );
       const now = Date.now();
       if (!quizStartTime) {
-        // Если студент ещё не начал квиз, устанавливаем время начала
         await this.cacheManager.set(
           `quiz:start:${quizId}:${studentId}`,
           now,
           quiz.timeLimit * 60 * 1000,
         );
       } else {
-        const elapsedTime = (now - quizStartTime) / (1000 * 60); // В минутах
+        const elapsedTime = (now - quizStartTime) / (1000 * 60);
         if (elapsedTime > quiz.timeLimit) {
           throw new BadRequestException('Time limit exceeded');
         }
       }
     }
 
-    // Подсчёт баллов
     let totalScore = 0;
     let maxScore = 0;
     quiz.questions.forEach((q, index) => {
@@ -166,19 +165,17 @@ export class QuizzesService {
       let isCorrect = false;
 
       if (q.correctAnswers && Array.isArray(studentAnswer)) {
-        // Множественный выбор
         isCorrect =
           q.correctAnswers.length === studentAnswer.length &&
           q.correctAnswers.every((answer) => studentAnswer.includes(answer));
       } else if (q.correctTextAnswer && typeof studentAnswer === 'string') {
-        // Текстовый ответ (регистронезависимое сравнение)
         isCorrect =
           q.correctTextAnswer.trim().toLowerCase() ===
           studentAnswer.trim().toLowerCase();
       }
 
-      totalScore += isCorrect ? q.weight : 0;
-      maxScore += q.weight;
+      totalScore += isCorrect ? q.weight || 1 : 0;
+      maxScore += q.weight || 1;
     });
     const score = maxScore > 0 ? (totalScore / maxScore) * 100 : 0;
 
@@ -217,13 +214,51 @@ export class QuizzesService {
       quiz.lessonId.toString(),
     );
 
-    // Очищаем таймер после успешной отправки
+    // Начисляем баллы через EnrollmentsService
+    const updatedEnrollment = await this.enrollmentsService.awardPoints(
+      studentId,
+      courseId,
+      totalScore,
+    );
+    if (updatedEnrollment) {
+      this.logger.debug(`Awarded ${totalScore} points for quiz ${quizId}`);
+      await this.notificationsService.notifyProgress(
+        updatedEnrollment._id.toString(),
+        moduleId,
+        quiz.lessonId.toString(),
+        `You earned ${totalScore} points for completing quiz "${quiz.title}"!`,
+      );
+    }
+
     if (quiz.timeLimit) {
       await this.cacheManager.del(`quiz:start:${quizId}:${studentId}`);
     }
 
     return savedSubmission.toObject();
   }
+
+  // async awardPoints(
+  //   studentId: string,
+  //   courseId: string,
+  //   points: number,
+  // ): Promise<EnrollmentDocument | null> {
+  //   const enrollment = await this.enrollmentModel
+  //     .findOne({
+  //       studentId: new Types.ObjectId(studentId),
+  //       courseId: new Types.ObjectId(courseId),
+  //     })
+  //     .exec();
+  //   if (!enrollment || enrollment.isCompleted) return null;
+
+  //   enrollment.points = (enrollment.points || 0) + points;
+  //   await this.cacheManager.del(`enrollment:${enrollment._id.toString()}`);
+  //   await this.cacheManager.del(`enrollments:student:${studentId}`);
+  //   await this.cacheManager.del(`enrollments:course:${courseId}`);
+  //   this.logger.debug(
+  //     `Awarded ${points} points to enrollment ${enrollment._id}`,
+  //   );
+  //   return enrollment.save();
+  // }
 
   async getQuizSubmission(
     quizId: string,

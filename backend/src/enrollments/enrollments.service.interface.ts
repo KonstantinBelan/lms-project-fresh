@@ -37,6 +37,11 @@ export interface IEnrollmentsService {
     lessonId: string,
   ): Promise<void>;
   exportEnrollmentsToCsv(): Promise<string>;
+  awardPoints( // Добавляем новый метод
+    studentId: string,
+    courseId: string,
+    points: number,
+  ): Promise<EnrollmentDocument | null>;
 }
 
 // export interface StudentProgress {

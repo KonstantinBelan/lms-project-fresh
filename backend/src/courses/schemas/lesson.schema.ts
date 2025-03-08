@@ -12,6 +12,9 @@ export class Lesson {
   @Prop({ type: String, default: null }) // Опциональное поле для мультимедиа
   media?: string;
 
+  @Prop({ type: Number, default: 1 }) // Добавляем баллы за урок
+  points: number;
+
   _id: Types.ObjectId;
 
   __v: number;

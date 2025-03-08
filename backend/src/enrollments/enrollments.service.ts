@@ -23,6 +23,7 @@ import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
+import { Lesson } from '../courses/schemas/lesson.schema';
 
 @Injectable()
 export class EnrollmentsService implements IEnrollmentsService {
@@ -38,6 +39,7 @@ export class EnrollmentsService implements IEnrollmentsService {
     private coursesService: CoursesService, // Инжектируем CoursesService
     private notificationsService: NotificationsService,
     @InjectQueue('notifications') private notificationsQueue: Queue,
+    @InjectModel(Lesson.name) private lessonModel: Model<Lesson>, // Добавляем модель Lesson
   ) {
     this.logger.debug('EnrollmentsService constructor called');
     this.logger.debug('EnrollmentModel:', !!this.enrollmentModel);
@@ -71,6 +73,7 @@ export class EnrollmentsService implements IEnrollmentsService {
       deadline,
       completedModules: [],
       completedLessons: [],
+      points: 0, // Инициализируем баллы
       isCompleted: false,
     });
     const savedEnrollment = await newEnrollment.save();
@@ -272,6 +275,7 @@ export class EnrollmentsService implements IEnrollmentsService {
       totalModules,
       completedLessons: enrollment.completedLessons.length,
       totalLessons,
+      points: enrollment.points, // Добавляем баллы
       completionPercentage:
         totalLessons > 0
           ? Math.round(
@@ -373,6 +377,70 @@ export class EnrollmentsService implements IEnrollmentsService {
     return updatedEnrollment;
   }
 
+  async completeLesson(
+    studentId: string,
+    courseId: string,
+    lessonId: string,
+  ): Promise<EnrollmentDocument> {
+    const enrollment = await this.enrollmentModel
+      .findOne({
+        studentId: new Types.ObjectId(studentId),
+        courseId: new Types.ObjectId(courseId),
+      })
+      .exec();
+    if (!enrollment) throw new BadRequestException('Enrollment not found');
+
+    const lesson = await this.lessonModel.findById(lessonId).lean().exec();
+    if (!lesson) throw new BadRequestException('Lesson not found');
+
+    if (!enrollment.completedLessons.includes(lessonId)) {
+      enrollment.completedLessons.push(lessonId);
+      const pointsAwarded = lesson.points || 1;
+      enrollment.points = (enrollment.points || 0) + pointsAwarded; // Оставляем для обратной совместимости
+      await enrollment.save();
+
+      await this.cacheManager.del(`enrollment:${enrollment._id.toString()}`);
+      await this.cacheManager.del(`enrollments:student:${studentId}`);
+      await this.cacheManager.del(`enrollments:course:${courseId}`);
+      this.logger.debug(
+        `Awarded ${pointsAwarded} points for lesson ${lessonId}`,
+      );
+
+      await this.notificationsService.notifyProgress(
+        enrollment._id.toString(),
+        '', // moduleId не требуется
+        lessonId,
+        `You earned ${pointsAwarded} points for completing lesson "${lesson.title}"!`,
+      );
+    }
+
+    return enrollment;
+  }
+
+  // Добавляем метод awardPoints
+  async awardPoints(
+    studentId: string,
+    courseId: string,
+    points: number,
+  ): Promise<EnrollmentDocument | null> {
+    const enrollment = await this.enrollmentModel
+      .findOne({
+        studentId: new Types.ObjectId(studentId),
+        courseId: new Types.ObjectId(courseId),
+      })
+      .exec();
+    if (!enrollment || enrollment.isCompleted) return null;
+
+    enrollment.points = (enrollment.points || 0) + points;
+    await this.cacheManager.del(`enrollment:${enrollment._id.toString()}`);
+    await this.cacheManager.del(`enrollments:student:${studentId}`);
+    await this.cacheManager.del(`enrollments:course:${courseId}`);
+    this.logger.debug(
+      `Awarded ${points} points to enrollment ${enrollment._id}`,
+    );
+    return enrollment.save();
+  }
+
   async getStudentProgress(
     studentId: string,
     courseId: string,
@@ -432,6 +500,7 @@ export class EnrollmentsService implements IEnrollmentsService {
       totalModules,
       completedLessons: enrollment.completedLessons.length,
       totalLessons,
+      points: enrollment.points || 0, // Добавляем баллы
       completionPercentage:
         totalLessons > 0
           ? Math.round(
@@ -477,6 +546,7 @@ export class EnrollmentsService implements IEnrollmentsService {
             totalModules: 0,
             completedLessons: enrollment.completedLessons.length,
             totalLessons: 0,
+            points: enrollment.points || 0, // Добавляем баллы
             grade: enrollment.grade,
             isCompleted: enrollment.isCompleted,
             deadline: enrollment.deadline
@@ -508,6 +578,7 @@ export class EnrollmentsService implements IEnrollmentsService {
           totalModules,
           completedLessons: enrollment.completedLessons.length,
           totalLessons,
+          points: enrollment.points || 0, // Добавляем баллы
           grade: enrollment.grade,
           isCompleted: enrollment.isCompleted,
           deadline: enrollment.deadline
@@ -638,6 +709,7 @@ export class EnrollmentsService implements IEnrollmentsService {
           courseTitle: course?.title || 'Unknown',
           completedModules: enrollment.completedModules.join(','),
           completedLessons: enrollment.completedLessons.join(','),
+          points: enrollment.points || 0, // Добавляем баллы
           isCompleted: enrollment.isCompleted,
           grade: enrollment.grade || 'N/A',
           deadline: enrollment.deadline

@@ -14,12 +14,12 @@ import {
   HttpException,
   HttpStatus,
   Res,
+  BadRequestException,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { EnrollmentsService } from './enrollments.service';
 import { CreateEnrollmentDto } from './dto/create-enrollment.dto';
-import { StudentProgress } from './dto/progress.dto';
 import { UpdateProgressDto } from './dto/update-progress.dto';
 import { CompleteCourseDto } from './dto/complete-course.dto';
 import { AlreadyEnrolledException } from './exceptions/already-enrolled.exception';
@@ -329,6 +329,29 @@ export class EnrollmentsController {
     return this.enrollmentsService.findEnrollmentByStudentAndCourse(
       studentId,
       courseId,
+    );
+  }
+
+  @Post('lesson/complete')
+  @ApiOperation({ summary: 'Complete a lesson and award points' })
+  @ApiResponse({ status: 200, description: 'Lesson completed successfully' })
+  @ApiResponse({ status: 400, description: 'Bad request' })
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @UsePipes(new ValidationPipe())
+  async completeLesson(
+    @Body('studentId') studentId: string,
+    @Body('courseId') courseId: string,
+    @Body('lessonId') lessonId: string,
+  ) {
+    if (!studentId || !courseId || !lessonId) {
+      throw new BadRequestException(
+        'studentId, courseId, and lessonId are required',
+      );
+    }
+    return this.enrollmentsService.completeLesson(
+      studentId,
+      courseId,
+      lessonId,
     );
   }
 }

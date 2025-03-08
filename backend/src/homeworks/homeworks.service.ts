@@ -3,6 +3,8 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Homework, HomeworkDocument } from './schemas/homework.schema';
 import { Submission, SubmissionDocument } from './schemas/submission.schema';
+// import { Lesson, LessonDocument } from '../courses/schemas/lesson.schema';
+import { EnrollmentDocument } from '../enrollments/schemas/enrollment.schema';
 import { CreateHomeworkDto } from './dto/create-homework.dto';
 import { UpdateHomeworkDto } from './dto/update-homework.dto';
 import { CreateSubmissionDto } from './dto/create-submission.dto';
@@ -22,6 +24,8 @@ export class HomeworksService {
     @InjectModel(Homework.name) private homeworkModel: Model<HomeworkDocument>,
     @InjectModel(Submission.name)
     private submissionModel: Model<SubmissionDocument>,
+    // @InjectModel(Lesson.name) private lessonModel: Model<LessonDocument>,
+    // private enrollmentModel: Model<EnrollmentDocument>,
     private notificationsService: NotificationsService,
     private coursesService: CoursesService,
     private enrollmentsService: EnrollmentsService, // Добавляем зависимость EnrollmentsService
@@ -42,6 +46,7 @@ export class HomeworksService {
     const newHomework = new this.homeworkModel({
       ...createHomeworkDto,
       lessonId: new Types.ObjectId(createHomeworkDto.lessonId),
+      points: createHomeworkDto.points || 10, // Добавляем points с дефолтом 10
     });
     const savedHomework: HomeworkDocument = await newHomework.save();
 
@@ -128,7 +133,34 @@ export class HomeworksService {
     });
     const savedSubmission: SubmissionDocument = await newSubmission.save();
 
-    // Очищаем кэш для связанных данных
+    const homework = await this.findHomeworkById(
+      createSubmissionDto.homeworkId,
+    );
+    if (homework) {
+      const course = await this.coursesService.findCourseByLesson(
+        homework.lessonId.toString(),
+      );
+      if (course) {
+        const pointsAwarded = homework.points || 10;
+        const updatedEnrollment = await this.enrollmentsService.awardPoints(
+          createSubmissionDto.studentId,
+          course._id.toString(),
+          pointsAwarded,
+        );
+        if (updatedEnrollment) {
+          this.logger.debug(
+            `Awarded ${pointsAwarded} points for homework ${homework._id}`,
+          );
+          await this.notificationsService.notifyProgress(
+            updatedEnrollment._id.toString(),
+            '', // moduleId не требуется
+            homework.lessonId.toString(),
+            `You earned ${pointsAwarded} points for submitting homework "${homework.description}"!`,
+          );
+        }
+      }
+    }
+
     await this.cacheManager.del(
       `submission:${(savedSubmission._id as Types.ObjectId).toString()}`,
     );

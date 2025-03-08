@@ -60,4 +60,12 @@ export class CreateHomeworkDto {
   })
   @IsOptional()
   isActive?: boolean;
+
+  @ApiProperty({
+    example: 10,
+    description: 'Points awarded for completing the homework',
+    required: false,
+  })
+  @IsOptional()
+  points?: number; // Добавляем опциональное поле для баллов
 }
