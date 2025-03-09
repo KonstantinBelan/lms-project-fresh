@@ -119,7 +119,17 @@ export class EnrollmentsService implements IEnrollmentsService {
     const savedEnrollment = await newEnrollment.save();
 
     if (streamId) {
-      await this.streamsService.addStudentToStream(streamId, studentId);
+      try {
+        await this.streamsService.addStudentToStream(streamId, studentId);
+      } catch (error) {
+        if (error instanceof BadRequestException) {
+          this.logger.warn(
+            `Student ${studentId} already enrolled in stream ${streamId}, skipping`,
+          );
+        } else {
+          throw error; // Пробрасываем другие ошибки
+        }
+      }
     }
 
     if (!skipNotifications) {

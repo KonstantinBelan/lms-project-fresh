@@ -1,5 +1,5 @@
 // src/streams/streams.service.ts
-import { Injectable } from '@nestjs/common';
+import { Injectable, BadRequestException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Stream, StreamDocument } from './schemas/stream.schema';
@@ -30,15 +30,34 @@ export class StreamsService {
     streamId: string,
     studentId: string,
   ): Promise<StreamDocument | null> {
-    const result = await this.streamModel
+    // Сначала проверяем, существует ли поток и студент уже в нём
+    const stream = await this.streamModel
+      .findById(new Types.ObjectId(streamId))
+      .lean()
+      .exec();
+
+    if (!stream) {
+      return null; // Поток не найден, вернём null (обработка в контроллере)
+    }
+
+    const studentObjectId = new Types.ObjectId(studentId);
+    if (stream.students.some((id) => id.equals(studentObjectId))) {
+      throw new BadRequestException(
+        `Student with ID ${studentId} is already enrolled in stream ${streamId}`,
+      );
+    }
+
+    // Если студента нет, добавляем его
+    const updatedStream = await this.streamModel
       .findByIdAndUpdate(
         new Types.ObjectId(streamId),
-        { $addToSet: { students: new Types.ObjectId(studentId) } },
-        { new: true }, // Возвращаем обновлённый документ
+        { $addToSet: { students: studentObjectId } },
+        { new: true },
       )
       .lean()
       .exec();
-    return result;
+
+    return updatedStream;
   }
 
   async findStreamById(streamId: string): Promise<StreamDocument | null> {

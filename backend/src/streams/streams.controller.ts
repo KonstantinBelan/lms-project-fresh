@@ -110,7 +110,10 @@ export class StreamsController {
     description: 'Student added to stream successfully',
     type: StreamResponseDto,
   })
-  @ApiResponse({ status: 400, description: 'Invalid input data' })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid input data or student already enrolled',
+  })
   @ApiResponse({ status: 404, description: 'Stream not found' })
   @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))
   async addStudentToStream(
