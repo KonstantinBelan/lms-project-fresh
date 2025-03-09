@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { QuizzesService } from './quizzes.service';
 import { QuizzesController } from './quizzes.controller';
@@ -8,6 +8,7 @@ import { EnrollmentsModule } from '../enrollments/enrollments.module'; // Для
 import { NotificationsModule } from '../notifications/notifications.module';
 import { CoursesModule } from '../courses/courses.module';
 import { UsersModule } from '../users/users.module';
+import { CacheModule } from '@nestjs/cache-manager';
 
 @Module({
   imports: [
@@ -15,10 +16,11 @@ import { UsersModule } from '../users/users.module';
       { name: 'Quiz', schema: QuizSchema },
       { name: 'QuizSubmission', schema: QuizSubmissionSchema },
     ]),
-    EnrollmentsModule, // Для обновления прогресса
-    CoursesModule,
+    forwardRef(() => EnrollmentsModule),
+    forwardRef(() => CoursesModule),
     NotificationsModule, // Добавляем для NotificationsService
     UsersModule,
+    CacheModule.register(),
   ],
   controllers: [QuizzesController],
   providers: [QuizzesService],

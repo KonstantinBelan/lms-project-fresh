@@ -16,6 +16,8 @@ import {
 import { StudentProgress } from './dto/progress.dto';
 import { UsersService } from '../users/users.service';
 import { CoursesService } from '../courses/courses.service';
+import { HomeworksService } from '../homeworks/homeworks.service';
+import { QuizzesService } from '../quizzes/quizzes.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { AlreadyEnrolledException } from './exceptions/already-enrolled.exception';
 import { BatchEnrollmentDto } from './dto/batch-enrollment.dto';
@@ -34,8 +36,9 @@ export class EnrollmentsService implements IEnrollmentsService {
     @InjectModel(Enrollment.name)
     private enrollmentModel: Model<EnrollmentDocument>,
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
+    private readonly homeworksService: HomeworksService, // Добавляем зависимость
+    private readonly quizzesService: QuizzesService, // Добавляем зависимость
     private usersService: UsersService,
-    // private coursesService: CoursesService,
     @Inject(forwardRef(() => CoursesService))
     private coursesService: CoursesService, // Инжектируем CoursesService
     private notificationsService: NotificationsService,
@@ -651,7 +654,31 @@ export class EnrollmentsService implements IEnrollmentsService {
     const totalLessons =
       await this.coursesService.getTotalLessonsForCourse(courseId);
 
-    const progress = {
+    // Получаем отправленные домашки и квизы для подсчёта средних оценок
+    const homeworkSubmissions =
+      await this.homeworksService.getSubmissionsByStudentAndCourse(
+        studentId,
+        courseId,
+      );
+    const quizSubmissions =
+      await this.quizzesService.getSubmissionsByStudentAndCourse(
+        studentId,
+        courseId,
+      );
+
+    // Рассчитываем среднюю оценку за домашки
+    const avgHomeworkGrade = homeworkSubmissions.length
+      ? homeworkSubmissions.reduce((sum, s) => sum + (s.grade || 0), 0) /
+        homeworkSubmissions.length
+      : 0;
+
+    // Рассчитываем средний балл за квизы
+    const avgQuizScore = quizSubmissions.length
+      ? quizSubmissions.reduce((sum, s) => sum + s.score, 0) /
+        quizSubmissions.length
+      : 0;
+
+    const progress: StudentProgress = {
       studentId,
       courseId,
       completedModules: enrollment.completedModules.length,
@@ -667,6 +694,8 @@ export class EnrollmentsService implements IEnrollmentsService {
           : 0,
       completedModuleIds: enrollment.completedModules,
       completedLessonIds: enrollment.completedLessons,
+      avgHomeworkGrade: Number(avgHomeworkGrade.toFixed(2)), // Округляем до 2 знаков
+      avgQuizScore: Number(avgQuizScore.toFixed(2)), // Округляем до 2 знаков
     };
 
     await this.cacheManager.set(cacheKey, progress, 3600);

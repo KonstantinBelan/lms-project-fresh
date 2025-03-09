@@ -8,6 +8,7 @@ import { NotificationsModule } from '../notifications/notifications.module'; // 
 import { CoursesModule } from '../courses/courses.module'; // Импортируем CoursesModule
 import { EnrollmentsModule } from '../enrollments/enrollments.module';
 import { UsersModule } from '../users/users.module';
+import { CacheModule } from '@nestjs/cache-manager'; // Добавляем CacheModule
 
 @Module({
   imports: [
@@ -16,12 +17,24 @@ import { UsersModule } from '../users/users.module';
       { name: Submission.name, schema: SubmissionSchema },
     ]),
     NotificationsModule,
-    CoursesModule,
-    EnrollmentsModule,
+    forwardRef(() => CoursesModule),
+    forwardRef(() => EnrollmentsModule),
     UsersModule,
+    CacheModule.register(), // Регистрируем CacheModule
   ],
   providers: [HomeworksService],
   controllers: [HomeworksController],
   exports: [HomeworksService],
 })
-export class HomeworksModule {}
+export class HomeworksModule {
+  constructor() {
+    console.log('HomeworksModule initialized, imports:', [
+      'MongooseModule',
+      'NotificationsModule',
+      'CoursesModule',
+      'EnrollmentsModule',
+      'UsersModule',
+      'CacheModule',
+    ]);
+  }
+}

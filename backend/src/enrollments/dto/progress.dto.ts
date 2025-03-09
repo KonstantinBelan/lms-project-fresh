@@ -19,6 +19,8 @@ export class StudentProgress {
   @ApiProperty({ example: 10 })
   totalLessons: number;
 
+  points: number;
+
   @ApiProperty({ example: 50 })
   completionPercentage: number;
 
@@ -27,4 +29,7 @@ export class StudentProgress {
 
   @ApiProperty({ example: ['507f1f77bcf86cd799439014'], isArray: true })
   completedLessonIds: string[];
+
+  avgHomeworkGrade: number;
+  avgQuizScore: number;
 }

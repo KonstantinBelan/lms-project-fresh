@@ -7,6 +7,8 @@ import { UsersModule } from '../users/users.module';
 import { CoursesModule } from '../courses/courses.module';
 import { AuthModule } from '../auth/auth.module';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { HomeworksModule } from '../homeworks/homeworks.module';
+import { QuizzesModule } from '../quizzes/quizzes.module';
 import { BullModule } from '@nestjs/bull';
 import { CacheModule } from '@nestjs/cache-manager';
 
@@ -24,6 +26,8 @@ import { CacheModule } from '@nestjs/cache-manager';
       redis: { host: 'localhost', port: 6379 }, // Укажи свои настройки Redis
     }),
     BullModule.registerQueue({ name: 'notifications' }),
+    forwardRef(() => HomeworksModule), // Используем forwardRef для HomeworksModule
+    forwardRef(() => QuizzesModule), // Используем forwardRef для QuizzesModule
   ],
   controllers: [EnrollmentsController],
   providers: [EnrollmentsService],

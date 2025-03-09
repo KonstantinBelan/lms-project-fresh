@@ -4,6 +4,7 @@ import {
   BadRequestException,
   Logger,
   NotFoundException,
+  forwardRef,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
@@ -36,6 +37,7 @@ export class QuizzesService {
     @InjectModel(Course.name) private courseModel: Model<CourseDocument>,
     @InjectModel(Module.name) private moduleModel: Model<ModuleDocument>,
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
+    @Inject(forwardRef(() => EnrollmentsService))
     private enrollmentsService: EnrollmentsService,
     private notificationsService: NotificationsService,
     private readonly usersService: UsersService,

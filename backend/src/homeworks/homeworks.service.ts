@@ -1,4 +1,10 @@
-import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  Logger,
+  NotFoundException,
+  forwardRef,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Homework, HomeworkDocument } from './schemas/homework.schema';
@@ -26,7 +32,9 @@ export class HomeworksService {
     private submissionModel: Model<SubmissionDocument>,
     private notificationsService: NotificationsService,
     private readonly usersService: UsersService,
+    @Inject(forwardRef(() => CoursesService))
     private coursesService: CoursesService,
+    @Inject(forwardRef(() => EnrollmentsService))
     private enrollmentsService: EnrollmentsService, // Добавляем зависимость EnrollmentsService
     @Inject(CACHE_MANAGER) private cacheManager: Cache, // Инжектируем кэш
   ) {}
