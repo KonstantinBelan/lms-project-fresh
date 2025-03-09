@@ -1,7 +1,7 @@
 // src/streams/streams.service.ts
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { Stream, StreamDocument } from './schemas/stream.schema';
 
 @Injectable()
@@ -15,19 +15,28 @@ export class StreamsService {
     name: string,
     startDate: Date,
     endDate: Date,
-  ) {
-    const stream = new this.streamModel({ courseId, name, startDate, endDate });
+  ): Promise<StreamDocument> {
+    const stream = new this.streamModel({
+      courseId: new Types.ObjectId(courseId), // Преобразуем в ObjectId
+      name,
+      startDate,
+      endDate,
+      students: [], // Явно инициализируем пустой массив
+    });
     return stream.save();
   }
 
-  async addStudentToStream(streamId: string, studentId: string) {
+  async addStudentToStream(streamId: string, studentId: string): Promise<any> {
     return this.streamModel.updateOne(
-      { _id: streamId },
-      { $addToSet: { students: studentId } },
+      { _id: new Types.ObjectId(streamId) }, // Преобразуем streamId
+      { $addToSet: { students: new Types.ObjectId(studentId) } }, // Преобразуем studentId
     );
   }
 
-  async findStreamById(streamId: string) {
-    return this.streamModel.findById(streamId).lean().exec();
+  async findStreamById(streamId: string): Promise<StreamDocument | null> {
+    return this.streamModel
+      .findById(new Types.ObjectId(streamId))
+      .lean()
+      .exec();
   }
 }
