@@ -26,16 +26,31 @@ export class StreamsService {
     return stream.save();
   }
 
-  async addStudentToStream(streamId: string, studentId: string): Promise<any> {
-    return this.streamModel.updateOne(
-      { _id: new Types.ObjectId(streamId) }, // Преобразуем streamId
-      { $addToSet: { students: new Types.ObjectId(studentId) } }, // Преобразуем studentId
-    );
+  async addStudentToStream(
+    streamId: string,
+    studentId: string,
+  ): Promise<StreamDocument | null> {
+    const result = await this.streamModel
+      .findByIdAndUpdate(
+        new Types.ObjectId(streamId),
+        { $addToSet: { students: new Types.ObjectId(studentId) } },
+        { new: true }, // Возвращаем обновлённый документ
+      )
+      .lean()
+      .exec();
+    return result;
   }
 
   async findStreamById(streamId: string): Promise<StreamDocument | null> {
     return this.streamModel
       .findById(new Types.ObjectId(streamId))
+      .lean()
+      .exec();
+  }
+
+  async getStreamsByCourse(courseId: string): Promise<StreamDocument[]> {
+    return this.streamModel
+      .find({ courseId: new Types.ObjectId(courseId) })
       .lean()
       .exec();
   }

@@ -11,7 +11,7 @@ import {
 import { TariffsService } from './tariffs.service';
 import { CreateTariffDto } from './dto/create-tariff.dto';
 import { TariffResponseDto } from './dto/tariff-response.dto';
-import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
 
 @ApiTags('tariffs') // Группируем endpoints в Swagger под тегом "tariffs"
 @Controller('tariffs')
@@ -36,6 +36,11 @@ export class TariffsController {
 
   @Get('course/:courseId')
   @ApiOperation({ summary: 'Get tariffs for a course' })
+  @ApiParam({
+    name: 'courseId',
+    description: 'ID of the course to retrieve tariffs for',
+    example: '67c848283c783d942cafb829',
+  })
   @ApiResponse({
     status: 200,
     description: 'List of tariffs retrieved successfully',
