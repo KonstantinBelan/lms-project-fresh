@@ -321,6 +321,86 @@ export class CoursesService implements ICoursesService {
     return structure;
   }
 
+  async getStudentCourseStructure(
+    studentId: string,
+    courseId: string,
+  ): Promise<any> {
+    const cacheKey = `course:student-structure:${courseId}:student:${studentId}`;
+    const cachedStructure = await this.cacheManager.get<any>(cacheKey);
+    if (cachedStructure) {
+      this.logger.debug(
+        'Student course structure found in cache:',
+        cachedStructure,
+      );
+      return cachedStructure;
+    }
+
+    const course = await this.courseModel.findById(courseId).lean().exec();
+    if (!course) throw new BadRequestException('Course not found');
+
+    const enrollment = await this.enrollmentsService
+      .findOneByStudentAndCourse(studentId, courseId)
+      .populate('tariffId')
+      .lean()
+      .exec();
+    if (!enrollment) {
+      throw new BadRequestException(
+        'Enrollment not found for this student and course',
+      );
+    }
+
+    const tariff = enrollment.tariffId as TariffDocument;
+
+    const modules = await this.moduleModel
+      .find({
+        _id: { $in: course.modules.map((id) => new Types.ObjectId(id)) },
+      })
+      .lean()
+      .exec();
+    const lessons = await this.lessonModel
+      .find({
+        _id: {
+          $in: modules.flatMap((m) =>
+            m.lessons.map((id) => new Types.ObjectId(id)),
+          ),
+        },
+      })
+      .lean()
+      .exec();
+
+    // Фильтруем модули на основе тарифа, если он есть
+    let accessibleModules = modules;
+    if (tariff && tariff.accessibleModules.length > 0) {
+      accessibleModules = modules.filter((module) =>
+        tariff.accessibleModules.some(
+          (m) => m.toString() === module._id.toString(),
+        ),
+      );
+    }
+
+    const structure = {
+      courseId: course._id,
+      title: course.title,
+      modules: accessibleModules.map((module) => ({
+        moduleId: module._id,
+        title: module.title,
+        lessons: lessons
+          .filter((lesson) =>
+            module.lessons.some((l) => l.toString() === lesson._id.toString()),
+          )
+          .map((lesson) => ({
+            lessonId: lesson._id,
+            title: lesson.title,
+            content: lesson.content,
+          })),
+      })),
+    };
+
+    await this.cacheManager.set(cacheKey, structure, 3600); // Кэшируем на 1 час
+    this.logger.debug('Student course structure calculated:', structure);
+    return structure;
+  }
+
   async getTotalLessonsForCourse(courseId: string): Promise<number> {
     const cacheKey = `course:total-lessons:${courseId}`;
     const cachedTotal = await this.cacheManager.get<number>(cacheKey);

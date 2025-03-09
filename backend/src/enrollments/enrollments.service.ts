@@ -978,4 +978,16 @@ export class EnrollmentsService implements IEnrollmentsService {
       .lean()
       .exec();
   }
+
+  async findOneByStudentAndCourse(
+    studentId: string,
+    courseId: string,
+  ): Promise<EnrollmentDocument | null> {
+    return this.enrollmentModel
+      .findOne({
+        studentId: new Types.ObjectId(studentId),
+        courseId: new Types.ObjectId(courseId),
+      })
+      .exec(); // Используем .exec() вместо .lean(), чтобы можно было populate tariffId
+  }
 }

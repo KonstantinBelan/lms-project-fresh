@@ -4,6 +4,7 @@ import {
   Body,
   Get,
   Param,
+  Req,
   Put,
   Delete,
   UsePipes,
@@ -138,6 +139,31 @@ export class CoursesController {
   ])
   async courseStructure(@Param('courseId') courseId: string) {
     return this.coursesService.getCourseStructure(courseId);
+  }
+
+  @Get(':courseId/student-structure')
+  @ApiOperation({
+    summary: 'Get course structure for a student based on their tariff',
+  })
+  @ApiParam({
+    name: 'courseId',
+    description: 'Course ID',
+    example: '507f1f77bcf86cd799439011',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Student course structure retrieved successfully',
+  })
+  @ApiResponse({ status: 404, description: 'Course or enrollment not found' })
+  @ApiResponse({ status: 403, description: 'Forbidden' })
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @SetMetadata('roles', [Role.STUDENT]) // Только для студентов
+  async getStudentCourseStructure(
+    @Param('courseId') courseId: string,
+    @Req() req: Request, // Получаем studentId из JWT
+  ) {
+    const studentId = (req.user as any).sub; // Предполагаем, что sub — это ID студента из JWT
+    return this.coursesService.getStudentCourseStructure(studentId, courseId);
   }
 
   @Put(':id')
