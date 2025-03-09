@@ -1,5 +1,5 @@
 // src/notifications/notifications.gateway.ts
-import { Logger, Injectable } from '@nestjs/common';
+import { Logger, Injectable, Inject, forwardRef } from '@nestjs/common';
 import {
   WebSocketGateway,
   WebSocketServer,
@@ -26,11 +26,21 @@ export class NotificationsGateway
   private subscriptions = new Map<string, string>(); // userId -> socketId
 
   constructor(
+    @Inject(forwardRef(() => NotificationsService))
     private readonly notificationsService: NotificationsService,
+    @Inject(forwardRef(() => EnrollmentsService))
     private readonly enrollmentsService: EnrollmentsService,
+    @Inject(forwardRef(() => CoursesService))
     private readonly coursesService: CoursesService,
+    @Inject(forwardRef(() => HomeworksService))
     private readonly homeworksService: HomeworksService,
-  ) {}
+  ) {
+    this.logger.log('NotificationsGateway initialized');
+    this.logger.log('NotificationsService:', !!this.notificationsService);
+    this.logger.log('EnrollmentsService:', !!this.enrollmentsService);
+    this.logger.log('CoursesService:', !!this.coursesService);
+    this.logger.log('HomeworksService:', !!this.homeworksService);
+  }
 
   afterInit() {
     this.logger.log('WebSocket server initialized');

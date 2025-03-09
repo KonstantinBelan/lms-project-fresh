@@ -50,9 +50,9 @@ import { Types } from 'mongoose';
     NotificationsModule,
     AnalyticsModule,
     HomeworksModule,
-    CacheModule.register(cacheManagerConfig),
     AdminModule,
     QuizzesModule,
+    CacheModule.register(cacheManagerConfig),
   ],
   controllers: [AppController],
   providers: [

@@ -14,6 +14,7 @@ import { CoursesModule } from '../courses/courses.module';
 import { HomeworksModule } from '../homeworks/homeworks.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { BullModule } from '@nestjs/bull';
+import { CacheModule } from '@nestjs/cache-manager'; // Добавляем CacheModule
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { BullModule } from '@nestjs/bull';
     forwardRef(() => HomeworksModule),
     ConfigModule,
     BullModule.registerQueue({ name: 'notifications' }),
+    CacheModule.register(),
   ],
   controllers: [NotificationsController],
   providers: [
