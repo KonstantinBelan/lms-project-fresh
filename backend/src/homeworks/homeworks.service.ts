@@ -1,4 +1,4 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Homework, HomeworkDocument } from './schemas/homework.schema';
@@ -10,6 +10,7 @@ import { CreateSubmissionDto } from './dto/create-submission.dto';
 import { UpdateSubmissionDto } from './dto/update-submission.dto';
 import { NotificationsService } from '../notifications/notifications.service';
 import { CoursesService } from '../courses/courses.service';
+import { UsersService } from '../users/users.service';
 import { Types } from 'mongoose';
 import { CACHE_MANAGER } from '@nestjs/cache-manager'; // Импортируем CACHE_MANAGER
 import { Cache } from 'cache-manager'; // Импортируем Cache
@@ -24,6 +25,7 @@ export class HomeworksService {
     @InjectModel(Submission.name)
     private submissionModel: Model<SubmissionDocument>,
     private notificationsService: NotificationsService,
+    private readonly usersService: UsersService,
     private coursesService: CoursesService,
     private enrollmentsService: EnrollmentsService, // Добавляем зависимость EnrollmentsService
     @Inject(CACHE_MANAGER) private cacheManager: Cache, // Инжектируем кэш
@@ -133,29 +135,37 @@ export class HomeworksService {
     const homework = await this.findHomeworkById(
       createSubmissionDto.homeworkId,
     );
-    if (homework) {
-      const course = await this.coursesService.findCourseByLesson(
-        homework.lessonId.toString(),
+    if (!homework) throw new NotFoundException('Homework not found');
+
+    const course = await this.coursesService.findCourseByLesson(
+      homework.lessonId.toString(),
+    );
+    if (!course)
+      throw new NotFoundException('Course not found for this lesson');
+
+    const pointsAwarded = homework.points || 10;
+    const updatedEnrollment = await this.enrollmentsService.awardPoints(
+      createSubmissionDto.studentId,
+      course._id.toString(),
+      pointsAwarded,
+    );
+
+    if (updatedEnrollment) {
+      this.logger.debug(
+        `Awarded ${pointsAwarded} points for homework ${homework._id}`,
       );
-      if (course) {
-        const pointsAwarded = homework.points || 10;
-        const updatedEnrollment = await this.enrollmentsService.awardPoints(
-          createSubmissionDto.studentId,
-          course._id.toString(),
-          pointsAwarded,
-        );
-        if (updatedEnrollment) {
-          this.logger.debug(
-            `Awarded ${pointsAwarded} points for homework ${homework._id}`,
-          );
-          await this.notificationsService.notifyProgress(
-            updatedEnrollment._id.toString(),
-            undefined, // moduleId не требуется
-            homework.lessonId.toString(),
-            `You earned ${pointsAwarded} points for submitting homework "${homework.description}"!`,
-          );
-        }
-      }
+
+      // Получаем настройки пользователя
+      const student = await this.usersService.findById(
+        createSubmissionDto.studentId,
+      );
+      if (!student) throw new NotFoundException('Student not found');
+
+      await this.notificationsService.notifyProgress(
+        createSubmissionDto.studentId, // Используем studentId вместо enrollment._id
+        `You earned ${pointsAwarded} points for submitting homework "${homework.description}"!`,
+        student.settings, // Передаём настройки уведомлений
+      );
     }
 
     await this.cacheManager.del(
@@ -564,5 +574,17 @@ export class HomeworksService {
 
       await this.cacheManager.set(cacheKey, { checked: true }, 3600); // Кэшируем проверку на 1 час
     }
+  }
+
+  async getSubmissionsByStudentAndCourse(studentId: string, courseId: string) {
+    const submissions = await this.submissionModel
+      .find({ studentId })
+      .populate({
+        path: 'homeworkId',
+        match: { courseId: new Types.ObjectId(courseId) },
+      })
+      .lean()
+      .exec();
+    return submissions.filter((s) => s.homeworkId); // Убираем null из-за match
   }
 }

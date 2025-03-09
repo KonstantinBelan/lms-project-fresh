@@ -3,6 +3,7 @@ import {
   Injectable,
   BadRequestException,
   Logger,
+  NotFoundException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
@@ -19,6 +20,7 @@ import { Cache } from 'cache-manager';
 import { Types } from 'mongoose';
 import { EnrollmentsService } from '../enrollments/enrollments.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { UsersService } from '../users/users.service';
 
 const CACHE_TTL = parseInt(process.env.CACHE_TTL ?? '3600', 10); // 1 час
 
@@ -36,6 +38,7 @@ export class QuizzesService {
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
     private enrollmentsService: EnrollmentsService,
     private notificationsService: NotificationsService,
+    private readonly usersService: UsersService,
   ) {}
 
   async createQuiz(
@@ -118,6 +121,124 @@ export class QuizzesService {
       await this.cacheManager.del(`quizzes:lesson:${quiz.lessonId}`);
     }
   }
+
+  // async submitQuiz(
+  //   studentId: string,
+  //   quizId: string,
+  //   answers: (number[] | string)[],
+  // ): Promise<QuizSubmission> {
+  //   this.logger.log(`Submitting quiz ${quizId} for student ${studentId}`);
+  //   const existingSubmission = await this.quizSubmissionModel
+  //     .findOne({
+  //       quizId: new Types.ObjectId(quizId),
+  //       studentId: new Types.ObjectId(studentId),
+  //     })
+  //     .lean()
+  //     .exec();
+  //   if (existingSubmission) {
+  //     throw new BadRequestException('You have already submitted this quiz');
+  //   }
+
+  //   const quiz = await this.findQuizById(quizId);
+  //   if (!quiz) throw new BadRequestException('Quiz not found');
+
+  //   if (quiz.timeLimit) {
+  //     const quizStartTime = await this.cacheManager.get<number>(
+  //       `quiz:start:${quizId}:${studentId}`,
+  //     );
+  //     const now = Date.now();
+  //     if (!quizStartTime) {
+  //       await this.cacheManager.set(
+  //         `quiz:start:${quizId}:${studentId}`,
+  //         now,
+  //         quiz.timeLimit * 60 * 1000,
+  //       );
+  //     } else {
+  //       const elapsedTime = (now - quizStartTime) / (1000 * 60);
+  //       if (elapsedTime > quiz.timeLimit) {
+  //         throw new BadRequestException('Time limit exceeded');
+  //       }
+  //     }
+  //   }
+
+  //   let totalScore = 0;
+  //   let maxScore = 0;
+  //   quiz.questions.forEach((q, index) => {
+  //     const studentAnswer = answers[index];
+  //     let isCorrect = false;
+
+  //     if (q.correctAnswers && Array.isArray(studentAnswer)) {
+  //       isCorrect =
+  //         q.correctAnswers.length === studentAnswer.length &&
+  //         q.correctAnswers.every((answer) => studentAnswer.includes(answer));
+  //     } else if (q.correctTextAnswer && typeof studentAnswer === 'string') {
+  //       isCorrect =
+  //         q.correctTextAnswer.trim().toLowerCase() ===
+  //         studentAnswer.trim().toLowerCase();
+  //     }
+
+  //     totalScore += isCorrect ? q.weight || 1 : 0;
+  //     maxScore += q.weight || 1;
+  //   });
+  //   const score = maxScore > 0 ? (totalScore / maxScore) * 100 : 0;
+
+  //   const submission = new this.quizSubmissionModel({
+  //     quizId: new Types.ObjectId(quizId),
+  //     studentId: new Types.ObjectId(studentId),
+  //     answers,
+  //     score,
+  //   });
+  //   const savedSubmission = await submission.save();
+
+  //   const lesson = await this.lessonModel.findById(quiz.lessonId).lean().exec();
+  //   if (!lesson) throw new BadRequestException('Lesson not found');
+
+  //   const module = await this.moduleModel
+  //     .findOne({ lessons: quiz.lessonId })
+  //     .lean()
+  //     .exec();
+  //   if (!module)
+  //     throw new BadRequestException('Module not found for this lesson');
+
+  //   const course = await this.courseModel
+  //     .findOne({ modules: module._id })
+  //     .lean()
+  //     .exec();
+  //   if (!course)
+  //     throw new BadRequestException('Course not found for this module');
+
+  //   const moduleId = module._id.toString();
+  //   const courseId = course._id.toString();
+
+  //   await this.enrollmentsService.updateStudentProgress(
+  //     studentId,
+  //     courseId,
+  //     moduleId,
+  //     quiz.lessonId.toString(),
+  //   );
+
+  //   // Начисляем баллы через EnrollmentsService
+  //   const updatedEnrollment = await this.enrollmentsService.awardPoints(
+  //     studentId,
+  //     courseId,
+  //     totalScore,
+  //   );
+  //   if (updatedEnrollment) {
+  //     this.logger.debug(`Awarded ${totalScore} points for quiz ${quizId}`);
+  //     await this.notificationsService.notifyProgress(
+  //       updatedEnrollment._id.toString(),
+  //       moduleId,
+  //       quiz.lessonId.toString(),
+  //       `You earned ${totalScore} points for completing quiz "${quiz.title}"!`,
+  //     );
+  //   }
+
+  //   if (quiz.timeLimit) {
+  //     await this.cacheManager.del(`quiz:start:${quizId}:${studentId}`);
+  //   }
+
+  //   return savedSubmission.toObject();
+  // }
 
   async submitQuiz(
     studentId: string,
@@ -214,7 +335,6 @@ export class QuizzesService {
       quiz.lessonId.toString(),
     );
 
-    // Начисляем баллы через EnrollmentsService
     const updatedEnrollment = await this.enrollmentsService.awardPoints(
       studentId,
       courseId,
@@ -222,11 +342,15 @@ export class QuizzesService {
     );
     if (updatedEnrollment) {
       this.logger.debug(`Awarded ${totalScore} points for quiz ${quizId}`);
+
+      // Получаем настройки пользователя
+      const student = await this.usersService.findById(studentId);
+      if (!student) throw new NotFoundException('Student not found');
+
       await this.notificationsService.notifyProgress(
-        updatedEnrollment._id.toString(),
-        moduleId,
-        quiz.lessonId.toString(),
+        studentId, // Используем studentId вместо enrollment._id
         `You earned ${totalScore} points for completing quiz "${quiz.title}"!`,
+        student.settings, // Передаём настройки уведомлений
       );
     }
 
@@ -280,5 +404,17 @@ export class QuizzesService {
     const quiz = await this.findQuizById(quizId);
     if (!quiz) throw new BadRequestException('Quiz not found');
     return quiz.questions.map((q) => ({ question: q.question, hint: q.hint }));
+  }
+
+  async getSubmissionsByStudentAndCourse(studentId: string, courseId: string) {
+    const submissions = await this.quizSubmissionModel
+      .find({ studentId })
+      .populate({
+        path: 'quizId',
+        match: { courseId: new Types.ObjectId(courseId) },
+      })
+      .lean()
+      .exec();
+    return submissions.filter((s) => s.quizId); // Убираем null из-за match
   }
 }

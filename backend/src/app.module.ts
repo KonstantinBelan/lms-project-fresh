@@ -16,6 +16,8 @@ import { cacheManagerConfig } from './cache.config'; // Создаём конф�
 import { RealTimeAnalyticsModule } from './real-time-analytics/real-time-analytics.module'; // Убедимся, что путь корректен
 import { AdminModule } from './admin/admin.module';
 import { QuizzesModule } from './quizzes/quizzes.module';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { APP_GUARD } from '@nestjs/core';
 
 import {
   Homework,
@@ -36,6 +38,12 @@ import { Types } from 'mongoose';
       }),
       inject: [ConfigService],
     }),
+    ThrottlerModule.forRoot([
+      {
+        ttl: 60, // Время жизни в секундах
+        limit: 10, // Максимум запросов
+      },
+    ]),
     UsersModule,
     AuthModule,
     CoursesModule,
@@ -49,7 +57,13 @@ import { Types } from 'mongoose';
     QuizzesModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
+  ],
 })
 export class AppModule implements OnModuleInit {
   constructor(private homeworksService: HomeworksService) {

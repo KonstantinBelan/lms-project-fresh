@@ -4,6 +4,7 @@ import {
   Logger,
   BadRequestException,
   forwardRef,
+  NotFoundException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
@@ -416,6 +417,46 @@ export class EnrollmentsService implements IEnrollmentsService {
     return enrollment;
   }
 
+  // async completeLesson(
+  //   studentId: string,
+  //   courseId: string,
+  //   lessonId: string,
+  // ): Promise<EnrollmentDocument> {
+  //   const enrollment = await this.enrollmentModel
+  //     .findOne({
+  //       studentId: new Types.ObjectId(studentId),
+  //       courseId: new Types.ObjectId(courseId),
+  //     })
+  //     .exec();
+  //   if (!enrollment) throw new BadRequestException('Enrollment not found');
+
+  //   const lesson = await this.lessonModel.findById(lessonId).lean().exec();
+  //   if (!lesson) throw new BadRequestException('Lesson not found');
+
+  //   if (!enrollment.completedLessons.includes(lessonId)) {
+  //     enrollment.completedLessons.push(lessonId);
+  //     const pointsAwarded = lesson.points || 1;
+  //     enrollment.points = (enrollment.points || 0) + pointsAwarded; // Оставляем для обратной совместимости
+  //     await enrollment.save();
+
+  //     await this.cacheManager.del(`enrollment:${enrollment._id.toString()}`);
+  //     await this.cacheManager.del(`enrollments:student:${studentId}`);
+  //     await this.cacheManager.del(`enrollments:course:${courseId}`);
+  //     this.logger.debug(
+  //       `Awarded ${pointsAwarded} points for lesson ${lessonId}`,
+  //     );
+
+  //     await this.notificationsService.notifyProgress(
+  //       enrollment._id.toString(),
+  //       '', // moduleId не требуется
+  //       lessonId,
+  //       `You earned ${pointsAwarded} points for completing lesson "${lesson.title}"!`,
+  //     );
+  //   }
+
+  //   return enrollment;
+  // }
+
   async completeLesson(
     studentId: string,
     courseId: string,
@@ -435,7 +476,7 @@ export class EnrollmentsService implements IEnrollmentsService {
     if (!enrollment.completedLessons.includes(lessonId)) {
       enrollment.completedLessons.push(lessonId);
       const pointsAwarded = lesson.points || 1;
-      enrollment.points = (enrollment.points || 0) + pointsAwarded; // Оставляем для обратной совместимости
+      enrollment.points = (enrollment.points || 0) + pointsAwarded;
       await enrollment.save();
 
       await this.cacheManager.del(`enrollment:${enrollment._id.toString()}`);
@@ -445,11 +486,14 @@ export class EnrollmentsService implements IEnrollmentsService {
         `Awarded ${pointsAwarded} points for lesson ${lessonId}`,
       );
 
+      // Получаем настройки пользователя
+      const student = await this.usersService.findById(studentId);
+      if (!student) throw new NotFoundException('Student not found');
+
       await this.notificationsService.notifyProgress(
-        enrollment._id.toString(),
-        '', // moduleId не требуется
-        lessonId,
+        studentId, // Используем studentId, а не enrollment._id
         `You earned ${pointsAwarded} points for completing lesson "${lesson.title}"!`,
+        student.settings, // Передаём настройки уведомлений
       );
     }
 
@@ -457,28 +501,117 @@ export class EnrollmentsService implements IEnrollmentsService {
   }
 
   // Добавляем метод awardPoints
+  // async awardPoints(
+  //   studentId: string,
+  //   courseId: string,
+  //   points: number,
+  // ): Promise<EnrollmentDocument | null> {
+  //   const enrollment = await this.enrollmentModel
+  //     .findOne({
+  //       studentId: new Types.ObjectId(studentId),
+  //       courseId: new Types.ObjectId(courseId),
+  //     })
+  //     .exec();
+  //   if (!enrollment || enrollment.isCompleted) return null;
+
+  //   enrollment.points = (enrollment.points || 0) + points;
+  //   await this.cacheManager.del(`enrollment:${enrollment._id.toString()}`);
+  //   await this.cacheManager.del(`enrollments:student:${studentId}`);
+  //   await this.cacheManager.del(`enrollments:course:${courseId}`);
+  //   this.logger.debug(
+  //     `Awarded ${points} points to enrollment ${enrollment._id}`,
+  //   );
+  //   return enrollment.save();
+  // }
+
   async awardPoints(
     studentId: string,
     courseId: string,
     points: number,
-  ): Promise<EnrollmentDocument | null> {
+  ): Promise<EnrollmentDocument> {
     const enrollment = await this.enrollmentModel
       .findOne({
         studentId: new Types.ObjectId(studentId),
         courseId: new Types.ObjectId(courseId),
       })
       .exec();
-    if (!enrollment || enrollment.isCompleted) return null;
+    if (!enrollment) throw new NotFoundException('Enrollment not found');
+    if (enrollment.isCompleted)
+      throw new BadRequestException('Course already completed');
 
     enrollment.points = (enrollment.points || 0) + points;
+    await enrollment.save();
+
     await this.cacheManager.del(`enrollment:${enrollment._id.toString()}`);
     await this.cacheManager.del(`enrollments:student:${studentId}`);
     await this.cacheManager.del(`enrollments:course:${courseId}`);
     this.logger.debug(
       `Awarded ${points} points to enrollment ${enrollment._id}`,
     );
-    return enrollment.save();
+
+    return enrollment;
   }
+
+  // async getStudentProgress(
+  //   studentId: string,
+  //   courseId: string,
+  // ): Promise<StudentProgress> {
+  //   const cacheKey = `progress:student:${studentId}:course:${courseId}`;
+  //   const cachedProgress =
+  //     await this.cacheManager.get<StudentProgress>(cacheKey);
+  //   if (cachedProgress) {
+  //     this.logger.debug('Progress found in cache:', cachedProgress);
+  //     return cachedProgress;
+  //   }
+
+  //   if (
+  //     !Types.ObjectId.isValid(studentId) ||
+  //     !Types.ObjectId.isValid(courseId)
+  //   ) {
+  //     throw new BadRequestException('Invalid studentId or courseId');
+  //   }
+
+  //   const enrollment = await this.enrollmentModel
+  //     .findOne({
+  //       studentId: new Types.ObjectId(studentId),
+  //       courseId: new Types.ObjectId(courseId),
+  //     })
+  //     .lean()
+  //     .exec();
+  //   this.logger.debug(
+  //     `Fetching progress for studentId: ${studentId}, courseId: ${courseId}`,
+  //   );
+  //   if (!enrollment) throw new BadRequestException('Enrollment not found');
+
+  //   const course = await this.coursesService.findCourseById(courseId);
+  //   if (!course) throw new BadRequestException('Course not found');
+
+  //   const totalModules = course.modules.length || 0;
+  //   const totalLessons =
+  //     await this.coursesService.getTotalLessonsForCourse(courseId);
+
+  //   const progress = {
+  //     studentId,
+  //     courseId,
+  //     completedModules: enrollment.completedModules.length,
+  //     totalModules,
+  //     completedLessons: enrollment.completedLessons.length,
+  //     totalLessons,
+  //     points: enrollment.points || 0, // Добавляем баллы
+  //     completionPercentage:
+  //       totalLessons > 0
+  //         ? Math.round(
+  //             (enrollment.completedLessons.length / totalLessons) * 100,
+  //           )
+  //         : 0,
+  //     completedModuleIds: enrollment.completedModules,
+  //     completedLessonIds: enrollment.completedLessons,
+  //   };
+
+  //   await this.cacheManager.set(cacheKey, progress, 3600); // Кэшируем на 1 час
+  //   this.logger.debug('Calculated student progress:', progress);
+  //   return progress;
+  // }
 
   async getStudentProgress(
     studentId: string,
@@ -518,20 +651,6 @@ export class EnrollmentsService implements IEnrollmentsService {
     const totalLessons =
       await this.coursesService.getTotalLessonsForCourse(courseId);
 
-    // const progress = {
-    //   studentId,
-    //   courseId,
-    //   completedModules: enrollment.completedModules.length,
-    //   totalModules,
-    //   completedLessons: enrollment.completedLessons.length,
-    //   totalLessons,
-    //   completionPercentage:
-    //     totalLessons > 0
-    //       ? Math.round(
-    //           (enrollment.completedLessons.length / totalLessons) * 100,
-    //         )
-    //       : 0,
-    // };
     const progress = {
       studentId,
       courseId,
@@ -539,7 +658,7 @@ export class EnrollmentsService implements IEnrollmentsService {
       totalModules,
       completedLessons: enrollment.completedLessons.length,
       totalLessons,
-      points: enrollment.points || 0, // Добавляем баллы
+      points: enrollment.points || 0,
       completionPercentage:
         totalLessons > 0
           ? Math.round(
@@ -550,7 +669,7 @@ export class EnrollmentsService implements IEnrollmentsService {
       completedLessonIds: enrollment.completedLessons,
     };
 
-    await this.cacheManager.set(cacheKey, progress, 3600); // Кэшируем на 1 час
+    await this.cacheManager.set(cacheKey, progress, 3600);
     this.logger.debug('Calculated student progress:', progress);
     return progress;
   }

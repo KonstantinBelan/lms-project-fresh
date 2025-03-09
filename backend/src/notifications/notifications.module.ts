@@ -4,6 +4,7 @@ import {
   Notification,
   NotificationSchema,
 } from './schemas/notification.schema';
+import { NotificationsGateway } from './notifications.gateway';
 import { NotificationsController } from './notifications.controller';
 import { NotificationsService } from './notifications.service';
 import { NotificationsProcessor } from './notifications.processor';
@@ -25,8 +26,13 @@ import { BullModule } from '@nestjs/bull';
     BullModule.registerQueue({ name: 'notifications' }),
   ],
   controllers: [NotificationsController],
-  providers: [NotificationsService, ConfigService, NotificationsProcessor],
-  exports: [NotificationsService, MongooseModule],
+  providers: [
+    NotificationsService,
+    ConfigService,
+    NotificationsProcessor,
+    NotificationsGateway,
+  ],
+  exports: [NotificationsService, MongooseModule, NotificationsGateway],
 })
 export class NotificationsModule {
   constructor() {

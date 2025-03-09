@@ -7,6 +7,7 @@ import { QuizSubmissionSchema } from './schemas/quiz-submission.schema';
 import { EnrollmentsModule } from '../enrollments/enrollments.module'; // Для интеграции
 import { NotificationsModule } from '../notifications/notifications.module';
 import { CoursesModule } from '../courses/courses.module';
+import { UsersModule } from '../users/users.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { CoursesModule } from '../courses/courses.module';
     EnrollmentsModule, // Для обновления прогресса
     CoursesModule,
     NotificationsModule, // Добавляем для NotificationsService
+    UsersModule,
   ],
   controllers: [QuizzesController],
   providers: [QuizzesService],
