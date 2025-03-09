@@ -595,4 +595,20 @@ export class HomeworksService {
       .exec();
     return submissions.filter((s) => s.homeworkId); // Убираем null из-за match
   }
+
+  async getHomeworksByCourse(courseId: string) {
+    const lessons = await this.coursesService.getLessonsForCourse(courseId);
+    return this.homeworkModel
+      .find({ lessonId: { $in: lessons } })
+      .lean()
+      .exec();
+  }
+
+  async getSubmissionsByCourse(courseId: string) {
+    const homeworks = await this.getHomeworksByCourse(courseId);
+    return this.submissionModel
+      .find({ homeworkId: { $in: homeworks.map((h) => h._id) } })
+      .lean()
+      .exec();
+  }
 }

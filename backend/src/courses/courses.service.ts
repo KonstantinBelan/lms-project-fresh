@@ -624,4 +624,20 @@ export class CoursesService implements ICoursesService {
     this.logger.debug(`Leaderboard calculated for course ${courseId}`);
     return sortedLeaderboard;
   }
+
+  async getLessonsForCourse(courseId: string): Promise<string[]> {
+    const course = await this.findCourseById(courseId);
+    if (!course || !course.modules) return [];
+    const modules = await Promise.all(
+      course.modules.map((moduleId: Types.ObjectId) =>
+        this.moduleModel.findById(moduleId).lean().exec(),
+      ),
+    );
+    return modules.reduce((acc, mod) => {
+      const lessonIds = (mod?.lessons || []).map((id: Types.ObjectId) =>
+        id.toString(),
+      );
+      return [...acc, ...lessonIds];
+    }, []);
+  }
 }

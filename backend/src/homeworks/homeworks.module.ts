@@ -16,7 +16,7 @@ import { CacheModule } from '@nestjs/cache-manager'; // Добавляем Cache
       { name: Homework.name, schema: HomeworkSchema },
       { name: Submission.name, schema: SubmissionSchema },
     ]),
-    NotificationsModule,
+    forwardRef(() => NotificationsModule),
     forwardRef(() => CoursesModule),
     forwardRef(() => EnrollmentsModule),
     UsersModule,

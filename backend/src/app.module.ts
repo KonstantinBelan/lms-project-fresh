@@ -13,7 +13,6 @@ import { HomeworksModule } from './homeworks/homeworks.module';
 import { HomeworksService } from './homeworks/homeworks.service';
 import { CacheModule } from '@nestjs/cache-manager'; // Импортируем CacheModule
 import { cacheManagerConfig } from './cache.config'; // Создаём конфигурацию кэша (см. ниже)
-import { RealTimeAnalyticsModule } from './real-time-analytics/real-time-analytics.module'; // Убедимся, что путь корректен
 import { AdminModule } from './admin/admin.module';
 import { QuizzesModule } from './quizzes/quizzes.module';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
@@ -52,7 +51,6 @@ import { Types } from 'mongoose';
     AnalyticsModule,
     HomeworksModule,
     CacheModule.register(cacheManagerConfig),
-    RealTimeAnalyticsModule,
     AdminModule,
     QuizzesModule,
   ],
@@ -78,7 +76,6 @@ export class AppModule implements OnModuleInit {
       'AnalyticsModule',
       'HomeworksModule',
       'CacheModule.register(cacheManagerConfig)',
-      'RealTimeAnalyticsModule',
       'AdminModule',
       'QuizzesModule',
     ]);

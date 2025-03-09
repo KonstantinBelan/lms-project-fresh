@@ -920,4 +920,18 @@ export class EnrollmentsService implements IEnrollmentsService {
       .lean()
       .exec();
   }
+
+  async getEnrollmentsByStudent(studentId: string) {
+    return this.enrollmentModel
+      .find({ studentId: new Types.ObjectId(studentId) })
+      .lean()
+      .exec();
+  }
+
+  async getEnrollmentsByCourse(courseId: string) {
+    return this.enrollmentModel
+      .find({ courseId: new Types.ObjectId(courseId) })
+      .lean()
+      .exec();
+  }
 }
