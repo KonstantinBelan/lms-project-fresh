@@ -7,6 +7,7 @@ import {
   Param,
   UsePipes,
   ValidationPipe,
+  NotFoundException,
 } from '@nestjs/common';
 import { StreamsService } from './streams.service';
 import { CreateStreamDto } from './dto/create-stream.dto';
@@ -71,6 +72,32 @@ export class StreamsController {
     return this.streamsService.getStreamsByCourse(courseId);
   }
 
+  // @Post(':streamId/students')
+  // @ApiOperation({ summary: 'Add a student to a stream' })
+  // @ApiParam({
+  //   name: 'streamId',
+  //   description: 'ID of the stream to add the student to',
+  //   example: '507f1f77bcf86cd799439012',
+  // })
+  // @ApiResponse({
+  //   status: 200,
+  //   description: 'Student added to stream successfully',
+  //   type: StreamResponseDto,
+  // })
+  // @ApiResponse({ status: 400, description: 'Invalid input data' })
+  // @ApiResponse({ status: 404, description: 'Stream not found' })
+  // @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))
+  // async addStudentToStream(
+  //   @Param('streamId') streamId: string,
+  //   @Body() addStudentDto: AddStudentToStreamDto,
+  // ) {
+  //   const updatedStream = await this.streamsService.addStudentToStream(
+  //     streamId,
+  //     addStudentDto.studentId,
+  //   );
+  //   return this.streamsService.findStreamById(streamId); // Возвращаем обновлённый поток
+  // }
+
   @Post(':streamId/students')
   @ApiOperation({ summary: 'Add a student to a stream' })
   @ApiParam({
@@ -94,6 +121,9 @@ export class StreamsController {
       streamId,
       addStudentDto.studentId,
     );
-    return this.streamsService.findStreamById(streamId); // Возвращаем обновлённый поток
+    if (!updatedStream) {
+      throw new NotFoundException(`Stream with ID ${streamId} not found`);
+    }
+    return updatedStream;
   }
 }
