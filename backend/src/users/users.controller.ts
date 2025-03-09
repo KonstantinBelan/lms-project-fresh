@@ -28,11 +28,12 @@ import {
   ApiResponse,
   ApiBearerAuth,
 } from '@nestjs/swagger';
+import { JwtRequest } from '../common/interfaces/jwt-request.interface';
 
-// Определяем тип RequestWithUser
-interface RequestWithUser extends Request {
-  user: { sub?: string; _id?: string }; // Тип зависит от твоего JWT payload
-}
+// // Определяем тип RequestWithUser
+// interface RequestWithUser extends Request {
+//   user: { sub?: string; _id?: string }; // Тип зависит от твоего JWT payload
+// }
 
 @ApiTags('Users')
 @Controller('users')
@@ -234,7 +235,7 @@ export class UsersController {
   @UseGuards(AuthGuard('jwt'))
   @UsePipes(new ValidationPipe())
   async connectTelegram(
-    @Req() req: RequestWithUser,
+    @Req() req: JwtRequest,
     @Body() connectDto: ConnectTelegramDto,
   ) {
     const userId = req.user?.sub || req.user?._id;

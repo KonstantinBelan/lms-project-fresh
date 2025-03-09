@@ -16,6 +16,7 @@ import {
   Query,
   DefaultValuePipe,
   ParseIntPipe,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -26,6 +27,7 @@ import { CreateModuleDto } from './dto/create-module.dto';
 import { CreateLessonDto } from './dto/create-lesson.dto';
 import { BatchCourseDto } from './dto/batch-course.dto';
 import { LeaderboardEntry } from './dto/leaderboard-entry.dto';
+import { JwtRequest } from '../common/interfaces/jwt-request.interface';
 import { Role } from '../auth/roles.enum';
 import { Response } from 'express';
 import {
@@ -158,12 +160,16 @@ export class CoursesController {
   @ApiResponse({ status: 404, description: 'Course or enrollment not found' })
   @ApiResponse({ status: 403, description: 'Forbidden' })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @SetMetadata('roles', [Role.STUDENT]) // Только для студентов
+  @SetMetadata('roles', [Role.STUDENT])
   async getStudentCourseStructure(
     @Param('courseId') courseId: string,
-    @Request() req,
+    @Req() req: JwtRequest, // Используем новый тип
   ) {
-    const studentId = (req.user as any).sub;
+    const studentId = req.user?.sub; // Безопасно извлекаем sub
+    console.log(studentId);
+    if (!studentId) {
+      throw new UnauthorizedException('Student ID not found in token');
+    }
     return this.coursesService.getStudentCourseStructure(studentId, courseId);
   }
 
