@@ -5,6 +5,7 @@ import {
   Get,
   Param,
   Req,
+  Request,
   Put,
   Delete,
   UsePipes,
@@ -160,9 +161,10 @@ export class CoursesController {
   @SetMetadata('roles', [Role.STUDENT]) // Только для студентов
   async getStudentCourseStructure(
     @Param('courseId') courseId: string,
-    @Req() req: Request, // Получаем studentId из JWT
+    @Request() req,
   ) {
     const studentId = (req.user as any).sub; // Предполагаем, что sub — это ID студента из JWT
+    // const studentId = req.user?.sub || req.user?._id;
     return this.coursesService.getStudentCourseStructure(studentId, courseId);
   }
 

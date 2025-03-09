@@ -10,6 +10,7 @@ import { Course, CourseDocument } from './schemas/course.schema';
 import { Module, ModuleDocument } from './schemas/module.schema';
 import { Lesson, LessonDocument } from './schemas/lesson.schema';
 import { User } from '../users/schemas/user.schema';
+import { Tariff, TariffDocument } from '../tariffs/schemas/tariff.schema';
 import { ICoursesService, CourseAnalytics } from './courses.service.interface';
 import { CreateCourseDto } from './dto/create-course.dto';
 import { UpdateCourseDto } from './dto/update-course.dto';
@@ -338,18 +339,17 @@ export class CoursesService implements ICoursesService {
     const course = await this.courseModel.findById(courseId).lean().exec();
     if (!course) throw new BadRequestException('Course not found');
 
-    const enrollment = await this.enrollmentsService
-      .findOneByStudentAndCourse(studentId, courseId)
-      .populate('tariffId')
-      .lean()
-      .exec();
+    const enrollment = await this.enrollmentsService.findOneByStudentAndCourse(
+      studentId,
+      courseId,
+    );
     if (!enrollment) {
       throw new BadRequestException(
         'Enrollment not found for this student and course',
       );
     }
 
-    const tariff = enrollment.tariffId as TariffDocument;
+    const tariff = enrollment.tariffId as TariffDocument | undefined;
 
     const modules = await this.moduleModel
       .find({
@@ -396,7 +396,7 @@ export class CoursesService implements ICoursesService {
       })),
     };
 
-    await this.cacheManager.set(cacheKey, structure, 3600); // Кэшируем на 1 час
+    await this.cacheManager.set(cacheKey, structure, 3600);
     this.logger.debug('Student course structure calculated:', structure);
     return structure;
   }

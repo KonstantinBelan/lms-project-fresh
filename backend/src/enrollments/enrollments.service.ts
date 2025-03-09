@@ -105,7 +105,6 @@ export class EnrollmentsService implements IEnrollmentsService {
         );
       }
     }
-
     const newEnrollment = new this.enrollmentModel({
       studentId: new Types.ObjectId(studentId),
       courseId: new Types.ObjectId(courseId),
@@ -988,6 +987,7 @@ export class EnrollmentsService implements IEnrollmentsService {
         studentId: new Types.ObjectId(studentId),
         courseId: new Types.ObjectId(courseId),
       })
-      .exec(); // Используем .exec() вместо .lean(), чтобы можно было populate tariffId
+      .populate('tariffId') // Перемещаем populate сюда
+      .exec();
   }
 }
