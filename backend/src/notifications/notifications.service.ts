@@ -295,6 +295,7 @@ export class NotificationsService implements INotificationsService {
     studentId: string,
     courseId: string,
     courseTitle: string,
+    streamId?: string,
   ): Promise<void> {
     const cacheKey = `notification:newcourse:${studentId}:${courseId}`;
     const cachedNotification = await this.cacheManager.get<any>(cacheKey);
@@ -310,7 +311,7 @@ export class NotificationsService implements INotificationsService {
     await this.createNotification(studentId, message);
     await this.sendEmail(studentId, subject, message);
     await this.sendTelegram(studentId, message);
-    await this.sendSMS(studentId, message);
+    // await this.sendSMS(studentId, message);
 
     await this.cacheManager.set(cacheKey, message, 3600);
   }

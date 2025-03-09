@@ -26,7 +26,13 @@ import { CacheModule } from '@nestjs/cache-manager'; // Добавляем Cache
     forwardRef(() => CoursesModule), // Добавляем forwardRef для CoursesModule
     forwardRef(() => HomeworksModule),
     ConfigModule,
-    BullModule.registerQueue({ name: 'notifications' }),
+    BullModule.registerQueue({
+      name: 'notifications',
+      redis: {
+        host: process.env.REDIS_HOST || 'localhost',
+        port: parseInt(process.env.REDIS_PORT ?? '6379', 10),
+      },
+    }),
     CacheModule.register(),
   ],
   controllers: [NotificationsController],
