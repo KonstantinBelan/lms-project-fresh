@@ -19,7 +19,7 @@ export class TariffsService {
     includesPoints: boolean,
   ): Promise<TariffDocument> {
     const tariff = new this.tariffModel({
-      courseId,
+      courseId: new Types.ObjectId(courseId), // Явное преобразование в ObjectId
       name,
       price,
       accessibleModules: accessibleModules.map((id) => new Types.ObjectId(id)),
@@ -34,6 +34,9 @@ export class TariffsService {
   }
 
   async getTariffsByCourse(courseId: string): Promise<TariffDocument[]> {
-    return this.tariffModel.find({ courseId }).lean().exec();
+    return this.tariffModel
+      .find({ courseId: new Types.ObjectId(courseId) }) // Тоже преобразуем
+      .lean()
+      .exec();
   }
 }

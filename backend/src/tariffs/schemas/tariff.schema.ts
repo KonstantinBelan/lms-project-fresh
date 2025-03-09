@@ -1,26 +1,26 @@
-// src/tariffs/schemas/tariff.schema.ts
+// src/tariffs/schemas/tariff.schema.ts (пример)
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
 
-@Schema({ timestamps: true })
+@Schema()
 export class Tariff {
-  @Prop({ required: true, type: Types.ObjectId, ref: 'Course' })
+  @Prop({ type: Types.ObjectId, ref: 'Course', required: true })
   courseId: Types.ObjectId;
 
   @Prop({ required: true })
-  name: string; // "Только посмотреть", "Стандарт", "Максимум"
+  name: string;
 
   @Prop({ required: true })
   price: number;
 
-  @Prop({ type: [Types.ObjectId], ref: 'Module', default: [] })
-  accessibleModules: Types.ObjectId[]; // Модули, доступные по тарифу
+  @Prop({ type: [{ type: Types.ObjectId, ref: 'Module' }], default: [] })
+  accessibleModules: Types.ObjectId[];
 
-  @Prop({ type: Boolean, default: false })
-  includesHomeworks: boolean; // Доступ к домашкам
+  @Prop({ default: false })
+  includesHomeworks: boolean;
 
-  @Prop({ type: Boolean, default: false })
-  includesPoints: boolean; // Подсчёт баллов
+  @Prop({ default: false })
+  includesPoints: boolean;
 }
 
 export type TariffDocument = Tariff & Document;
