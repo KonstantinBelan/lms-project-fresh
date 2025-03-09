@@ -312,69 +312,108 @@ export class EnrollmentsService implements IEnrollmentsService {
     return enrollment;
   }
 
+  // async updateStudentProgress(
+  //   studentId: string,
+  //   courseId: string,
+  //   moduleId: string,
+  //   lessonId: string,
+  // ): Promise<EnrollmentDocument | null> {
+  //   const cacheKey = `enrollment:student:${studentId}:course:${courseId}`;
+  //   await this.cacheManager.del(cacheKey);
+  //   await this.cacheManager.del(`enrollments:student:${studentId}`);
+  //   await this.cacheManager.del(`enrollments:course:${courseId}`);
+
+  //   const enrollment = await this.enrollmentModel
+  //     .findOne({
+  //       studentId: new Types.ObjectId(studentId),
+  //       courseId: new Types.ObjectId(courseId),
+  //     })
+  //     .lean()
+  //     .exec();
+  //   if (!enrollment) {
+  //     throw new BadRequestException('Student is not enrolled in this course');
+  //   }
+
+  //   const update: any = {
+  //     $addToSet: {
+  //       completedLessons: new Types.ObjectId(lessonId),
+  //       completedModules: new Types.ObjectId(moduleId),
+  //     },
+  //   };
+
+  //   const updatedEnrollment = await this.enrollmentModel
+  //     .findByIdAndUpdate(enrollment._id, update, {
+  //       new: true,
+  //       runValidators: true,
+  //     })
+  //     .lean()
+  //     .exec();
+
+  //   this.logger.debug('Updated student progress:', updatedEnrollment);
+
+  //   await this.notificationsService.notifyProgress(
+  //     enrollment._id.toString(),
+  //     moduleId,
+  //     lessonId,
+  //   );
+
+  //   if (updatedEnrollment?.deadline) {
+  //     const daysLeft = Math.ceil(
+  //       (updatedEnrollment.deadline.getTime() - new Date().getTime()) /
+  //         (1000 * 60 * 60 * 24),
+  //     );
+  //     if (daysLeft <= 7 && daysLeft > 0) {
+  //       const course = await this.coursesService.findCourseById(courseId);
+  //       if (course) {
+  //         await this.notificationsService.notifyDeadline(
+  //           updatedEnrollment._id.toString(),
+  //           daysLeft,
+  //           course.title,
+  //         );
+  //       }
+  //     }
+  //   }
+
+  //   return updatedEnrollment;
+  // }
+
   async updateStudentProgress(
     studentId: string,
     courseId: string,
     moduleId: string,
     lessonId: string,
   ): Promise<EnrollmentDocument | null> {
-    const cacheKey = `enrollment:student:${studentId}:course:${courseId}`;
-    await this.cacheManager.del(cacheKey);
+    const enrollment = await this.enrollmentModel
+      .findOneAndUpdate(
+        {
+          studentId: new Types.ObjectId(studentId),
+          courseId: new Types.ObjectId(courseId),
+        },
+        {
+          $addToSet: {
+            completedLessons: lessonId,
+            completedModules: moduleId,
+          },
+        },
+        { new: true, runValidators: true },
+      )
+      .exec();
+
+    if (!enrollment) {
+      this.logger.warn(
+        `Enrollment not found for student ${studentId} in course ${courseId}`,
+      );
+      return null;
+    }
+
+    this.logger.debug(
+      `Updated student progress: ${JSON.stringify(enrollment)}`,
+    );
+    await this.cacheManager.del(`enrollment:${enrollment._id.toString()}`);
     await this.cacheManager.del(`enrollments:student:${studentId}`);
     await this.cacheManager.del(`enrollments:course:${courseId}`);
 
-    const enrollment = await this.enrollmentModel
-      .findOne({
-        studentId: new Types.ObjectId(studentId),
-        courseId: new Types.ObjectId(courseId),
-      })
-      .lean()
-      .exec();
-    if (!enrollment) {
-      throw new BadRequestException('Student is not enrolled in this course');
-    }
-
-    const update: any = {
-      $addToSet: {
-        completedLessons: new Types.ObjectId(lessonId),
-        completedModules: new Types.ObjectId(moduleId),
-      },
-    };
-
-    const updatedEnrollment = await this.enrollmentModel
-      .findByIdAndUpdate(enrollment._id, update, {
-        new: true,
-        runValidators: true,
-      })
-      .lean()
-      .exec();
-
-    this.logger.debug('Updated student progress:', updatedEnrollment);
-
-    await this.notificationsService.notifyProgress(
-      enrollment._id.toString(),
-      moduleId,
-      lessonId,
-    );
-
-    if (updatedEnrollment?.deadline) {
-      const daysLeft = Math.ceil(
-        (updatedEnrollment.deadline.getTime() - new Date().getTime()) /
-          (1000 * 60 * 60 * 24),
-      );
-      if (daysLeft <= 7 && daysLeft > 0) {
-        const course = await this.coursesService.findCourseById(courseId);
-        if (course) {
-          await this.notificationsService.notifyDeadline(
-            updatedEnrollment._id.toString(),
-            daysLeft,
-            course.title,
-          );
-        }
-      }
-    }
-
-    return updatedEnrollment;
+    return enrollment;
   }
 
   async completeLesson(

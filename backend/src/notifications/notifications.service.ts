@@ -187,13 +187,64 @@ export class NotificationsService implements INotificationsService {
     }
   }
 
+  // async notifyProgress(
+  //   enrollmentId: string,
+  //   moduleId: string | undefined,
+  //   lessonId: string,
+  //   customMessage?: string,
+  // ): Promise<void> {
+  //   const cacheKey = `notification:progress:${enrollmentId}:${moduleId || 'no-module'}:${lessonId}`;
+  //   const cachedNotification = await this.cacheManager.get<any>(cacheKey);
+  //   if (cachedNotification) {
+  //     this.logger.log(
+  //       `Notification found in cache for progress: ${cachedNotification}`,
+  //     );
+  //     return;
+  //   }
+
+  //   const enrollment =
+  //     await this.enrollmentsService.findEnrollmentById(enrollmentId);
+  //   if (!enrollment) throw new Error('Enrollment not found');
+
+  //   const courseId = enrollment.courseId.toString();
+  //   if (!courseId) throw new Error('Course ID not found in enrollment');
+
+  //   const course = (await this.coursesService.findCourseById(
+  //     courseId,
+  //   )) as Course;
+  //   if (!course) throw new Error('Course not found');
+
+  //   // const module = await this.coursesService.findModuleById(moduleId);
+  //   const moduleTitle = moduleId
+  //     ? (await this.coursesService.findModuleById(moduleId))?.title || moduleId
+  //     : 'Unknown Module'; // Обрабатываем случай, когда moduleId не указан
+
+  //   const lesson = await this.coursesService.findLessonById(lessonId);
+  //   const lessonTitle = lesson?.title || lessonId;
+
+  //   const message =
+  //     customMessage ||
+  //     (lessonId
+  //       ? `You have completed lesson ${lessonTitle} in course "${course.title}".`
+  //       : `Progress updated for module ${moduleTitle} in course "${course.title}".`);
+  //   const subject = 'LMS Progress Update';
+
+  //   await this.createNotification(enrollment.studentId, message);
+  //   await this.sendEmail(enrollment.studentId, subject, message);
+  //   await this.sendTelegram(enrollment.studentId, message);
+  //   await this.sendSMS(enrollment.studentId, message);
+
+  //   await this.cacheManager.set(cacheKey, message, 3600);
+  // }
+
   async notifyProgress(
     enrollmentId: string,
     moduleId: string | undefined,
     lessonId: string,
     customMessage?: string,
   ): Promise<void> {
-    const cacheKey = `notification:progress:${enrollmentId}:${moduleId || 'no-module'}:${lessonId}`;
+    // Добавляем customMessage в ключ кэша для уникальности
+    const cacheKey = `notification:progress:${enrollmentId}:${moduleId || 'no-module'}:${lessonId}:${customMessage ? 'custom-' + Buffer.from(customMessage).toString('base64') : 'default'}`;
     const cachedNotification = await this.cacheManager.get<any>(cacheKey);
     if (cachedNotification) {
       this.logger.log(
@@ -214,11 +265,9 @@ export class NotificationsService implements INotificationsService {
     )) as Course;
     if (!course) throw new Error('Course not found');
 
-    // const module = await this.coursesService.findModuleById(moduleId);
     const moduleTitle = moduleId
       ? (await this.coursesService.findModuleById(moduleId))?.title || moduleId
-      : 'Unknown Module'; // Обрабатываем случай, когда moduleId не указан
-
+      : 'Unknown Module';
     const lesson = await this.coursesService.findLessonById(lessonId);
     const lessonTitle = lesson?.title || lessonId;
 
@@ -229,6 +278,9 @@ export class NotificationsService implements INotificationsService {
         : `Progress updated for module ${moduleTitle} in course "${course.title}".`);
     const subject = 'LMS Progress Update';
 
+    this.logger.log(
+      `Creating notification for userId: ${enrollment.studentId}, message: ${message}`,
+    );
     await this.createNotification(enrollment.studentId, message);
     await this.sendEmail(enrollment.studentId, subject, message);
     await this.sendTelegram(enrollment.studentId, message);
