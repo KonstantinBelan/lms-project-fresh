@@ -7,6 +7,7 @@ import { Submission, SubmissionSchema } from './schemas/submission.schema';
 import { NotificationsModule } from '../notifications/notifications.module'; // Импортируем NotificationsModule
 import { CoursesModule } from '../courses/courses.module'; // Импортируем CoursesModule
 import { EnrollmentsModule } from '../enrollments/enrollments.module';
+import { UsersModule } from '../users/users.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { EnrollmentsModule } from '../enrollments/enrollments.module';
     NotificationsModule,
     CoursesModule,
     EnrollmentsModule,
+    UsersModule,
   ],
   providers: [HomeworksService],
   controllers: [HomeworksController],
