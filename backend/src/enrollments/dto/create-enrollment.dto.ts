@@ -3,6 +3,7 @@ import {
   IsMongoId,
   IsOptional,
   IsDateString,
+  IsString,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
@@ -23,8 +24,6 @@ export class CreateEnrollmentDto {
   @IsMongoId()
   courseId: string;
 
-  streamIds?: string;
-
   @ApiProperty({
     example: '2023-12-31T23:59:59.999Z',
     description: 'The optional deadline for the enrollment',
@@ -33,4 +32,9 @@ export class CreateEnrollmentDto {
   @IsOptional()
   @IsDateString()
   deadline?: string;
+
+  @ApiProperty({ description: 'ID of the stream (optional)', required: false })
+  @IsOptional()
+  @IsString()
+  streamId?: string; // Новое поле
 }

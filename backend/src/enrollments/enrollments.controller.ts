@@ -55,6 +55,7 @@ export class EnrollmentsController {
         createEnrollmentDto.studentId,
         createEnrollmentDto.courseId,
         deadline,
+        createEnrollmentDto.streamId, // Новый аргумент
       );
     } catch (error) {
       if (error instanceof AlreadyEnrolledException) {

@@ -173,8 +173,9 @@ async function bootstrap() {
           enrollmentsService.createEnrollment(
             student._id.toString(),
             course._id.toString(),
-            undefined,
-            true,
+            undefined, // deadline
+            undefined, // streamId
+            true, // skipNotifications
           ),
         );
         successfulEnrollments++;
