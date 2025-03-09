@@ -14,6 +14,9 @@ export class Enrollment extends Document {
   @Prop({ required: true, type: Types.ObjectId, ref: 'Course' })
   courseId: Types.ObjectId; // Оставляем как ObjectId, без populate
 
+  @Prop({ type: Types.ObjectId, ref: 'Stream', required: false })
+  streamId?: Types.ObjectId; // Новое поле для потока
+
   @Prop({ type: [String], default: [] })
   completedModules: string[];
 

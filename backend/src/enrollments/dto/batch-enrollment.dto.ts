@@ -37,6 +37,8 @@ export class BatchEnrollmentDto {
   @IsMongoId({ each: true })
   courseIds: string[];
 
+  streamIds?: string[];
+
   @ApiProperty({
     example: ['2025-12-31T23:59:59.999Z', '2025-12-31T23:59:59.999Z'],
     description: 'Optional array of deadlines for the enrollments',

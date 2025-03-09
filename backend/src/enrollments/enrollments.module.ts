@@ -9,6 +9,7 @@ import { AuthModule } from '../auth/auth.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { HomeworksModule } from '../homeworks/homeworks.module';
 import { QuizzesModule } from '../quizzes/quizzes.module';
+import { StreamsModule } from '../streams/streams.module';
 import { BullModule } from '@nestjs/bull';
 import { CacheModule } from '@nestjs/cache-manager';
 
@@ -28,6 +29,7 @@ import { CacheModule } from '@nestjs/cache-manager';
     BullModule.registerQueue({ name: 'notifications' }),
     forwardRef(() => HomeworksModule), // Используем forwardRef для HomeworksModule
     forwardRef(() => QuizzesModule), // Используем forwardRef для QuizzesModule
+    forwardRef(() => StreamsModule),
   ],
   controllers: [EnrollmentsController],
   providers: [EnrollmentsService],

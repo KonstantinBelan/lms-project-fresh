@@ -19,6 +19,7 @@ import { CoursesService } from '../courses/courses.service';
 import { HomeworksService } from '../homeworks/homeworks.service';
 import { QuizzesService } from '../quizzes/quizzes.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { StreamsService } from '../streams/streams.service';
 import { AlreadyEnrolledException } from './exceptions/already-enrolled.exception';
 import { BatchEnrollmentDto } from './dto/batch-enrollment.dto';
 import { stringify } from 'csv-stringify/sync';
@@ -44,6 +45,8 @@ export class EnrollmentsService implements IEnrollmentsService {
     private notificationsService: NotificationsService,
     @InjectQueue('notifications') private notificationsQueue: Queue,
     @InjectModel(Lesson.name) private lessonModel: Model<Lesson>, // Добавляем модель Lesson
+    @Inject(forwardRef(() => StreamsService)) // Новая зависимость
+    private streamsService: StreamsService,
   ) {
     this.logger.debug('EnrollmentsService constructor called');
     this.logger.debug('EnrollmentModel:', !!this.enrollmentModel);
@@ -52,12 +55,14 @@ export class EnrollmentsService implements IEnrollmentsService {
     this.logger.debug('CoursesService:', !!this.coursesService);
     this.logger.debug('NotificationsService:', !!this.notificationsService);
     this.logger.debug('NotificationsQueue:', !!this.notificationsQueue);
+    this.logger.debug('StreamsService:', !!this.streamsService);
   }
 
   async createEnrollment(
     studentId: string,
     courseId: string,
     deadline?: Date,
+    streamId?: string, // Новый необязательный параметр
     skipNotifications = false,
   ): Promise<EnrollmentDocument> {
     const student = await this.usersService.findById(studentId);
@@ -71,22 +76,42 @@ export class EnrollmentsService implements IEnrollmentsService {
       .exec();
     if (existingEnrollment) throw new AlreadyEnrolledException();
 
+    // Проверяем streamId, если указан
+    if (streamId && !Types.ObjectId.isValid(streamId)) {
+      throw new BadRequestException('Invalid streamId');
+    }
+    if (streamId) {
+      const stream = await this.streamsService.findStreamById(streamId);
+      if (!stream || stream.courseId.toString() !== courseId) {
+        throw new BadRequestException(
+          'Stream not found or does not belong to this course',
+        );
+      }
+    }
+
     const newEnrollment = new this.enrollmentModel({
       studentId: new Types.ObjectId(studentId),
       courseId: new Types.ObjectId(courseId),
+      streamId: streamId ? new Types.ObjectId(streamId) : undefined,
       deadline,
       completedModules: [],
       completedLessons: [],
-      points: 0, // Инициализируем баллы
+      points: 0,
       isCompleted: false,
     });
     const savedEnrollment = await newEnrollment.save();
+
+    // Добавляем студента в поток, если streamId указан
+    if (streamId) {
+      await this.streamsService.addStudentToStream(streamId, studentId);
+    }
 
     if (!skipNotifications) {
       await this.notificationsQueue.add('newCourse', {
         studentId,
         courseId,
         courseTitle: course.title,
+        streamId, // Добавляем streamId в уведомление, если нужно
       });
     }
 
@@ -113,11 +138,7 @@ export class EnrollmentsService implements IEnrollmentsService {
   async createBatchEnrollments(
     batchEnrollmentDto: BatchEnrollmentDto,
   ): Promise<EnrollmentDocument[]> {
-    this.logger.debug(
-      'Creating batch enrollments:',
-      JSON.stringify(batchEnrollmentDto, null, 2),
-    );
-    const { studentIds, courseIds, deadlines } = batchEnrollmentDto;
+    const { studentIds, courseIds, deadlines, streamIds } = batchEnrollmentDto; // Добавляем streamIds
 
     if (studentIds.length !== courseIds.length) {
       throw new Error('Number of studentIds must match number of courseIds');
@@ -129,13 +150,8 @@ export class EnrollmentsService implements IEnrollmentsService {
       const studentId = studentIds[i];
       const courseId = courseIds[i];
       const deadlineStr: string | undefined = deadlines?.[i];
+      const streamId: string | undefined = streamIds?.[i]; // Берем streamId из DTO
       let deadline: Date | undefined;
-
-      this.logger.debug('Processing deadline:', {
-        index: i,
-        deadlineStr,
-        type: typeof deadlineStr,
-      });
 
       if (deadlineStr) {
         try {
@@ -160,6 +176,7 @@ export class EnrollmentsService implements IEnrollmentsService {
           studentId,
           courseId,
           deadline,
+          streamId, // Передаем streamId
         );
         enrollments.push(enrollment);
       } catch (error) {
