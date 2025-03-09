@@ -175,6 +175,7 @@ async function bootstrap() {
             course._id.toString(),
             undefined, // deadline
             undefined, // streamId
+            undefined, // tarrifId
             true, // skipNotifications
           ),
         );

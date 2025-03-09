@@ -10,6 +10,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
 import { HomeworksModule } from '../homeworks/homeworks.module';
 import { QuizzesModule } from '../quizzes/quizzes.module';
 import { StreamsModule } from '../streams/streams.module';
+import { TariffsModule } from '../tariffs/tariffs.module';
 import { BullModule } from '@nestjs/bull';
 import { CacheModule } from '@nestjs/cache-manager';
 
@@ -30,6 +31,7 @@ import { CacheModule } from '@nestjs/cache-manager';
     forwardRef(() => HomeworksModule), // Используем forwardRef для HomeworksModule
     forwardRef(() => QuizzesModule), // Используем forwardRef для QuizzesModule
     forwardRef(() => StreamsModule),
+    forwardRef(() => TariffsModule),
   ],
   controllers: [EnrollmentsController],
   providers: [EnrollmentsService],

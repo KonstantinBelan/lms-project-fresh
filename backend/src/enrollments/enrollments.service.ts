@@ -9,6 +9,7 @@ import {
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Enrollment, EnrollmentDocument } from './schemas/enrollment.schema';
+import { Tariff, TariffDocument } from '../tariffs/schemas/tariff.schema';
 import {
   IEnrollmentsService,
   DetailedStudentProgress,
@@ -20,6 +21,7 @@ import { HomeworksService } from '../homeworks/homeworks.service';
 import { QuizzesService } from '../quizzes/quizzes.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { StreamsService } from '../streams/streams.service';
+import { TariffsService } from '../tariffs/tariffs.service';
 import { AlreadyEnrolledException } from './exceptions/already-enrolled.exception';
 import { BatchEnrollmentDto } from './dto/batch-enrollment.dto';
 import { stringify } from 'csv-stringify/sync';
@@ -47,6 +49,8 @@ export class EnrollmentsService implements IEnrollmentsService {
     @InjectModel(Lesson.name) private lessonModel: Model<Lesson>, // Добавляем модель Lesson
     @Inject(forwardRef(() => StreamsService)) // Новая зависимость
     private streamsService: StreamsService,
+    @Inject(forwardRef(() => TariffsService))
+    private tariffsService: TariffsService,
   ) {
     this.logger.debug('EnrollmentsService constructor called');
     this.logger.debug('EnrollmentModel:', !!this.enrollmentModel);
@@ -56,13 +60,15 @@ export class EnrollmentsService implements IEnrollmentsService {
     this.logger.debug('NotificationsService:', !!this.notificationsService);
     this.logger.debug('NotificationsQueue:', !!this.notificationsQueue);
     this.logger.debug('StreamsService:', !!this.streamsService);
+    this.logger.debug('TariffsService:', !!this.tariffsService);
   }
 
   async createEnrollment(
     studentId: string,
     courseId: string,
     deadline?: Date,
-    streamId?: string, // Новый необязательный параметр
+    streamId?: string,
+    tariffId?: string, // Новый параметр
     skipNotifications = false,
   ): Promise<EnrollmentDocument> {
     const student = await this.usersService.findById(studentId);
@@ -76,7 +82,6 @@ export class EnrollmentsService implements IEnrollmentsService {
       .exec();
     if (existingEnrollment) throw new AlreadyEnrolledException();
 
-    // Проверяем streamId, если указан
     if (streamId && !Types.ObjectId.isValid(streamId)) {
       throw new BadRequestException('Invalid streamId');
     }
@@ -89,10 +94,23 @@ export class EnrollmentsService implements IEnrollmentsService {
       }
     }
 
+    if (tariffId && !Types.ObjectId.isValid(tariffId)) {
+      throw new BadRequestException('Invalid tariffId');
+    }
+    if (tariffId) {
+      const tariff = await this.tariffsService.findTariffById(tariffId);
+      if (!tariff || tariff.courseId.toString() !== courseId) {
+        throw new BadRequestException(
+          'Tariff not found or does not belong to this course',
+        );
+      }
+    }
+
     const newEnrollment = new this.enrollmentModel({
       studentId: new Types.ObjectId(studentId),
       courseId: new Types.ObjectId(courseId),
       streamId: streamId ? new Types.ObjectId(streamId) : undefined,
+      tariffId: tariffId ? new Types.ObjectId(tariffId) : undefined,
       deadline,
       completedModules: [],
       completedLessons: [],
@@ -101,7 +119,6 @@ export class EnrollmentsService implements IEnrollmentsService {
     });
     const savedEnrollment = await newEnrollment.save();
 
-    // Добавляем студента в поток, если streamId указан
     if (streamId) {
       await this.streamsService.addStudentToStream(streamId, studentId);
     }
@@ -111,7 +128,8 @@ export class EnrollmentsService implements IEnrollmentsService {
         studentId,
         courseId,
         courseTitle: course.title,
-        streamId, // Добавляем streamId в уведомление, если нужно
+        streamId,
+        tariffId, // Добавим в уведомление, если нужно
       });
     }
 
@@ -554,10 +572,19 @@ export class EnrollmentsService implements IEnrollmentsService {
         studentId: new Types.ObjectId(studentId),
         courseId: new Types.ObjectId(courseId),
       })
+      .populate('tariffId')
       .exec();
     if (!enrollment) throw new NotFoundException('Enrollment not found');
     if (enrollment.isCompleted)
       throw new BadRequestException('Course already completed');
+
+    const tariff = enrollment.tariffId as TariffDocument;
+    if (tariff && !tariff.includesPoints) {
+      this.logger.debug(
+        `Points not awarded for ${studentId} due to tariff restrictions`,
+      );
+      return enrollment; // Баллы не начисляются
+    }
 
     enrollment.points = (enrollment.points || 0) + points;
     await enrollment.save();

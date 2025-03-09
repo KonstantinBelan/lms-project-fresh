@@ -37,4 +37,9 @@ export class CreateEnrollmentDto {
   @IsOptional()
   @IsString()
   streamId?: string; // Новое поле
+
+  @ApiProperty({ description: 'ID of the tariff (optional)', required: false })
+  @IsOptional()
+  @IsString()
+  tariffId?: string; // Новое поле
 }

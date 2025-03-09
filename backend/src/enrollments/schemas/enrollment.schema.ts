@@ -1,7 +1,5 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
-import { User } from '../../users/schemas/user.schema';
-import { Course } from '../../courses/schemas/course.schema';
 
 export type EnrollmentDocument = Enrollment &
   Document & { _id: Types.ObjectId };
@@ -34,6 +32,9 @@ export class Enrollment extends Document {
 
   @Prop({ type: Number, default: 0 }) // Добавляем общее количество баллов
   points: number;
+
+  @Prop({ type: Types.ObjectId, ref: 'Tariff', required: false })
+  tariffId?: Types.ObjectId; // Новое поле
 
   @Prop({ default: 0 })
   __v: number; // Mongoose version key

@@ -10,6 +10,7 @@ import { EnrollmentsModule } from './enrollments/enrollments.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { HomeworksModule } from './homeworks/homeworks.module';
+import { TariffsModule } from './tariffs/tariffs.module';
 import { HomeworksService } from './homeworks/homeworks.service';
 import { CacheModule } from '@nestjs/cache-manager'; // Импортируем CacheModule
 import { cacheManagerConfig } from './cache.config'; // Создаём конфигурацию кэша (см. ниже)
@@ -52,6 +53,7 @@ import { Types } from 'mongoose';
     HomeworksModule,
     AdminModule,
     QuizzesModule,
+    TariffsModule,
     CacheModule.register(cacheManagerConfig),
   ],
   controllers: [AppController],
@@ -78,6 +80,7 @@ export class AppModule implements OnModuleInit {
       'CacheModule.register(cacheManagerConfig)',
       'AdminModule',
       'QuizzesModule',
+      'TariffsModule',
     ]);
   }
 
