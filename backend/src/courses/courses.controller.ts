@@ -165,7 +165,7 @@ export class CoursesController {
     @Param('courseId') courseId: string,
     @Req() req: JwtRequest, // Используем новый тип
   ) {
-    const studentId = req.user?.sub; // Безопасно извлекаем sub
+    const studentId = req.user?.sub || req.user?._id; // Безопасно извлекаем sub
     console.log(studentId);
     if (!studentId) {
       throw new UnauthorizedException('Student ID not found in token');
