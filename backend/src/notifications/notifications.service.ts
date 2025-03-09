@@ -38,7 +38,7 @@ export class NotificationsService implements INotificationsService {
     private coursesService: CoursesService, // Инжектируем CoursesService
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
     @Inject(forwardRef(() => NotificationsGateway))
-    private readonly notificationsGateway: NotificationsGateway,
+    private notificationsGateway: NotificationsGateway,
   ) {
     this.logger.log(
       'NotificationsService initialized, enrollmentsService:',
@@ -242,11 +242,10 @@ export class NotificationsService implements INotificationsService {
   async notifyProgress(
     userId: string,
     message: string,
-    settings: any,
+    settings?: any,
   ): Promise<void> {
     const cacheKey = `notification:${userId}:${message}`;
     const cachedNotification = await this.cacheManager.get(cacheKey);
-
     if (cachedNotification) {
       this.logger.debug(`Notification already sent to ${userId}: ${message}`);
       return;
@@ -258,6 +257,7 @@ export class NotificationsService implements INotificationsService {
       return;
     }
 
+    // Сохранение уведомления в базу
     const notification = new this.notificationModel({
       userId,
       message,
@@ -266,22 +266,25 @@ export class NotificationsService implements INotificationsService {
     });
     await notification.save();
 
-    if (settings?.email && user.email) {
-      // Логика отправки email через nodemailer (оставляем как есть)
-      this.logger.log(`Sending email to ${user.email}: ${message}`);
+    // Используем настройки пользователя, если settings не передан
+    const userSettings = settings || user.settings || {};
+
+    // Отправка на почту
+    if (userSettings.notifications && user.email) {
+      await this.sendEmail(userId, 'LMS Notification', message);
     }
 
-    if (settings?.telegram && user.telegramId) {
-      // Логика отправки Telegram через telegraf (оставляем как есть)
-      this.logger.log(`Sending Telegram to ${user.telegramId}: ${message}`);
+    // Отправка в Telegram
+    if (userSettings.notifications && user.telegramId) {
+      await this.sendTelegram(userId, message);
     }
 
-    if (settings?.sms && user.phone) {
-      // Логика отправки SMS через twilio (оставляем как есть)
-      this.logger.log(`Sending SMS to ${user.phone}: ${message}`);
+    // Отправка SMS
+    if (userSettings.sms && user.phone) {
+      // await this.sendSMS(userId, message); // временно отключаем
     }
 
-    // Добавляем отправку через WebSocket
+    // Отправка через WebSocket
     await this.notificationsGateway.notifyUser(userId, message);
 
     await this.cacheManager.set(cacheKey, 'sent', 3600); // Кэшируем на 1 час
