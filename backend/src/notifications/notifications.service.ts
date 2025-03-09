@@ -271,11 +271,17 @@ export class NotificationsService implements INotificationsService {
     const lesson = await this.coursesService.findLessonById(lessonId);
     const lessonTitle = lesson?.title || lessonId;
 
-    const message =
+    let message =
       customMessage ||
       (lessonId
         ? `You have completed lesson ${lessonTitle} in course "${course.title}".`
         : `Progress updated for module ${moduleTitle} in course "${course.title}".`);
+
+    // Добавляем общее количество баллов, если это уведомление о начислении
+    if (customMessage && customMessage.includes('You earned')) {
+      const totalPoints = enrollment.points || 0;
+      message += ` Your total points: ${totalPoints}.`;
+    }
     const subject = 'LMS Progress Update';
 
     this.logger.log(
