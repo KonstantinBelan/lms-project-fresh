@@ -163,8 +163,7 @@ export class CoursesController {
     @Param('courseId') courseId: string,
     @Request() req,
   ) {
-    const studentId = (req.user as any).sub; // Предполагаем, что sub — это ID студента из JWT
-    // const studentId = req.user?.sub || req.user?._id;
+    const studentId = (req.user as any).sub;
     return this.coursesService.getStudentCourseStructure(studentId, courseId);
   }
 

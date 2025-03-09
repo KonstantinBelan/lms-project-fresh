@@ -577,7 +577,7 @@ export class EnrollmentsService implements IEnrollmentsService {
     if (enrollment.isCompleted)
       throw new BadRequestException('Course already completed');
 
-    const tariff = enrollment.tariffId as TariffDocument;
+    const tariff = enrollment.tariffId as TariffDocument | undefined;
     if (tariff && !tariff.includesPoints) {
       this.logger.debug(
         `Points not awarded for ${studentId} due to tariff restrictions`,
