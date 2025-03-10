@@ -13,7 +13,7 @@ import { CreateTariffDto } from './dto/create-tariff.dto';
 import { TariffResponseDto } from './dto/tariff-response.dto';
 import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
 
-@ApiTags('tariffs') // Группируем endpoints в Swagger под тегом "tariffs"
+@ApiTags('Tariffs')
 @Controller('tariffs')
 export class TariffsController {
   constructor(private readonly tariffsService: TariffsService) {}

@@ -15,7 +15,7 @@ import { AddStudentToStreamDto } from './dto/add-student-to-stream.dto';
 import { StreamResponseDto } from './dto/stream-response.dto';
 import { ApiOperation, ApiResponse, ApiTags, ApiParam } from '@nestjs/swagger';
 
-@ApiTags('streams')
+@ApiTags('Streams')
 @Controller('streams')
 export class StreamsController {
   constructor(private readonly streamsService: StreamsService) {}

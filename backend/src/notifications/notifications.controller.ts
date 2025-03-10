@@ -13,6 +13,7 @@ import {
   UseGuards,
   SetMetadata,
   BadRequestException,
+  NotFoundException,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -38,23 +39,6 @@ export class NotificationsController {
   constructor(private readonly notificationsService: NotificationsService) {}
 
   @Post()
-  @ApiOperation({ summary: 'Create a new notification' })
-  @ApiResponse({
-    status: 201,
-    description: 'Notification created',
-    type: CreateNotificationDto,
-  })
-  @ApiResponse({ status: 400, description: 'Bad Request' })
-  @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @SetMetadata('roles', [Role.STUDENT, Role.TEACHER, Role.ADMIN, Role.MANAGER])
-  @UsePipes(new ValidationPipe())
-  async create(@Body() createNotificationDto: CreateNotificationDto) {
-    return this.notificationsService.createNotification(
-      createNotificationDto.userId,
-      createNotificationDto.message,
-    );
-  }
-
   @Get('user/:userId')
   @ApiOperation({ summary: 'Get notifications by user ID' })
   @ApiParam({
@@ -174,5 +158,56 @@ export class NotificationsController {
     const { userId, message } = body;
     await this.notificationsService.sendSMS(userId, message);
     return { status: 'success', message: 'Test SMS sent successfully' };
+  }
+
+  @Post('bulk')
+  @ApiOperation({ summary: 'Create a bulk notification' })
+  @ApiResponse({
+    status: 201,
+    description: 'Bulk notification created and sent',
+  })
+  @ApiResponse({ status: 400, description: 'Bad Request' })
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @SetMetadata('roles', [Role.ADMIN, Role.MANAGER])
+  @UsePipes(new ValidationPipe())
+  async createBulkNotification(
+    @Body() createNotificationDto: CreateNotificationDto,
+  ) {
+    const notification = await this.notificationsService.createBulkNotification(
+      createNotificationDto,
+    );
+    if (!notification) {
+      throw new BadRequestException(
+        'Failed to create or update bulk notification',
+      );
+    }
+    return notification;
+  }
+
+  @Put(':id')
+  @ApiOperation({ summary: 'Update a notification' })
+  @ApiParam({
+    name: 'id',
+    description: 'Notification ID',
+    example: '507f1f77bcf86cd799439011',
+  })
+  @ApiResponse({ status: 200, description: 'Notification updated' })
+  @ApiResponse({ status: 404, description: 'Notification not found' })
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @SetMetadata('roles', [Role.ADMIN, Role.MANAGER])
+  @UsePipes(new ValidationPipe())
+  async updateNotification(
+    @Param('id') id: string,
+    @Body() updateNotificationDto: CreateNotificationDto,
+  ) {
+    const updatedNotification =
+      await this.notificationsService.updateNotification(
+        id,
+        updateNotificationDto,
+      );
+    if (!updatedNotification) {
+      throw new NotFoundException(`Notification with ID ${id} not found`);
+    }
+    return updatedNotification;
   }
 }

@@ -17,6 +17,7 @@ import { config } from '../config/config';
 import { Course } from '../courses/schemas/course.schema';
 import { Module } from '../courses/schemas/module.schema';
 import { Lesson } from '../courses/schemas/lesson.schema';
+import { CreateNotificationDto } from './dto/create-notification.dto';
 import { Types } from 'mongoose';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
@@ -72,13 +73,15 @@ export class NotificationsService implements INotificationsService {
   }
 
   async createNotification(
-    userId: string,
-    message: string,
-  ): Promise<Notification> {
-    this.logger.log(
-      `Creating notification for userId: ${userId}, message: ${message}`,
-    );
-    const newNotification = new this.notificationModel({ userId, message });
+    dto: CreateNotificationDto,
+  ): Promise<NotificationDocument> {
+    this.logger.log(`Creating notification with DTO: ${JSON.stringify(dto)}`);
+    const newNotification = new this.notificationModel({
+      title: dto.title,
+      message: dto.message,
+      userId: dto.userId ? new Types.ObjectId(dto.userId) : undefined,
+      recipients: dto.recipients?.map((id) => new Types.ObjectId(id)) || [],
+    });
     return newNotification.save();
   }
 
@@ -308,7 +311,11 @@ export class NotificationsService implements INotificationsService {
 
     const message = `New course available: "${courseTitle}" (ID: ${courseId})`;
     const subject = 'New Course Available';
-    await this.createNotification(studentId, message);
+    await this.createNotification({
+      userId: studentId,
+      message,
+      title: subject,
+    }); // Передаём DTO
     await this.sendEmail(studentId, subject, message);
     await this.sendTelegram(studentId, message);
     // await this.sendSMS(studentId, message);
@@ -336,11 +343,66 @@ export class NotificationsService implements INotificationsService {
 
     const message = `Your course "${courseTitle}" deadline is in ${daysLeft} days!`;
     const subject = 'LMS Deadline Reminder';
-    await this.createNotification(enrollment.studentId, message);
+    await this.createNotification({
+      userId: enrollment.studentId,
+      message,
+      title: subject,
+    }); // Передаём DTO
     await this.sendEmail(enrollment.studentId, subject, message);
     await this.sendTelegram(enrollment.studentId, message);
     await this.sendSMS(enrollment.studentId, message);
 
     await this.cacheManager.set(cacheKey, message, 3600);
+  }
+
+  async createBulkNotification(
+    dto: CreateNotificationDto,
+  ): Promise<NotificationDocument | null> {
+    const notification = new this.notificationModel({
+      title: dto.title,
+      message: dto.message,
+      userId: dto.userId ? new Types.ObjectId(dto.userId) : undefined,
+      recipients: dto.recipients?.map((id) => new Types.ObjectId(id)) || [],
+      isSent: false,
+    });
+    await notification.save();
+
+    // Отправка уведомлений всем получателям
+    const recipients = dto.recipients || (dto.userId ? [dto.userId] : []);
+    for (const recipientId of recipients) {
+      await this.sendEmail(recipientId, dto.title, dto.message);
+      await this.sendTelegram(recipientId, dto.message);
+      // await this.sendSMS(recipientId, dto.message); // Раскомментировать, если нужно
+      this.notificationsGateway.notifyUser(recipientId, dto.message);
+    }
+
+    const updatedNotification = await this.notificationModel
+      .findByIdAndUpdate(
+        notification._id,
+        { isSent: true, sentAt: new Date() },
+        { new: true }, // Возвращаем обновлённый документ
+      )
+      .exec(); // Убираем .lean(), чтобы сохранить тип NotificationDocument
+
+    return updatedNotification; // Может быть null, если запись не найдена
+  }
+
+  async updateNotification(
+    id: string,
+    dto: CreateNotificationDto,
+  ): Promise<NotificationDocument | null> {
+    return this.notificationModel
+      .findByIdAndUpdate(
+        new Types.ObjectId(id),
+        {
+          title: dto.title,
+          message: dto.message,
+          userId: dto.userId ? new Types.ObjectId(dto.userId) : undefined,
+          recipients: dto.recipients?.map((id) => new Types.ObjectId(id)) || [],
+        },
+        { new: true },
+      )
+      .lean()
+      .exec();
   }
 }

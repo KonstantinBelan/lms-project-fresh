@@ -1,4 +1,3 @@
-// src/notifications/notifications.gateway.ts
 import { Logger, Injectable, Inject, forwardRef } from '@nestjs/common';
 import {
   WebSocketGateway,

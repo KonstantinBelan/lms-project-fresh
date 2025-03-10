@@ -25,7 +25,7 @@ import {
   ApiParam,
 } from '@nestjs/swagger';
 
-@ApiTags('quizzes')
+@ApiTags('Quizzes')
 @Controller('quizzes')
 @UseGuards(AuthGuard('jwt'), RolesGuard)
 export class QuizzesController {
