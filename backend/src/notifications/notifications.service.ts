@@ -88,7 +88,7 @@ export class NotificationsService implements INotificationsService {
   async findNotificationsByUser(userId: string): Promise<Notification[]> {
     this.logger.log(`Finding notifications for userId: ${userId}`);
     return this.notificationModel
-      .find({ userId })
+      .find({ userId: new Types.ObjectId(userId) }) // Преобразуем userId в ObjectId
       .sort({ createdAt: -1 })
       .exec();
   }

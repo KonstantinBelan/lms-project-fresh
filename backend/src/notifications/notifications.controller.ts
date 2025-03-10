@@ -14,6 +14,7 @@ import {
   SetMetadata,
   BadRequestException,
   NotFoundException,
+  Logger,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -36,32 +37,26 @@ interface RequestWithUser extends Request {
 @ApiTags('Notifications')
 @Controller('notifications')
 export class NotificationsController {
+  private logger = new Logger('notificationsService');
+
   constructor(private readonly notificationsService: NotificationsService) {}
 
   @Post()
-  @Get('user/:userId')
-  @ApiOperation({ summary: 'Get notifications by user ID' })
-  @ApiParam({
-    name: 'userId',
-    description: 'User ID',
-    example: '507f1f77bcf86cd799439011',
-  })
+  @ApiOperation({ summary: 'Create a new notification' })
   @ApiResponse({
-    status: 200,
-    description: 'Notifications retrieved successfully',
+    status: 201,
+    description: 'Notification created',
+    type: CreateNotificationDto,
   })
-  @ApiResponse({ status: 404, description: 'Notifications not found' })
-  @ApiResponse({ status: 403, description: 'Forbidden' })
+  @ApiResponse({ status: 400, description: 'Bad Request' })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @SetMetadata('roles', [
-    Role.STUDENT,
-    Role.TEACHER,
-    Role.ADMIN,
-    Role.MANAGER,
-    Role.ASSISTANT,
-  ])
-  async findByUser(@Param('userId') userId: string) {
-    return this.notificationsService.findNotificationsByUser(userId);
+  @SetMetadata('roles', [Role.STUDENT, Role.TEACHER, Role.ADMIN, Role.MANAGER])
+  @UsePipes(new ValidationPipe())
+  async create(@Body() createNotificationDto: CreateNotificationDto) {
+    const notification = await this.notificationsService.createNotification(
+      createNotificationDto,
+    );
+    return notification; // Возвращаем созданное уведомление, а не список
   }
 
   @Put(':id/read')
@@ -209,5 +204,35 @@ export class NotificationsController {
       throw new NotFoundException(`Notification with ID ${id} not found`);
     }
     return updatedNotification;
+  }
+
+  @Get('user/:userId')
+  @ApiOperation({ summary: 'Get notifications by user ID' })
+  @ApiParam({
+    name: 'userId',
+    description: 'User ID',
+    example: '507f1f77bcf86cd799439011',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Notifications retrieved successfully',
+  })
+  @ApiResponse({ status: 404, description: 'Notifications not found' })
+  @ApiResponse({ status: 403, description: 'Forbidden' })
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @SetMetadata('roles', [
+    Role.STUDENT,
+    Role.TEACHER,
+    Role.ADMIN,
+    Role.MANAGER,
+    Role.ASSISTANT,
+  ])
+  async findByUser(@Param('userId') userId: string) {
+    const notifications =
+      await this.notificationsService.findNotificationsByUser(userId);
+    if (!notifications.length) {
+      this.logger.log(`No notifications found for userId: ${userId}`);
+    }
+    return notifications;
   }
 }
