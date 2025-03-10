@@ -19,9 +19,6 @@ import { CoursesService } from '../courses/courses.service';
 import * as nodemailer from 'nodemailer';
 import * as TelegramBot from 'node-telegram-bot-api';
 import { config } from '../config/config';
-import { Course } from '../courses/schemas/course.schema';
-import { Module } from '../courses/schemas/module.schema';
-import { Lesson } from '../courses/schemas/lesson.schema';
 import { CreateNotificationDto } from './dto/create-notification.dto';
 import { Types } from 'mongoose';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
@@ -68,12 +65,18 @@ export class NotificationsService implements INotificationsService {
       polling: true,
     });
 
-    this.telegramBot.onText(/\/start/, (msg) => {
+    // this.telegramBot.onText(/\/start/, (msg) => {
+    //   const chatId = msg.chat.id.toString();
+    //   this.telegramBot.sendMessage(
+    //     chatId,
+    //     `Your Telegram chat ID is: ${chatId}. Use this ID to connect your account in the LMS.`,
+    //   );
+    // });
+    this.telegramBot.onText(/\/start/, async (msg) => {
       const chatId = msg.chat.id.toString();
-      this.telegramBot.sendMessage(
-        chatId,
-        `Your Telegram chat ID is: ${chatId}. Use this ID to connect your account in the LMS.`,
-      );
+      const template = await this.getNotificationByKey('telegram_chat_id');
+      const message = this.replacePlaceholders(template.message, { chatId });
+      await this.telegramBot.sendMessage(chatId, message);
     });
   }
 
@@ -90,7 +93,9 @@ export class NotificationsService implements INotificationsService {
     return newNotification.save();
   }
 
-  async findNotificationsByUser(userId: string): Promise<Notification[]> {
+  async findNotificationsByUser(
+    userId: string,
+  ): Promise<NotificationDocument[]> {
     this.logger.log(`Finding notifications for userId: ${userId}`);
     return this.notificationModel
       .find({ userId: new Types.ObjectId(userId) }) // Преобразуем userId в ObjectId
@@ -98,7 +103,9 @@ export class NotificationsService implements INotificationsService {
       .exec();
   }
 
-  async markAsRead(notificationId: string): Promise<Notification | null> {
+  async markAsRead(
+    notificationId: string,
+  ): Promise<NotificationDocument | null> {
     this.logger.log(`Marking notification as read for id: ${notificationId}`);
     return this.notificationModel
       .findByIdAndUpdate(notificationId, { isRead: true }, { new: true })
@@ -215,38 +222,21 @@ export class NotificationsService implements INotificationsService {
       return;
     }
 
-    // Сохранение уведомления в базу
-    const notification = new this.notificationModel({
-      userId,
-      message,
-      isRead: false,
-      createdAt: new Date(),
+    const template = await this.getNotificationByKey('progress_points');
+    const points = message.match(/(\d+)/)?.[0] || '0';
+    const action = message.replace(/^\d+\s*points\s*for\s*/, '');
+    const finalMessage = this.replacePlaceholders(template.message, {
+      points,
+      action,
     });
-    await notification.save();
-
-    // Используем настройки пользователя, если settings не передан
-    const userSettings = settings || user.settings || {};
-
-    // Отправка на почту
-    if (userSettings.notifications && user.email) {
-      await this.sendEmail(userId, 'LMS Notification', message);
-    }
-
-    // Отправка в Telegram
-    if (userSettings.notifications && user.telegramId) {
-      await this.sendTelegram(userId, message);
-    }
-
-    // Отправка SMS
-    if (userSettings.sms && user.phone) {
-      // await this.sendSMS(userId, message); // временно отключаем
-    }
-
-    // Отправка через WebSocket
-    await this.notificationsGateway.notifyUser(userId, message);
-
-    await this.cacheManager.set(cacheKey, 'sent', 3600); // Кэшируем на 1 час
-    this.logger.debug(`Notification sent to ${userId}: ${message}`);
+    const notification = await this.createNotification({
+      userId,
+      message: finalMessage,
+      title: template.title,
+    });
+    if (!notification._id) throw new Error('Notification ID is missing');
+    await this.sendNotificationToUser(notification._id.toString(), userId);
+    await this.cacheManager.set(cacheKey, 'sent', 3600);
   }
 
   async notifyNewCourse(
@@ -264,17 +254,18 @@ export class NotificationsService implements INotificationsService {
       return;
     }
 
-    const message = `New course available: "${courseTitle}" (ID: ${courseId})`;
-    const subject = 'New Course Available';
-    await this.createNotification({
+    const template = await this.getNotificationByKey('new_course');
+    const message = this.replacePlaceholders(template.message, {
+      courseTitle,
+      courseId,
+    });
+    const notification = await this.createNotification({
       userId: studentId,
       message,
-      title: subject,
-    }); // Передаём DTO
-    await this.sendEmail(studentId, subject, message);
-    await this.sendTelegram(studentId, message);
-    // await this.sendSMS(studentId, message);
-
+      title: template.title,
+    });
+    if (!notification._id) throw new Error('Notification ID is missing');
+    await this.sendNotificationToUser(notification._id.toString(), studentId);
     await this.cacheManager.set(cacheKey, message, 3600);
   }
 
@@ -296,17 +287,21 @@ export class NotificationsService implements INotificationsService {
       await this.enrollmentsService.findEnrollmentById(enrollmentId);
     if (!enrollment) throw new Error('Enrollment not found');
 
-    const message = `Your course "${courseTitle}" deadline is in ${daysLeft} days!`;
-    const subject = 'LMS Deadline Reminder';
-    await this.createNotification({
-      userId: enrollment.studentId,
+    const template = await this.getNotificationByKey('deadline_reminder');
+    const message = this.replacePlaceholders(template.message, {
+      courseTitle,
+      daysLeft,
+    });
+    const notification = await this.createNotification({
+      userId: enrollment.studentId.toString(),
       message,
-      title: subject,
-    }); // Передаём DTO
-    await this.sendEmail(enrollment.studentId, subject, message);
-    await this.sendTelegram(enrollment.studentId, message);
-    await this.sendSMS(enrollment.studentId, message);
-
+      title: template.title,
+    });
+    if (!notification._id) throw new Error('Notification ID is missing');
+    await this.sendNotificationToUser(
+      notification._id.toString(),
+      enrollment.studentId.toString(),
+    );
     await this.cacheManager.set(cacheKey, message, 3600);
   }
 
@@ -454,5 +449,29 @@ export class NotificationsService implements INotificationsService {
         { new: true },
       )
       .exec();
+  }
+
+  public async getNotificationByKey(
+    key: string,
+  ): Promise<NotificationDocument> {
+    const notification = await this.notificationModel.findOne({ key }).exec();
+    if (!notification) {
+      this.logger.warn(`Notification template with key "${key}" not found`);
+      throw new NotFoundException(
+        `Notification template with key "${key}" not found`,
+      );
+    }
+    return notification;
+  }
+
+  public replacePlaceholders(
+    template: string,
+    params: Record<string, string | number>,
+  ): string {
+    let result = template;
+    for (const [key, value] of Object.entries(params)) {
+      result = result.replace(new RegExp(`{{${key}}}`, 'g'), value.toString());
+    }
+    return result;
   }
 }

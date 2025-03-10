@@ -20,6 +20,7 @@ import { CoursesService } from '../courses/courses.service';
 import { HomeworksService } from '../homeworks/homeworks.service';
 import { QuizzesService } from '../quizzes/quizzes.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { NotificationDocument } from '../notifications/schemas/notification.schema';
 import { StreamsService } from '../streams/streams.service';
 import { TariffsService } from '../tariffs/tariffs.service';
 import { AlreadyEnrolledException } from './exceptions/already-enrolled.exception';
@@ -133,13 +134,28 @@ export class EnrollmentsService implements IEnrollmentsService {
     }
 
     if (!skipNotifications) {
-      await this.notificationsQueue.add('newCourse', {
-        studentId,
-        courseId,
-        courseTitle: course.title,
-        streamId,
-        tariffId, // Добавим в уведомление, если нужно
+      const course = await this.coursesService.findCourseById(courseId);
+      if (!course) throw new NotFoundException('Course not found');
+      const template =
+        await this.notificationsService.getNotificationByKey('new_course');
+      const message = this.notificationsService.replacePlaceholders(
+        template.message,
+        {
+          courseTitle: course.title,
+          courseId,
+        },
+      );
+      const notification = await this.notificationsService.createNotification({
+        userId: studentId,
+        message,
+        title: template.title,
       });
+      // Проверяем, что _id существует, и приводим к строке
+      if (!notification._id) throw new Error('Notification ID is missing');
+      await this.notificationsService.sendNotificationToUser(
+        notification._id.toString(),
+        studentId,
+      );
     }
 
     await this.cacheManager.del(`enrollment:${savedEnrollment._id.toString()}`);
@@ -151,10 +167,31 @@ export class EnrollmentsService implements IEnrollmentsService {
         (deadline.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24),
       );
       if (daysLeft <= 7 && daysLeft > 0) {
-        await this.notificationsService.notifyDeadline(
-          savedEnrollment._id.toString(),
-          daysLeft,
-          course.title,
+        const course = await this.coursesService.findCourseById(courseId);
+        if (!course) throw new NotFoundException('Course not found');
+        const template =
+          await this.notificationsService.getNotificationByKey(
+            'deadline_reminder',
+          );
+        const message = this.notificationsService.replacePlaceholders(
+          template.message,
+          {
+            courseTitle: course.title,
+            daysLeft,
+          },
+        );
+        const notification = await this.notificationsService.createNotification(
+          {
+            userId: studentId,
+            message,
+            title: template.title,
+          },
+        );
+        // Проверяем, что _id существует, и приводим к строке
+        if (!notification._id) throw new Error('Notification ID is missing');
+        await this.notificationsService.sendNotificationToUser(
+          notification._id.toString(),
+          studentId,
         );
       }
     }
@@ -242,18 +279,6 @@ export class EnrollmentsService implements IEnrollmentsService {
     return enrollments;
   }
 
-  // async findEnrollmentsByStudent(
-  //   studentId: string,
-  // ): Promise<EnrollmentDocument[]> {
-  //   const objectId = new Types.ObjectId(studentId);
-  //   const enrollments = await this.enrollmentModel
-  //     .find({ studentId: objectId })
-  //     .lean()
-  //     .exec();
-  //   this.logger.debug('Enrollments found in DB for student:', enrollments);
-  //   return enrollments;
-  // }
-
   async findEnrollmentByStudentAndCourse(
     studentId: string,
     courseId: string,
@@ -266,31 +291,6 @@ export class EnrollmentsService implements IEnrollmentsService {
       .lean()
       .exec();
   }
-
-  // async findEnrollmentsByCourse(
-  //   courseId: string,
-  // ): Promise<EnrollmentDocument[]> {
-  //   const cacheKey = `enrollments:course:${courseId}`;
-  //   const cachedEnrollments =
-  //     await this.cacheManager.get<EnrollmentDocument[]>(cacheKey);
-  //   if (cachedEnrollments) {
-  //     this.logger.debug(
-  //       'Enrollments found in cache for course:',
-  //       cachedEnrollments,
-  //     );
-  //     return cachedEnrollments;
-  //   }
-
-  //   const objectId = new Types.ObjectId(courseId);
-  //   const enrollments = await this.enrollmentModel
-  //     .find({ courseId: objectId })
-  //     .lean()
-  //     .exec();
-  //   this.logger.debug('Enrollments found in DB for course:', enrollments);
-  //   if (enrollments.length > 0)
-  //     await this.cacheManager.set(cacheKey, enrollments, 3600); // Кэшируем на 1 час
-  //   return enrollments;
-  // }
 
   async findEnrollmentsByCourse(courseId: string): Promise<any[]> {
     const cacheKey = `enrollments:course:${courseId}`;
@@ -360,71 +360,6 @@ export class EnrollmentsService implements IEnrollmentsService {
     return enrollment;
   }
 
-  // async updateStudentProgress(
-  //   studentId: string,
-  //   courseId: string,
-  //   moduleId: string,
-  //   lessonId: string,
-  // ): Promise<EnrollmentDocument | null> {
-  //   const cacheKey = `enrollment:student:${studentId}:course:${courseId}`;
-  //   await this.cacheManager.del(cacheKey);
-  //   await this.cacheManager.del(`enrollments:student:${studentId}`);
-  //   await this.cacheManager.del(`enrollments:course:${courseId}`);
-
-  //   const enrollment = await this.enrollmentModel
-  //     .findOne({
-  //       studentId: new Types.ObjectId(studentId),
-  //       courseId: new Types.ObjectId(courseId),
-  //     })
-  //     .lean()
-  //     .exec();
-  //   if (!enrollment) {
-  //     throw new BadRequestException('Student is not enrolled in this course');
-  //   }
-
-  //   const update: any = {
-  //     $addToSet: {
-  //       completedLessons: new Types.ObjectId(lessonId),
-  //       completedModules: new Types.ObjectId(moduleId),
-  //     },
-  //   };
-
-  //   const updatedEnrollment = await this.enrollmentModel
-  //     .findByIdAndUpdate(enrollment._id, update, {
-  //       new: true,
-  //       runValidators: true,
-  //     })
-  //     .lean()
-  //     .exec();
-
-  //   this.logger.debug('Updated student progress:', updatedEnrollment);
-
-  //   await this.notificationsService.notifyProgress(
-  //     enrollment._id.toString(),
-  //     moduleId,
-  //     lessonId,
-  //   );
-
-  //   if (updatedEnrollment?.deadline) {
-  //     const daysLeft = Math.ceil(
-  //       (updatedEnrollment.deadline.getTime() - new Date().getTime()) /
-  //         (1000 * 60 * 60 * 24),
-  //     );
-  //     if (daysLeft <= 7 && daysLeft > 0) {
-  //       const course = await this.coursesService.findCourseById(courseId);
-  //       if (course) {
-  //         await this.notificationsService.notifyDeadline(
-  //           updatedEnrollment._id.toString(),
-  //           daysLeft,
-  //           course.title,
-  //         );
-  //       }
-  //     }
-  //   }
-
-  //   return updatedEnrollment;
-  // }
-
   async updateStudentProgress(
     studentId: string,
     courseId: string,
@@ -464,46 +399,6 @@ export class EnrollmentsService implements IEnrollmentsService {
     return enrollment;
   }
 
-  // async completeLesson(
-  //   studentId: string,
-  //   courseId: string,
-  //   lessonId: string,
-  // ): Promise<EnrollmentDocument> {
-  //   const enrollment = await this.enrollmentModel
-  //     .findOne({
-  //       studentId: new Types.ObjectId(studentId),
-  //       courseId: new Types.ObjectId(courseId),
-  //     })
-  //     .exec();
-  //   if (!enrollment) throw new BadRequestException('Enrollment not found');
-
-  //   const lesson = await this.lessonModel.findById(lessonId).lean().exec();
-  //   if (!lesson) throw new BadRequestException('Lesson not found');
-
-  //   if (!enrollment.completedLessons.includes(lessonId)) {
-  //     enrollment.completedLessons.push(lessonId);
-  //     const pointsAwarded = lesson.points || 1;
-  //     enrollment.points = (enrollment.points || 0) + pointsAwarded; // Оставляем для обратной совместимости
-  //     await enrollment.save();
-
-  //     await this.cacheManager.del(`enrollment:${enrollment._id.toString()}`);
-  //     await this.cacheManager.del(`enrollments:student:${studentId}`);
-  //     await this.cacheManager.del(`enrollments:course:${courseId}`);
-  //     this.logger.debug(
-  //       `Awarded ${pointsAwarded} points for lesson ${lessonId}`,
-  //     );
-
-  //     await this.notificationsService.notifyProgress(
-  //       enrollment._id.toString(),
-  //       '', // moduleId не требуется
-  //       lessonId,
-  //       `You earned ${pointsAwarded} points for completing lesson "${lesson.title}"!`,
-  //     );
-  //   }
-
-  //   return enrollment;
-  // }
-
   async completeLesson(
     studentId: string,
     courseId: string,
@@ -537,39 +432,36 @@ export class EnrollmentsService implements IEnrollmentsService {
       const student = await this.usersService.findById(studentId);
       if (!student) throw new NotFoundException('Student not found');
 
-      await this.notificationsService.notifyProgress(
-        studentId, // Используем studentId, а не enrollment._id
-        `You earned ${pointsAwarded} points for completing lesson "${lesson.title}"!`,
-        student.settings, // Передаём настройки уведомлений
+      // await this.notificationsService.notifyProgress(
+      //   studentId, // Используем studentId, а не enrollment._id
+      //   `You earned ${pointsAwarded} points for completing lesson "${lesson.title}"!`,
+      //   student.settings, // Передаём настройки уведомлений
+      // );
+
+      const template =
+        await this.notificationsService.getNotificationByKey('progress_points');
+      const message = this.notificationsService.replacePlaceholders(
+        template.message,
+        {
+          points: pointsAwarded,
+          action: `completing lesson "${lesson.title}"`,
+        },
+      );
+      const notification = await this.notificationsService.createNotification({
+        userId: studentId,
+        message,
+        title: template.title,
+      });
+      // Проверяем, что _id существует, и приводим к строке
+      if (!notification._id) throw new Error('Notification ID is missing');
+      await this.notificationsService.sendNotificationToUser(
+        notification._id.toString(),
+        studentId,
       );
     }
 
     return enrollment;
   }
-
-  // Добавляем метод awardPoints
-  // async awardPoints(
-  //   studentId: string,
-  //   courseId: string,
-  //   points: number,
-  // ): Promise<EnrollmentDocument | null> {
-  //   const enrollment = await this.enrollmentModel
-  //     .findOne({
-  //       studentId: new Types.ObjectId(studentId),
-  //       courseId: new Types.ObjectId(courseId),
-  //     })
-  //     .exec();
-  //   if (!enrollment || enrollment.isCompleted) return null;
-
-  //   enrollment.points = (enrollment.points || 0) + points;
-  //   await this.cacheManager.del(`enrollment:${enrollment._id.toString()}`);
-  //   await this.cacheManager.del(`enrollments:student:${studentId}`);
-  //   await this.cacheManager.del(`enrollments:course:${courseId}`);
-  //   this.logger.debug(
-  //     `Awarded ${points} points to enrollment ${enrollment._id}`,
-  //   );
-  //   return enrollment.save();
-  // }
 
   async awardPoints(
     studentId: string,

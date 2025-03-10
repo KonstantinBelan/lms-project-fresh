@@ -1,10 +1,11 @@
-import { Notification } from './schemas/notification.schema';
+// src/notifications/notifications.service.interface.ts
+import { NotificationDocument } from './schemas/notification.schema'; // Добавляем импорт
 import { CreateNotificationDto } from './dto/create-notification.dto';
 
 export interface INotificationsService {
-  createNotification(dto: CreateNotificationDto): Promise<Notification>;
-  findNotificationsByUser(userId: string): Promise<Notification[]>;
-  markAsRead(notificationId: string): Promise<Notification | null>;
+  createNotification(dto: CreateNotificationDto): Promise<NotificationDocument>;
+  findNotificationsByUser(userId: string): Promise<NotificationDocument[]>;
+  markAsRead(notificationId: string): Promise<NotificationDocument | null>;
   deleteNotification(notificationId: string): Promise<void>;
   notifyProgress(
     userId: string,
@@ -25,9 +26,14 @@ export interface INotificationsService {
   sendNotificationToUser(
     notificationId: string,
     userId: string,
-  ): Promise<Notification | null>;
+  ): Promise<NotificationDocument | null>;
   sendNotificationToBulk(
     notificationId: string,
     recipientIds?: string[],
-  ): Promise<Notification | null>;
+  ): Promise<NotificationDocument | null>;
+  getNotificationByKey(key: string): Promise<NotificationDocument>; // Убираем null, так как throw гарантирует результат
+  replacePlaceholders(
+    template: string,
+    params: Record<string, string | number>,
+  ): string;
 }

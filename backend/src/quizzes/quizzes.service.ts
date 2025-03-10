@@ -342,17 +342,40 @@ export class QuizzesService {
       courseId,
       totalScore,
     );
+    // if (updatedEnrollment) {
+    //   this.logger.debug(`Awarded ${totalScore} points for quiz ${quizId}`);
+
+    //   // Получаем настройки пользователя
+    //   const student = await this.usersService.findById(studentId);
+    //   if (!student) throw new NotFoundException('Student not found');
+
+    //   await this.notificationsService.notifyProgress(
+    //     studentId, // Используем studentId вместо enrollment._id
+    //     `You earned ${totalScore} points for completing quiz "${quiz.title}"!`,
+    //     student.settings, // Передаём настройки уведомлений
+    //   );
+    // }
+
     if (updatedEnrollment) {
       this.logger.debug(`Awarded ${totalScore} points for quiz ${quizId}`);
-
-      // Получаем настройки пользователя
-      const student = await this.usersService.findById(studentId);
-      if (!student) throw new NotFoundException('Student not found');
-
-      await this.notificationsService.notifyProgress(
-        studentId, // Используем studentId вместо enrollment._id
-        `You earned ${totalScore} points for completing quiz "${quiz.title}"!`,
-        student.settings, // Передаём настройки уведомлений
+      const template =
+        await this.notificationsService.getNotificationByKey('quiz_submission');
+      const message = this.notificationsService.replacePlaceholders(
+        template.message,
+        {
+          points: totalScore,
+          quizTitle: quiz.title,
+        },
+      );
+      const notification = await this.notificationsService.createNotification({
+        userId: studentId,
+        message,
+        title: template.title,
+      });
+      if (!notification._id) throw new Error('Notification ID is missing');
+      await this.notificationsService.sendNotificationToUser(
+        notification._id.toString(),
+        studentId,
       );
     }
 

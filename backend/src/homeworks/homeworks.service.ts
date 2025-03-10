@@ -163,17 +163,25 @@ export class HomeworksService {
       this.logger.debug(
         `Awarded ${pointsAwarded} points for homework ${homework._id}`,
       );
-
-      // Получаем настройки пользователя
-      const student = await this.usersService.findById(
-        createSubmissionDto.studentId,
+      const template = await this.notificationsService.getNotificationByKey(
+        'homework_submission',
       );
-      if (!student) throw new NotFoundException('Student not found');
-
-      await this.notificationsService.notifyProgress(
-        createSubmissionDto.studentId, // Используем studentId вместо enrollment._id
-        `You earned ${pointsAwarded} points for submitting homework "${homework.description}"!`,
-        student.settings, // Передаём настройки уведомлений
+      const message = this.notificationsService.replacePlaceholders(
+        template.message,
+        {
+          points: pointsAwarded,
+          description: homework.description,
+        },
+      );
+      const notification = await this.notificationsService.createNotification({
+        userId: createSubmissionDto.studentId,
+        message,
+        title: template.title,
+      });
+      if (!notification._id) throw new Error('Notification ID is missing');
+      await this.notificationsService.sendNotificationToUser(
+        notification._id.toString(),
+        createSubmissionDto.studentId,
       );
     }
 
@@ -438,12 +446,32 @@ export class HomeworksService {
       throw new Error('Enrollment not found for this submission');
     }
 
-    // Уведомить студента о проверке, используя enrollmentId
-    await this.notificationsService.notifyDeadline(
-      relatedEnrollment._id.toString(), // Используем enrollmentId
-      0, // Placeholder, так как notifyDeadline требует daysLeft
-      `Your submission for homework ${submission.homeworkId} has been auto-checked with grade ${grade}%.`,
+    const template =
+      await this.notificationsService.getNotificationByKey('progress_points');
+    const message = this.notificationsService.replacePlaceholders(
+      template.message,
+      {
+        points: grade,
+        action: `auto-checked submission ${submissionId}`,
+      },
     );
+    const notification = await this.notificationsService.createNotification({
+      userId: submission.studentId.toString(),
+      message,
+      title: template.title,
+    });
+    if (!notification._id) throw new Error('Notification ID is missing');
+    await this.notificationsService.sendNotificationToUser(
+      notification._id.toString(),
+      submission.studentId.toString(),
+    );
+
+    // // Уведомить студента о проверке, используя enrollmentId
+    // await this.notificationsService.notifyDeadline(
+    //   relatedEnrollment._id.toString(), // Используем enrollmentId
+    //   0, // Placeholder, так как notifyDeadline требует daysLeft
+    //   `Your submission for homework ${submission.homeworkId} has been auto-checked with grade ${grade}%.`,
+    // );
 
     // Очищаем кэш для связанных данных
     await this.cacheManager.del(`submission:${submissionId}`);
@@ -490,92 +518,52 @@ export class HomeworksService {
       );
 
       if (lateSubmissions.length > 0) {
-        // Уведомить администратора и студентов о просроченных дедлайнах
         await Promise.all(
           lateSubmissions.map(async (submission) => {
-            const enrollment =
-              await this.enrollmentsService.findEnrollmentsByStudent(
-                submission.studentId.toString(),
+            const studentTemplate =
+              await this.notificationsService.getNotificationByKey(
+                'late_submission',
               );
-            this.logger.debug('All enrollments for student:', enrollment); // Отладочный лог
-
-            const homework = await this.findHomeworkById(
-              submission.homeworkId.toString(),
-            );
-            if (!homework)
-              throw new Error('Homework not found for this submission');
-            this.logger.debug('Homework found:', homework); // Отладочный лог
-
-            // Находим курс, связанный с lessonId домашнего задания
-            this.logger.debug(
-              `Searching course for lessonId: ${homework.lessonId.toString()}`,
-            );
-            const course = await this.coursesService.findCourseByLesson(
-              homework.lessonId.toString(),
-            );
-            if (!course) {
-              this.logger.error(
-                'No course found for lessonId:',
-                homework.lessonId,
+            const studentMessage =
+              this.notificationsService.replacePlaceholders(
+                studentTemplate.message,
+                { homeworkId },
               );
-              throw new Error('Course not found for this homework');
-            }
-            this.logger.debug('Course found for lesson:', course);
-
-            // Получаем структуру курса для определения модуля и урока
-            const courseStructure =
-              await this.coursesService.getCourseStructure(
-                course._id.toString(),
-              );
-            const lesson = courseStructure.modules
-              .flatMap((m) => m.lessons)
-              .find(
-                (l) => l.lessonId.toString() === homework.lessonId.toString(),
-              );
-            if (!lesson)
-              throw new Error('Lesson not found in course structure');
-
-            const module = courseStructure.modules.find((m) =>
-              m.lessons.some(
-                (l) => l.lessonId.toString() === lesson.lessonId.toString(),
-              ),
-            );
-            if (!module)
-              throw new Error('Module not found in course structure');
-
-            // Обновляем прогресс студента
-            await this.enrollmentsService.updateStudentProgress(
-              submission.studentId.toString(),
-              course._id.toString(),
-              module.moduleId.toString(),
-              lesson.lessonId.toString(),
-            );
-
-            // Ищем enrollment, связанный с этим курсом
-            const relatedEnrollment = enrollment.find(
-              (e) => e.courseId.toString() === course._id.toString(),
-            );
-            if (!relatedEnrollment) {
-              this.logger.error('No related enrollment found for submission:', {
-                studentId: submission.studentId,
-                homeworkId: submission.homeworkId,
-                homeworkLessonId: homework.lessonId,
-                courseId: course._id,
-                enrollments: enrollment,
+            const studentNotification =
+              await this.notificationsService.createNotification({
+                userId: submission.studentId.toString(),
+                message: studentMessage,
+                title: studentTemplate.title,
               });
-              throw new Error('Enrollment not found for this submission');
-            }
-
-            await this.notificationsService.notifyDeadline(
-              relatedEnrollment._id.toString(), // Используем enrollmentId
-              0, // Placeholder, так как notifyDeadline требует daysLeft
-              `Your submission for homework ${homeworkId} is late. Please review and resubmit if possible.`,
+            if (!studentNotification._id)
+              throw new Error('Student Notification ID is missing');
+            await this.notificationsService.sendNotificationToUser(
+              studentNotification._id.toString(),
+              submission.studentId.toString(),
             );
 
-            await this.notificationsService.notifyDeadline(
-              'admin', // Замени на реальный ID администратора
-              0, // Placeholder
-              `Late submission detected for homework ${homeworkId} by student ${submission.studentId}.`,
+            const adminTemplate =
+              await this.notificationsService.getNotificationByKey(
+                'admin_late_submission',
+              );
+            const adminMessage = this.notificationsService.replacePlaceholders(
+              adminTemplate.message,
+              {
+                homeworkId,
+                studentId: submission.studentId.toString(),
+              },
+            );
+            const adminNotification =
+              await this.notificationsService.createNotification({
+                userId: 'admin',
+                message: adminMessage,
+                title: adminTemplate.title,
+              });
+            if (!adminNotification._id)
+              throw new Error('Admin Notification ID is missing');
+            await this.notificationsService.sendNotificationToUser(
+              adminNotification._id.toString(),
+              'admin',
             );
           }),
         );
