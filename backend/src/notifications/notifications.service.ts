@@ -1,4 +1,9 @@
-import { Injectable, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  BadRequestException,
+  NotFoundException,
+} from '@nestjs/common';
 import { Inject, forwardRef } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
@@ -192,56 +197,6 @@ export class NotificationsService implements INotificationsService {
     }
   }
 
-  // async notifyProgress(
-  //   enrollmentId: string,
-  //   moduleId: string | undefined,
-  //   lessonId: string,
-  //   customMessage?: string,
-  // ): Promise<void> {
-  //   const cacheKey = `notification:progress:${enrollmentId}:${moduleId || 'no-module'}:${lessonId}`;
-  //   const cachedNotification = await this.cacheManager.get<any>(cacheKey);
-  //   if (cachedNotification) {
-  //     this.logger.log(
-  //       `Notification found in cache for progress: ${cachedNotification}`,
-  //     );
-  //     return;
-  //   }
-
-  //   const enrollment =
-  //     await this.enrollmentsService.findEnrollmentById(enrollmentId);
-  //   if (!enrollment) throw new Error('Enrollment not found');
-
-  //   const courseId = enrollment.courseId.toString();
-  //   if (!courseId) throw new Error('Course ID not found in enrollment');
-
-  //   const course = (await this.coursesService.findCourseById(
-  //     courseId,
-  //   )) as Course;
-  //   if (!course) throw new Error('Course not found');
-
-  //   // const module = await this.coursesService.findModuleById(moduleId);
-  //   const moduleTitle = moduleId
-  //     ? (await this.coursesService.findModuleById(moduleId))?.title || moduleId
-  //     : 'Unknown Module'; // Обрабатываем случай, когда moduleId не указан
-
-  //   const lesson = await this.coursesService.findLessonById(lessonId);
-  //   const lessonTitle = lesson?.title || lessonId;
-
-  //   const message =
-  //     customMessage ||
-  //     (lessonId
-  //       ? `You have completed lesson ${lessonTitle} in course "${course.title}".`
-  //       : `Progress updated for module ${moduleTitle} in course "${course.title}".`);
-  //   const subject = 'LMS Progress Update';
-
-  //   await this.createNotification(enrollment.studentId, message);
-  //   await this.sendEmail(enrollment.studentId, subject, message);
-  //   await this.sendTelegram(enrollment.studentId, message);
-  //   await this.sendSMS(enrollment.studentId, message);
-
-  //   await this.cacheManager.set(cacheKey, message, 3600);
-  // }
-
   async notifyProgress(
     userId: string,
     message: string,
@@ -403,6 +358,101 @@ export class NotificationsService implements INotificationsService {
         { new: true },
       )
       .lean()
+      .exec();
+  }
+
+  async sendNotificationToUser(
+    notificationId: string,
+    userId: string,
+  ): Promise<NotificationDocument | null> {
+    const notification = await this.notificationModel
+      .findById(new Types.ObjectId(notificationId))
+      .exec();
+    if (!notification) {
+      throw new NotFoundException(
+        `Notification with ID ${notificationId} not found`,
+      );
+    }
+
+    if (notification.isSent) {
+      this.logger.warn(`Notification ${notificationId} already sent`);
+      return notification;
+    }
+
+    await this.sendEmail(userId, notification.title, notification.message);
+    await this.sendTelegram(userId, notification.message);
+    // await this.sendSMS(userId, notification.message); // Раскомментировать, если нужно
+    this.notificationsGateway.notifyUser(userId, notification.message);
+
+    return this.notificationModel
+      .findByIdAndUpdate(
+        new Types.ObjectId(notificationId),
+        {
+          isSent: true,
+          sentAt: new Date(),
+          userId: new Types.ObjectId(userId),
+        },
+        { new: true },
+      )
+      .exec();
+  }
+
+  async sendNotificationToBulk(
+    notificationId: string,
+    recipientIds?: string[],
+  ): Promise<NotificationDocument | null> {
+    const notification = await this.notificationModel
+      .findById(new Types.ObjectId(notificationId))
+      .exec();
+    if (!notification) {
+      throw new NotFoundException(
+        `Notification with ID ${notificationId} not found`,
+      );
+    }
+
+    if (notification.isSent) {
+      this.logger.warn(`Notification ${notificationId} already sent`);
+      return notification;
+    }
+
+    // Используем recipients из уведомления, если recipientIds не переданы
+    const recipients = recipientIds?.length
+      ? recipientIds
+      : notification.recipients.map((id) => id.toString());
+
+    if (!recipients.length && !notification.userId) {
+      throw new BadRequestException('No recipients specified for bulk send');
+    }
+
+    // Добавляем userId в recipients, если он есть и его нет в списке
+    if (
+      notification.userId &&
+      !recipients.includes(notification.userId.toString())
+    ) {
+      recipients.push(notification.userId.toString());
+    }
+
+    for (const recipientId of recipients) {
+      await this.sendEmail(
+        recipientId,
+        notification.title,
+        notification.message,
+      );
+      await this.sendTelegram(recipientId, notification.message);
+      // await this.sendSMS(recipientId, notification.message);
+      this.notificationsGateway.notifyUser(recipientId, notification.message);
+    }
+
+    return this.notificationModel
+      .findByIdAndUpdate(
+        new Types.ObjectId(notificationId),
+        {
+          isSent: true,
+          sentAt: new Date(),
+          recipients: recipients.map((id) => new Types.ObjectId(id)),
+        },
+        { new: true },
+      )
       .exec();
   }
 }

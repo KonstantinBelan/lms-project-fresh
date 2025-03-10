@@ -235,4 +235,70 @@ export class NotificationsController {
     }
     return notifications;
   }
+
+  @Post(':id/send')
+  @ApiOperation({ summary: 'Send a notification to a single user' })
+  @ApiParam({
+    name: 'id',
+    description: 'Notification ID',
+    example: '507f1f77bcf86cd799439011',
+  })
+  @ApiResponse({ status: 200, description: 'Notification sent successfully' })
+  @ApiResponse({ status: 400, description: 'Bad Request' })
+  @ApiResponse({ status: 404, description: 'Notification not found' })
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @SetMetadata('roles', [Role.ADMIN, Role.MANAGER])
+  @UsePipes(new ValidationPipe())
+  async sendNotificationToUser(
+    @Param('id') notificationId: string,
+    @Body() body: { userId: string },
+  ) {
+    const { userId } = body;
+    if (!userId) {
+      throw new BadRequestException('userId is required');
+    }
+    const notification = await this.notificationsService.sendNotificationToUser(
+      notificationId,
+      userId,
+    );
+    if (!notification) {
+      throw new NotFoundException(
+        `Notification with ID ${notificationId} not found`,
+      );
+    }
+    return notification;
+  }
+
+  @Post(':id/send-bulk')
+  @ApiOperation({ summary: 'Send a notification to multiple users' })
+  @ApiParam({
+    name: 'id',
+    description: 'Notification ID',
+    example: '507f1f77bcf86cd799439011',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Notification sent successfully to all recipients',
+  })
+  @ApiResponse({ status: 400, description: 'Bad Request' })
+  @ApiResponse({ status: 404, description: 'Notification not found' })
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @SetMetadata('roles', [Role.ADMIN, Role.MANAGER])
+  @UsePipes(new ValidationPipe())
+  async sendNotificationToBulk(
+    @Param('id') notificationId: string,
+    @Body() body: { recipientIds?: string[] },
+  ) {
+    const { recipientIds } = body; // Опционально, если не указано — используем recipients из уведомления
+    const notification = await this.notificationsService.sendNotificationToBulk(
+      notificationId,
+      recipientIds,
+    );
+    if (!notification) {
+      throw new NotFoundException(
+        `Notification with ID ${notificationId} not found`,
+      );
+    }
+    return notification;
+  }
 }

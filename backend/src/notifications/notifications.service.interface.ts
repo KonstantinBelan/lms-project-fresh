@@ -22,4 +22,12 @@ export interface INotificationsService {
     daysLeft: number,
     courseTitle: string,
   ): Promise<void>;
+  sendNotificationToUser(
+    notificationId: string,
+    userId: string,
+  ): Promise<Notification | null>;
+  sendNotificationToBulk(
+    notificationId: string,
+    recipientIds?: string[],
+  ): Promise<Notification | null>;
 }
