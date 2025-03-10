@@ -69,11 +69,17 @@ export class EnrollmentsService implements IEnrollmentsService {
     courseId: string,
     deadline?: Date,
     streamId?: string,
-    tariffId?: string, // Новый параметр
+    tariffId?: string,
     skipNotifications = false,
   ): Promise<EnrollmentDocument> {
-    const student = await this.usersService.findById(studentId);
-    const course = await this.coursesService.findCourseById(courseId);
+    const start = Date.now();
+
+    // Параллельный поиск студента и курса
+    const [student, course] = await Promise.all([
+      this.usersService.findById(studentId),
+      this.coursesService.findCourseById(courseId),
+    ]);
+    this.logger.debug(`Find student and course: ${Date.now() - start}ms`);
 
     if (!student || !course) throw new Error('Student or course not found');
 
@@ -81,31 +87,33 @@ export class EnrollmentsService implements IEnrollmentsService {
       .findOne({ studentId, courseId })
       .lean()
       .exec();
+    this.logger.debug(`Check existing enrollment: ${Date.now() - start}ms`);
     if (existingEnrollment) throw new AlreadyEnrolledException();
 
-    if (streamId && !Types.ObjectId.isValid(streamId)) {
-      throw new BadRequestException('Invalid streamId');
-    }
-    if (streamId) {
-      const stream = await this.streamsService.findStreamById(streamId);
-      if (!stream || stream.courseId.toString() !== courseId) {
+    // Параллельная валидация streamId и tariffId
+    if (streamId || tariffId) {
+      const [stream, tariff] = await Promise.all([
+        streamId && Types.ObjectId.isValid(streamId)
+          ? this.streamsService.findStreamById(streamId)
+          : Promise.resolve(null),
+        tariffId && Types.ObjectId.isValid(tariffId)
+          ? this.tariffsService.findTariffById(tariffId)
+          : Promise.resolve(null),
+      ]);
+      this.logger.debug(`Validate stream and tariff: ${Date.now() - start}ms`);
+
+      if (streamId && (!stream || stream.courseId.toString() !== courseId)) {
         throw new BadRequestException(
           'Stream not found or does not belong to this course',
         );
       }
-    }
-
-    if (tariffId && !Types.ObjectId.isValid(tariffId)) {
-      throw new BadRequestException('Invalid tariffId');
-    }
-    if (tariffId) {
-      const tariff = await this.tariffsService.findTariffById(tariffId);
-      if (!tariff || tariff.courseId.toString() !== courseId) {
+      if (tariffId && (!tariff || tariff.courseId.toString() !== courseId)) {
         throw new BadRequestException(
           'Tariff not found or does not belong to this course',
         );
       }
     }
+
     const newEnrollment = new this.enrollmentModel({
       studentId: new Types.ObjectId(studentId),
       courseId: new Types.ObjectId(courseId),
@@ -118,22 +126,24 @@ export class EnrollmentsService implements IEnrollmentsService {
       isCompleted: false,
     });
     const savedEnrollment = await newEnrollment.save();
+    this.logger.debug(`Save enrollment: ${Date.now() - start}ms`);
 
     if (streamId) {
       try {
         await this.streamsService.addStudentToStream(streamId, studentId);
+        this.logger.debug(`Add to stream: ${Date.now() - start}ms`);
       } catch (error) {
         if (error instanceof BadRequestException) {
           this.logger.warn(
             `Student ${studentId} already enrolled in stream ${streamId}, skipping`,
           );
         } else {
-          throw error; // Пробрасываем другие ошибки
+          throw error;
         }
       }
     }
 
-    if (!skipNotifications) {
+    if (!skipNotifications && student.settings?.notifications) {
       const course = await this.coursesService.findCourseById(courseId);
       if (!course) throw new NotFoundException('Course not found');
       const template =
@@ -150,17 +160,23 @@ export class EnrollmentsService implements IEnrollmentsService {
         message,
         title: template.title,
       });
-      // Проверяем, что _id существует, и приводим к строке
       if (!notification._id) throw new Error('Notification ID is missing');
+      this.logger.debug(
+        `Create new course notification: ${Date.now() - start}ms`,
+      );
       await this.notificationsService.sendNotificationToUser(
         notification._id.toString(),
         studentId,
+      );
+      this.logger.debug(
+        `Send new course notification: ${Date.now() - start}ms`,
       );
     }
 
     await this.cacheManager.del(`enrollment:${savedEnrollment._id.toString()}`);
     await this.cacheManager.del(`enrollments:student:${studentId}`);
     await this.cacheManager.del(`enrollments:course:${courseId}`);
+    this.logger.debug(`Clear cache: ${Date.now() - start}ms`);
 
     if (deadline) {
       const daysLeft = Math.ceil(
@@ -187,15 +203,21 @@ export class EnrollmentsService implements IEnrollmentsService {
             title: template.title,
           },
         );
-        // Проверяем, что _id существует, и приводим к строке
         if (!notification._id) throw new Error('Notification ID is missing');
+        this.logger.debug(
+          `Create deadline notification: ${Date.now() - start}ms`,
+        );
         await this.notificationsService.sendNotificationToUser(
           notification._id.toString(),
           studentId,
         );
+        this.logger.debug(
+          `Send deadline notification: ${Date.now() - start}ms`,
+        );
       }
     }
 
+    this.logger.debug(`Total execution time: ${Date.now() - start}ms`);
     return savedEnrollment;
   }
 

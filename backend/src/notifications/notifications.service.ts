@@ -5,6 +5,8 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Inject, forwardRef } from '@nestjs/common';
+import { InjectQueue } from '@nestjs/bull';
+import { Queue } from 'bull';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import {
@@ -32,6 +34,7 @@ export class NotificationsService implements INotificationsService {
   private telegramBot: TelegramBot;
 
   constructor(
+    @InjectQueue('notifications') private notificationsQueue: Queue,
     @InjectModel(Notification.name)
     private notificationModel: Model<NotificationDocument>,
     @Inject(forwardRef(() => EnrollmentsService))
@@ -360,26 +363,36 @@ export class NotificationsService implements INotificationsService {
     notificationId: string,
     userId: string,
   ): Promise<NotificationDocument | null> {
+    this.logger.debug(
+      `Attempting to send notification ${notificationId} to user ${userId}`,
+    );
     const notification = await this.notificationModel
       .findById(new Types.ObjectId(notificationId))
       .exec();
     if (!notification) {
+      this.logger.error(`Notification with ID ${notificationId} not found`);
       throw new NotFoundException(
         `Notification with ID ${notificationId} not found`,
       );
     }
+    this.logger.debug(`Notification found: ${notification._id}`);
 
     if (notification.isSent) {
       this.logger.warn(`Notification ${notificationId} already sent`);
       return notification;
     }
 
-    await this.sendEmail(userId, notification.title, notification.message);
-    await this.sendTelegram(userId, notification.message);
-    // await this.sendSMS(userId, notification.message); // Раскомментировать, если нужно
-    this.notificationsGateway.notifyUser(userId, notification.message);
+    if (!notification._id) throw new Error('Notification ID is missing');
+    // Добавляем задачу в очередь вместо прямой отправки
+    await this.notificationsQueue.add('send', {
+      notificationId: notification._id.toString(),
+      userId,
+      title: notification.title,
+      message: notification.message,
+    });
 
-    return this.notificationModel
+    // Обновляем статус уведомления сразу
+    const updatedNotification = await this.notificationModel
       .findByIdAndUpdate(
         new Types.ObjectId(notificationId),
         {
@@ -390,6 +403,11 @@ export class NotificationsService implements INotificationsService {
         { new: true },
       )
       .exec();
+    this.logger.debug(
+      `Notification queued and updated: ${updatedNotification?._id}`,
+    );
+
+    return updatedNotification;
   }
 
   async sendNotificationToBulk(
@@ -410,7 +428,6 @@ export class NotificationsService implements INotificationsService {
       return notification;
     }
 
-    // Используем recipients из уведомления, если recipientIds не переданы
     const recipients = recipientIds?.length
       ? recipientIds
       : notification.recipients.map((id) => id.toString());
@@ -419,7 +436,6 @@ export class NotificationsService implements INotificationsService {
       throw new BadRequestException('No recipients specified for bulk send');
     }
 
-    // Добавляем userId в recipients, если он есть и его нет в списке
     if (
       notification.userId &&
       !recipients.includes(notification.userId.toString())
@@ -427,18 +443,17 @@ export class NotificationsService implements INotificationsService {
       recipients.push(notification.userId.toString());
     }
 
-    for (const recipientId of recipients) {
-      await this.sendEmail(
-        recipientId,
-        notification.title,
-        notification.message,
-      );
-      await this.sendTelegram(recipientId, notification.message);
-      // await this.sendSMS(recipientId, notification.message);
-      this.notificationsGateway.notifyUser(recipientId, notification.message);
-    }
+    if (!notification._id) throw new Error('Notification ID is missing');
+    // Добавляем задачу в очередь для массовой отправки
+    await this.notificationsQueue.add('sendBulk', {
+      notificationId: notification._id.toString(),
+      recipientIds: recipients,
+      title: notification.title,
+      message: notification.message,
+    });
 
-    return this.notificationModel
+    // Обновляем статус уведомления
+    const updatedNotification = await this.notificationModel
       .findByIdAndUpdate(
         new Types.ObjectId(notificationId),
         {
@@ -449,18 +464,37 @@ export class NotificationsService implements INotificationsService {
         { new: true },
       )
       .exec();
+    this.logger.debug(
+      `Bulk notification queued and updated: ${updatedNotification?._id}`,
+    );
+
+    return updatedNotification;
   }
 
   public async getNotificationByKey(
     key: string,
   ): Promise<NotificationDocument> {
-    const notification = await this.notificationModel.findOne({ key }).exec();
+    const cacheKey = `notification_template:${key}`;
+    let notification =
+      await this.cacheManager.get<NotificationDocument>(cacheKey);
+
     if (!notification) {
-      this.logger.warn(`Notification template with key "${key}" not found`);
-      throw new NotFoundException(
-        `Notification template with key "${key}" not found`,
+      notification = await this.notificationModel.findOne({ key }).exec();
+      if (!notification) {
+        this.logger.warn(`Notification template with key "${key}" not found`);
+        throw new NotFoundException(
+          `Notification template with key "${key}" not found`,
+        );
+      }
+      // Сохраняем в кэш на 1 час (3600 секунд)
+      await this.cacheManager.set(cacheKey, notification, 3600);
+      this.logger.debug(`Cached notification template for key "${key}"`);
+    } else {
+      this.logger.debug(
+        `Retrieved notification template for key "${key}" from cache`,
       );
     }
+
     return notification;
   }
 
