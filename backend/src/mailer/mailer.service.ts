@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, BadRequestException } from '@nestjs/common';
 import { MailerService as NestMailerService } from '@nestjs-modules/mailer';
 import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
@@ -40,9 +40,18 @@ export class MailerService {
     subject: string,
     template: string,
   ) {
-    if (!recipients.length) {
+    // Проверка на пустые или отсутствующие поля
+    if (!recipients || recipients.length === 0) {
       this.logger.warn('Список получателей пуст');
-      return;
+      throw new BadRequestException('Список получателей не может быть пустым');
+    }
+    if (!subject) {
+      this.logger.warn('Отсутствует тема письма');
+      throw new BadRequestException('Тема письма обязательна');
+    }
+    if (!template) {
+      this.logger.warn('Отсутствует шаблон письма');
+      throw new BadRequestException('Шаблон письма обязателен');
     }
 
     this.logger.log(
@@ -56,8 +65,8 @@ export class MailerService {
         template,
       },
       {
-        attempts: 3, // 3 попытки в случае ошибки
-        backoff: 5000, // Задержка 5 секунд между попытками
+        attempts: 3,
+        backoff: 5000,
       },
     );
   }
