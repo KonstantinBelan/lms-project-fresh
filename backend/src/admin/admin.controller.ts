@@ -11,6 +11,7 @@ import {
   ApiBearerAuth,
   ApiQuery,
 } from '@nestjs/swagger';
+import { CreateEnrollmentDto } from '../enrollments/dto/create-enrollment.dto';
 
 @ApiTags('Admin')
 @Controller('admin')
@@ -51,15 +52,20 @@ export class AdminController {
   @Get('enrollments')
   @SetMetadata('roles', [Role.ADMIN])
   @ApiOperation({ summary: 'Get enrollments with optional courseId filter' })
-  @ApiResponse({
-    status: 200,
-    description: 'Enrollments retrieved successfully',
-  })
-  @ApiResponse({ status: 403, description: 'Forbidden' })
   @ApiQuery({
     name: 'courseId',
     required: false,
-    description: 'Course ID to filter enrollments',
+    description: 'Filter enrollments by course ID',
+    example: '507f1f77bcf86cd799439011',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Enrollments retrieved successfully',
+    type: [CreateEnrollmentDto],
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Admin access required',
   })
   async getEnrollments(@Query('courseId') courseId?: string) {
     return this.adminService.getEnrollments(courseId);

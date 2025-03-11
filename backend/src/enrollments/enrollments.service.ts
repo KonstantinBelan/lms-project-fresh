@@ -20,6 +20,7 @@ import { CoursesService } from '../courses/courses.service';
 import { HomeworksService } from '../homeworks/homeworks.service';
 import { QuizzesService } from '../quizzes/quizzes.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { MailerService } from '../mailer/mailer.service';
 import { NotificationDocument } from '../notifications/schemas/notification.schema';
 import { StreamsService } from '../streams/streams.service';
 import { TariffsService } from '../tariffs/tariffs.service';
@@ -52,6 +53,7 @@ export class EnrollmentsService implements IEnrollmentsService {
     private streamsService: StreamsService,
     @Inject(forwardRef(() => TariffsService))
     private tariffsService: TariffsService,
+    private readonly mailerService: MailerService,
   ) {
     this.logger.debug('EnrollmentsService constructor called');
     this.logger.debug('EnrollmentModel:', !!this.enrollmentModel);
@@ -64,6 +66,201 @@ export class EnrollmentsService implements IEnrollmentsService {
     this.logger.debug('TariffsService:', !!this.tariffsService);
   }
 
+  // async createEnrollment(
+  //   studentId: string,
+  //   courseId: string,
+  //   deadline?: Date,
+  //   streamId?: string,
+  //   tariffId?: string,
+  //   skipNotifications = false,
+  // ): Promise<EnrollmentDocument> {
+  //   const start = Date.now();
+
+  //   // Параллельный поиск студента и курса
+  //   const [student, course] = await Promise.all([
+  //     this.usersService.findById(studentId),
+  //     this.coursesService.findCourseById(courseId),
+  //   ]);
+  //   this.logger.debug(`Find student and course: ${Date.now() - start}ms`);
+
+  //   if (!student || !course) throw new Error('Student or course not found');
+
+  //   const existingEnrollment = await this.enrollmentModel
+  //     .findOne({ studentId, courseId })
+  //     .lean()
+  //     .exec();
+  //   this.logger.debug(`Check existing enrollment: ${Date.now() - start}ms`);
+  //   if (existingEnrollment) throw new AlreadyEnrolledException();
+
+  //   // Параллельная валидация streamId и tariffId
+  //   if (streamId || tariffId) {
+  //     const [stream, tariff] = await Promise.all([
+  //       streamId && Types.ObjectId.isValid(streamId)
+  //         ? this.streamsService.findStreamById(streamId)
+  //         : Promise.resolve(null),
+  //       tariffId && Types.ObjectId.isValid(tariffId)
+  //         ? this.tariffsService.findTariffById(tariffId)
+  //         : Promise.resolve(null),
+  //     ]);
+  //     this.logger.debug(`Validate stream and tariff: ${Date.now() - start}ms`);
+
+  //     if (streamId && (!stream || stream.courseId.toString() !== courseId)) {
+  //       throw new BadRequestException(
+  //         'Stream not found or does not belong to this course',
+  //       );
+  //     }
+  //     if (tariffId && (!tariff || tariff.courseId.toString() !== courseId)) {
+  //       throw new BadRequestException(
+  //         'Tariff not found or does not belong to this course',
+  //       );
+  //     }
+  //   }
+
+  //   const newEnrollment = new this.enrollmentModel({
+  //     studentId: new Types.ObjectId(studentId),
+  //     courseId: new Types.ObjectId(courseId),
+  //     streamId: streamId ? new Types.ObjectId(streamId) : undefined,
+  //     tariffId: tariffId ? new Types.ObjectId(tariffId) : undefined,
+  //     deadline,
+  //     completedModules: [],
+  //     completedLessons: [],
+  //     points: 0,
+  //     isCompleted: false,
+  //   });
+  //   const savedEnrollment = await newEnrollment.save();
+  //   this.logger.debug(`Save enrollment: ${Date.now() - start}ms`);
+
+  //   if (streamId) {
+  //     try {
+  //       await this.streamsService.addStudentToStream(streamId, studentId);
+  //       this.logger.debug(`Add to stream: ${Date.now() - start}ms`);
+  //     } catch (error) {
+  //       if (error instanceof BadRequestException) {
+  //         this.logger.warn(
+  //           `Student ${studentId} already enrolled in stream ${streamId}, skipping`,
+  //         );
+  //       } else {
+  //         throw error;
+  //       }
+  //     }
+  //   }
+
+  //   if (!skipNotifications && student.settings?.notifications) {
+  //     const newCoursePromise = (async () => {
+  //       const template =
+  //         await this.notificationsService.getNotificationByKey('new_course');
+  //       const message = this.notificationsService.replacePlaceholders(
+  //         template.message,
+  //         {
+  //           courseTitle: course.title,
+  //           courseId,
+  //         },
+  //       );
+  //       return this.notificationsService.createNotification({
+  //         userId: studentId,
+  //         message,
+  //         title: template.title,
+  //       });
+  //     })();
+
+  //     const deadlinePromise =
+  //       deadline &&
+  //       (async () => {
+  //         const daysLeft = Math.ceil(
+  //           (deadline.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24),
+  //         );
+  //         if (daysLeft <= 7 && daysLeft > 0) {
+  //           const template =
+  //             await this.notificationsService.getNotificationByKey(
+  //               'deadline_reminder',
+  //             );
+  //           const message = this.notificationsService.replacePlaceholders(
+  //             template.message,
+  //             {
+  //               courseTitle: course.title,
+  //               daysLeft,
+  //             },
+  //           );
+  //           return this.notificationsService.createNotification({
+  //             userId: studentId,
+  //             message,
+  //             title: template.title,
+  //           });
+  //         }
+  //         return null;
+  //       })();
+
+  //     const [newCourseNotif, deadlineNotif] = await Promise.all([
+  //       newCoursePromise,
+  //       deadlinePromise,
+  //     ]);
+  //     this.logger.debug(`Create notifications: ${Date.now() - start}ms`);
+
+  //     if (newCourseNotif?._id) {
+  //       await this.notificationsService.sendNotificationToUser(
+  //         newCourseNotif._id.toString(),
+  //         studentId,
+  //       );
+  //     }
+  //     if (deadlineNotif?._id) {
+  //       await this.notificationsService.sendNotificationToUser(
+  //         deadlineNotif._id.toString(),
+  //         studentId,
+  //       );
+  //     }
+  //     this.logger.debug(`Queue notifications: ${Date.now() - start}ms`);
+  //   }
+
+  //   await Promise.all([
+  //     this.cacheManager.del(`enrollment:${savedEnrollment._id.toString()}`),
+  //     this.cacheManager.del(`enrollments:student:${studentId}`),
+  //     this.cacheManager.del(`enrollments:course:${courseId}`),
+  //   ]);
+  //   this.logger.debug(`Clear cache: ${Date.now() - start}ms`);
+
+  //   if (deadline) {
+  //     const daysLeft = Math.ceil(
+  //       (deadline.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24),
+  //     );
+  //     if (daysLeft <= 7 && daysLeft > 0) {
+  //       const course = await this.coursesService.findCourseById(courseId);
+  //       if (!course) throw new NotFoundException('Course not found');
+  //       const template =
+  //         await this.notificationsService.getNotificationByKey(
+  //           'deadline_reminder',
+  //         );
+  //       const message = this.notificationsService.replacePlaceholders(
+  //         template.message,
+  //         {
+  //           courseTitle: course.title,
+  //           daysLeft,
+  //         },
+  //       );
+  //       const notification = await this.notificationsService.createNotification(
+  //         {
+  //           userId: studentId,
+  //           message,
+  //           title: template.title,
+  //         },
+  //       );
+  //       if (!notification._id) throw new Error('Notification ID is missing');
+  //       this.logger.debug(
+  //         `Create deadline notification: ${Date.now() - start}ms`,
+  //       );
+  //       await this.notificationsService.sendNotificationToUser(
+  //         notification._id.toString(),
+  //         studentId,
+  //       );
+  //       this.logger.debug(
+  //         `Send deadline notification: ${Date.now() - start}ms`,
+  //       );
+  //     }
+  //   }
+
+  //   this.logger.debug(`Total execution time: ${Date.now() - start}ms`);
+  //   return savedEnrollment;
+  // }
+
   async createEnrollment(
     studentId: string,
     courseId: string,
@@ -74,23 +271,33 @@ export class EnrollmentsService implements IEnrollmentsService {
   ): Promise<EnrollmentDocument> {
     const start = Date.now();
 
-    // Параллельный поиск студента и курса
+    // Приводим ID к ObjectId для единообразия
+    const studentObjectId = new Types.ObjectId(studentId);
+    const courseObjectId = new Types.ObjectId(courseId);
+
     const [student, course] = await Promise.all([
       this.usersService.findById(studentId),
       this.coursesService.findCourseById(courseId),
     ]);
-    this.logger.debug(`Find student and course: ${Date.now() - start}ms`);
+    this.logger.debug(`Поиск студента и курса: ${Date.now() - start}ms`);
 
-    if (!student || !course) throw new Error('Student or course not found');
+    if (!student || !course) {
+      throw new NotFoundException('Студент или курс не найден');
+    }
 
+    // Проверка на существование записи с явным логированием
     const existingEnrollment = await this.enrollmentModel
-      .findOne({ studentId, courseId })
+      .findOne({ studentId: studentObjectId, courseId: courseObjectId })
       .lean()
       .exec();
-    this.logger.debug(`Check existing enrollment: ${Date.now() - start}ms`);
-    if (existingEnrollment) throw new AlreadyEnrolledException();
+    this.logger.debug(
+      `Проверка существующего зачисления: ${JSON.stringify(existingEnrollment)}`,
+    );
+    if (existingEnrollment) {
+      this.logger.warn(`Студент ${studentId} уже записан на курс ${courseId}`);
+      throw new AlreadyEnrolledException();
+    }
 
-    // Параллельная валидация streamId и tariffId
     if (streamId || tariffId) {
       const [stream, tariff] = await Promise.all([
         streamId && Types.ObjectId.isValid(streamId)
@@ -100,23 +307,23 @@ export class EnrollmentsService implements IEnrollmentsService {
           ? this.tariffsService.findTariffById(tariffId)
           : Promise.resolve(null),
       ]);
-      this.logger.debug(`Validate stream and tariff: ${Date.now() - start}ms`);
+      this.logger.debug(`Валидация потока и тарифа: ${Date.now() - start}ms`);
 
       if (streamId && (!stream || stream.courseId.toString() !== courseId)) {
         throw new BadRequestException(
-          'Stream not found or does not belong to this course',
+          'Поток не найден или не относится к курсу',
         );
       }
       if (tariffId && (!tariff || tariff.courseId.toString() !== courseId)) {
         throw new BadRequestException(
-          'Tariff not found or does not belong to this course',
+          'Тариф не найден или не относится к курсу',
         );
       }
     }
 
     const newEnrollment = new this.enrollmentModel({
-      studentId: new Types.ObjectId(studentId),
-      courseId: new Types.ObjectId(courseId),
+      studentId: studentObjectId,
+      courseId: courseObjectId,
       streamId: streamId ? new Types.ObjectId(streamId) : undefined,
       tariffId: tariffId ? new Types.ObjectId(tariffId) : undefined,
       deadline,
@@ -126,17 +333,14 @@ export class EnrollmentsService implements IEnrollmentsService {
       isCompleted: false,
     });
     const savedEnrollment = await newEnrollment.save();
-    this.logger.debug(`Save enrollment: ${Date.now() - start}ms`);
+    this.logger.debug(`Сохранение зачисления: ${Date.now() - start}ms`);
 
     if (streamId) {
       try {
         await this.streamsService.addStudentToStream(streamId, studentId);
-        this.logger.debug(`Add to stream: ${Date.now() - start}ms`);
       } catch (error) {
         if (error instanceof BadRequestException) {
-          this.logger.warn(
-            `Student ${studentId} already enrolled in stream ${streamId}, skipping`,
-          );
+          this.logger.warn(`Студент ${studentId} уже в потоке ${streamId}`);
         } else {
           throw error;
         }
@@ -144,80 +348,108 @@ export class EnrollmentsService implements IEnrollmentsService {
     }
 
     if (!skipNotifications && student.settings?.notifications) {
-      const course = await this.coursesService.findCourseById(courseId);
-      if (!course) throw new NotFoundException('Course not found');
-      const template =
-        await this.notificationsService.getNotificationByKey('new_course');
-      const message = this.notificationsService.replacePlaceholders(
-        template.message,
-        {
-          courseTitle: course.title,
-          courseId,
-        },
-      );
-      const notification = await this.notificationsService.createNotification({
-        userId: studentId,
-        message,
-        title: template.title,
-      });
-      if (!notification._id) throw new Error('Notification ID is missing');
-      this.logger.debug(
-        `Create new course notification: ${Date.now() - start}ms`,
-      );
-      await this.notificationsService.sendNotificationToUser(
-        notification._id.toString(),
-        studentId,
-      );
-      this.logger.debug(
-        `Send new course notification: ${Date.now() - start}ms`,
-      );
-    }
-
-    await this.cacheManager.del(`enrollment:${savedEnrollment._id.toString()}`);
-    await this.cacheManager.del(`enrollments:student:${studentId}`);
-    await this.cacheManager.del(`enrollments:course:${courseId}`);
-    this.logger.debug(`Clear cache: ${Date.now() - start}ms`);
-
-    if (deadline) {
-      const daysLeft = Math.ceil(
-        (deadline.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24),
-      );
-      if (daysLeft <= 7 && daysLeft > 0) {
-        const course = await this.coursesService.findCourseById(courseId);
-        if (!course) throw new NotFoundException('Course not found');
-        const template =
-          await this.notificationsService.getNotificationByKey(
-            'deadline_reminder',
+      const telegramPromises = [
+        (async () => {
+          const template =
+            await this.notificationsService.getNotificationByKey('new_course');
+          const message = this.notificationsService.replacePlaceholders(
+            template.message,
+            {
+              courseTitle: course.title,
+              courseId,
+            },
           );
-        const message = this.notificationsService.replacePlaceholders(
-          template.message,
-          {
-            courseTitle: course.title,
-            daysLeft,
-          },
-        );
-        const notification = await this.notificationsService.createNotification(
-          {
+          const notif = await this.notificationsService.createNotification({
             userId: studentId,
             message,
             title: template.title,
+          });
+          if (notif?._id) {
+            return this.notificationsService.sendNotificationToUser(
+              notif._id.toString(),
+              studentId,
+            );
+          }
+        })(),
+        deadline &&
+          (async () => {
+            const daysLeft = Math.ceil(
+              (deadline.getTime() - new Date().getTime()) /
+                (1000 * 60 * 60 * 24),
+            );
+            if (daysLeft <= 7 && daysLeft > 0) {
+              const template =
+                await this.notificationsService.getNotificationByKey(
+                  'deadline_reminder',
+                );
+              const message = this.notificationsService.replacePlaceholders(
+                template.message,
+                {
+                  courseTitle: course.title,
+                  daysLeft,
+                },
+              );
+              const notif = await this.notificationsService.createNotification({
+                userId: studentId,
+                message,
+                title: template.title,
+              });
+              if (notif?._id) {
+                return this.notificationsService.sendNotificationToUser(
+                  notif._id.toString(),
+                  studentId,
+                );
+              }
+            }
+            return null;
+          })(),
+      ];
+
+      const emailPromises = [
+        this.mailerService.sendInstantMail(
+          student.email,
+          'Добро пожаловать на курс!',
+          'welcome',
+          {
+            name: student.name,
+            courseTitle: course.title,
+            courseUrl: `http://localhost:3000/courses/${courseId}`,
           },
-        );
-        if (!notification._id) throw new Error('Notification ID is missing');
-        this.logger.debug(
-          `Create deadline notification: ${Date.now() - start}ms`,
-        );
-        await this.notificationsService.sendNotificationToUser(
-          notification._id.toString(),
-          studentId,
-        );
-        this.logger.debug(
-          `Send deadline notification: ${Date.now() - start}ms`,
-        );
-      }
+        ),
+        deadline &&
+          (async () => {
+            const daysLeft = Math.ceil(
+              (deadline.getTime() - new Date().getTime()) /
+                (1000 * 60 * 60 * 24),
+            );
+            if (daysLeft <= 7 && daysLeft > 0) {
+              await this.mailerService.sendInstantMail(
+                student.email,
+                'Напоминание о дедлайне',
+                'deadline-reminder',
+                {
+                  name: student.name,
+                  courseTitle: course.title,
+                  daysLeft,
+                  courseUrl: `http://localhost:3000/courses/${courseId}`,
+                },
+              );
+            }
+          })(),
+      ];
+
+      await Promise.all([...telegramPromises, ...emailPromises]);
+      this.logger.debug(`Отправка уведомлений: ${Date.now() - start}ms`);
     }
 
-    this.logger.debug(`Total execution time: ${Date.now() - start}ms`);
+    await Promise.all([
+      this.cacheManager.del(`enrollment:${savedEnrollment._id.toString()}`),
+      this.cacheManager.del(`enrollments:student:${studentId}`),
+      this.cacheManager.del(`enrollments:course:${courseId}`),
+    ]);
+    this.logger.debug(`Очистка кэша: ${Date.now() - start}ms`);
+
+    this.logger.debug(`Общее время выполнения: ${Date.now() - start}ms`);
     return savedEnrollment;
   }
 

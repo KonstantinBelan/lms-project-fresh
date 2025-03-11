@@ -1,5 +1,6 @@
 import { Module, OnModuleInit } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
+import { BullModule } from '@nestjs/bull';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -16,6 +17,7 @@ import { CacheModule } from '@nestjs/cache-manager'; // Импортируем C
 import { cacheManagerConfig } from './cache.config'; // Создаём конфигурацию кэша (см. ниже)
 import { AdminModule } from './admin/admin.module';
 import { QuizzesModule } from './quizzes/quizzes.module';
+import { MailerModule } from './mailer/mailer.module';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
 
@@ -44,6 +46,15 @@ import { Types } from 'mongoose';
         limit: 10, // Максимум запросов
       },
     ]),
+    BullModule.forRoot({
+      redis: {
+        host: 'localhost',
+        port: 6379,
+      },
+    }),
+    BullModule.registerQueue({
+      name: 'notifications',
+    }),
     UsersModule,
     AuthModule,
     CoursesModule,
@@ -54,6 +65,7 @@ import { Types } from 'mongoose';
     AdminModule,
     QuizzesModule,
     TariffsModule,
+    MailerModule,
     CacheModule.register(cacheManagerConfig),
   ],
   controllers: [AppController],
@@ -81,6 +93,7 @@ export class AppModule implements OnModuleInit {
       'AdminModule',
       'QuizzesModule',
       'TariffsModule',
+      'MailerModule',
     ]);
   }
 

@@ -9,6 +9,7 @@ import { AuthService } from './auth.service';
 import { Role } from './roles.enum';
 import { CreateUserDto } from '../users/dto/create-user.dto';
 import { LoginDto } from './dto/login.dto';
+import { AuthResponseDto } from './dto/auth-response.dto';
 import { Types } from 'mongoose';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
@@ -26,9 +27,8 @@ export class AuthController {
   })
   @ApiResponse({
     status: 200,
-    description: 'Login successful',
-    type: String,
-    example: 'jwt_token_here',
+    description: 'Login successful, JWT token returned',
+    type: AuthResponseDto,
   })
   @ApiResponse({
     status: 401,

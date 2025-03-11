@@ -10,8 +10,8 @@ export class Notification {
   @Prop({ required: true })
   message: string;
 
-  @Prop({ type: String, unique: true, required: true }) // Уникальный ключ для шаблона
-  key: string;
+  @Prop({ type: String, unique: true }) // Уникальный ключ для шаблона
+  key?: string;
 
   @Prop({ type: Types.ObjectId, ref: 'User', required: false })
   userId?: Types.ObjectId; // Один получатель (опционально)

@@ -35,15 +35,18 @@ async function bootstrap() {
     .setDescription(
       'API для управления курсами, зачислениями и домашними заданиями',
     )
-    .setVersion('1.0')
-    // .addBearerAuth()
+    .setVersion('1.0.0')
     .addBearerAuth(
       { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
-      'JWT-auth', // Имя для авторизации в Swagger
+      'JWT-auth',
     )
+    .addServer('http://localhost:3000', 'Local development server')
+    .addServer('https://api.deasy-lms.com', 'Production server')
     .build();
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api', app, document);
+
+  // app.setGlobalPrefix('v1');
 
   await app.listen(3000);
   console.log('Server running on port 3000 with WebSocket support');

@@ -15,6 +15,7 @@ import {
   BadRequestException,
   NotFoundException,
   Logger,
+  HttpCode,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -35,7 +36,8 @@ interface RequestWithUser extends Request {
 }
 
 @ApiTags('Notifications')
-@Controller('notifications')
+// @Controller('notifications')
+@Controller({ path: 'notifications', version: '1' })
 export class NotificationsController {
   private logger = new Logger('notificationsService');
 
@@ -107,20 +109,20 @@ export class NotificationsController {
     return this.notificationsService.deleteNotification(id);
   }
 
-  @Post('test-email')
-  @ApiOperation({ summary: 'Send a test email notification' })
-  @ApiResponse({
-    status: 200,
-    description: 'Test email sent successfully',
-  })
-  @ApiResponse({ status: 400, description: 'Bad Request' })
-  @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @SetMetadata('roles', [Role.ADMIN]) // Ограничиваем доступ только для администратора
-  async testEmail(@Body() body: { userId: string; message: string }) {
-    const { userId, message } = body;
-    await this.notificationsService.sendEmail(userId, 'Test Email', message);
-    return { status: 'success', message: 'Test email sent successfully' };
-  }
+  // @Post('test-email')
+  // @ApiOperation({ summary: 'Send a test email notification' })
+  // @ApiResponse({
+  //   status: 200,
+  //   description: 'Test email sent successfully',
+  // })
+  // @ApiResponse({ status: 400, description: 'Bad Request' })
+  // @UseGuards(AuthGuard('jwt'), RolesGuard)
+  // @SetMetadata('roles', [Role.ADMIN]) // Ограничиваем доступ только для администратора
+  // async testEmail(@Body() body: { userId: string; message: string }) {
+  //   const { userId, message } = body;
+  //   await this.notificationsService.sendEmail(userId, 'Test Email', message);
+  //   return { status: 'success', message: 'Test email sent successfully' };
+  // }
 
   @Post('test-telegram')
   @ApiOperation({ summary: 'Test Telegram notification' })
@@ -237,14 +239,35 @@ export class NotificationsController {
   }
 
   @Post(':id/send')
+  @HttpCode(200)
   @ApiOperation({ summary: 'Send a notification to a single user' })
   @ApiParam({
     name: 'id',
     description: 'Notification ID',
     example: '507f1f77bcf86cd799439011',
+    required: true,
   })
-  @ApiResponse({ status: 200, description: 'Notification sent successfully' })
-  @ApiResponse({ status: 400, description: 'Bad Request' })
+  @ApiResponse({
+    status: 200,
+    description: 'Notification successfully queued for sending to the user',
+    type: CreateNotificationDto,
+    content: {
+      'application/json': {
+        example: {
+          key: 'new_course',
+          title: 'Новый курс',
+          message: 'Вы записаны на курс Course 9',
+          userId: '67c92217f30e0a8bcd56bf86',
+          isSent: true,
+          sentAt: '2025-03-11T12:00:00Z',
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Bad Request - Invalid notification data',
+  })
   @ApiResponse({ status: 404, description: 'Notification not found' })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @SetMetadata('roles', [Role.ADMIN, Role.MANAGER])

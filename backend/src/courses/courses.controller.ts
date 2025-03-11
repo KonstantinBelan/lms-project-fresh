@@ -504,14 +504,40 @@ export class CoursesController {
 
   @Get(':courseId/leaderboard')
   @ApiOperation({ summary: 'Get course leaderboard' })
-  @ApiParam({ name: 'courseId', description: 'Course ID' })
+  @ApiParam({
+    name: 'courseId',
+    description: 'Course ID',
+    example: '507f1f77bcf86cd799439011',
+  })
   @ApiQuery({
     name: 'limit',
     required: false,
-    type: Number,
     description: 'Number of entries to return',
+    example: 10,
   })
-  @ApiResponse({ status: 200, type: [LeaderboardEntry] })
+  @ApiResponse({
+    status: 200,
+    description: 'Leaderboard retrieved successfully',
+    type: [LeaderboardEntry],
+    content: {
+      'application/json': {
+        example: [
+          {
+            studentId: '507f1f77bcf86cd799439011',
+            name: 'John Doe',
+            completionPercentage: 85,
+            points: 150,
+          },
+          {
+            studentId: '67c92217f30e0a8bcd56bf86',
+            name: 'Jane Smith',
+            completionPercentage: 90,
+            points: 180,
+          },
+        ],
+      },
+    },
+  })
   async getLeaderboard(
     @Param('courseId') courseId: string,
     @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number,

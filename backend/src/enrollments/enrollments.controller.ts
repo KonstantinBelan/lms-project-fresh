@@ -26,7 +26,13 @@ import { AlreadyEnrolledException } from './exceptions/already-enrolled.exceptio
 import { BatchEnrollmentDto } from './dto/batch-enrollment.dto';
 import { Response } from 'express';
 import { Role } from '../auth/roles.enum';
-import { ApiTags, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiParam,
+  ApiSecurity,
+} from '@nestjs/swagger';
 
 @ApiTags('Enrollments')
 @Controller('enrollments')
@@ -56,14 +62,19 @@ export class EnrollmentsController {
         createEnrollmentDto.courseId,
         deadline,
         createEnrollmentDto.streamId,
-        createEnrollmentDto.tariffId, // Новый аргумент
+        createEnrollmentDto.tariffId,
       );
     } catch (error) {
       if (error instanceof AlreadyEnrolledException) {
         throw error;
       }
+      console.log('Error in createEnrollment:', error); // Временный лог для отладки
       throw new HttpException(
-        'Internal server error',
+        {
+          status: HttpStatus.INTERNAL_SERVER_ERROR,
+          error: 'Failed to create enrollment',
+          message: error.message,
+        },
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
@@ -85,6 +96,7 @@ export class EnrollmentsController {
   }
 
   @Get('student/:studentId')
+  @ApiSecurity('JWT-auth')
   @ApiOperation({ summary: 'Get enrollments by student ID' })
   @ApiParam({
     name: 'studentId',

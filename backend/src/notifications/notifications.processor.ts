@@ -41,12 +41,12 @@ export class NotificationsProcessor {
       `Processing notification ${notificationId} for user ${userId}`,
     );
 
-    try {
-      await this.notificationsService.sendEmail(userId, title, message);
-      this.logger.debug(`Email sent to ${userId}`);
-    } catch (error) {
-      this.logger.error(`Email failed for ${userId}: ${error.message}`);
-    }
+    // try {
+    //   await this.notificationsService.sendEmail(userId, title, message);
+    //   this.logger.debug(`Email sent to ${userId}`);
+    // } catch (error) {
+    //   this.logger.error(`Email failed for ${userId}: ${error.message}`);
+    // }
 
     try {
       await this.notificationsService.sendTelegram(userId, message);
@@ -71,15 +71,15 @@ export class NotificationsProcessor {
     );
 
     for (const recipientId of recipientIds) {
-      try {
-        await this.notificationsService.sendEmail(recipientId, title, message);
-        this.logger.debug(`Email sent to ${recipientId}`);
-      } catch (error) {
-        this.logger.error(
-          `Email failed for ${recipientId}: ${error.message}`,
-          error.stack,
-        );
-      }
+      // try {
+      //   await this.notificationsService.sendEmail(recipientId, title, message);
+      //   this.logger.debug(`Email sent to ${recipientId}`);
+      // } catch (error) {
+      //   this.logger.error(
+      //     `Email failed for ${recipientId}: ${error.message}`,
+      //     error.stack,
+      //   );
+      // }
 
       try {
         await this.notificationsService.sendTelegram(recipientId, message);

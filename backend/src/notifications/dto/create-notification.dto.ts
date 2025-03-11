@@ -4,6 +4,15 @@ import { ApiProperty } from '@nestjs/swagger';
 
 export class CreateNotificationDto {
   @ApiProperty({
+    example: 'new_course',
+    description: 'Notification key',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  key?: string;
+
+  @ApiProperty({
     example: 'Важное объявление',
     description: 'The title of the notification',
   })
