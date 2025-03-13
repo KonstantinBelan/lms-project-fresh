@@ -37,7 +37,7 @@ export class MailerProcessor {
       `Обработка массовой рассылки для ${recipients.length} получателей`,
     );
 
-    const errors: { to: string; error: string }[] = []; // Список ошибок
+    const errors: { to: string; error: string }[] = [];
 
     for (const { to, context } of recipients) {
       try {
@@ -57,10 +57,11 @@ export class MailerProcessor {
 
     if (errors.length > 0) {
       this.logger.warn(
-        `Массовое отправление завершено с ошибками: ${errors.length}`,
+        `Массовое отправление завершено с ошибками: ${errors.length}. Ошибки: ${JSON.stringify(errors)}`,
       );
-      return { success: false, errors }; // Возвращаем ошибки для анализа
+      return { success: false, errors };
     }
+    this.logger.log('Массовая рассылка завершена успешно');
     return { success: true };
   }
 }

@@ -15,6 +15,29 @@ export class MailerService {
     @InjectQueue('mailer') private mailerQueue: Queue,
   ) {}
 
+  // Проверка контекста для шаблона
+  private validateTemplateContext(
+    template: string,
+    context: MailContext,
+  ): void {
+    const requiredFields: { [key: string]: string[] } = {
+      welcome: ['name'], // Минимально обязательные поля для welcome
+      deadline: ['name', 'daysLeft'], // Минимально обязательные для deadline
+    };
+
+    const required = requiredFields[template] || [];
+    const missingFields = required.filter((field) => !context[field]);
+
+    if (missingFields.length > 0) {
+      this.logger.warn(
+        `В контексте для шаблона "${template}" отсутствуют обязательные поля: ${missingFields.join(', ')}`,
+      );
+      throw new BadRequestException(
+        `Для шаблона "${template}" отсутствуют обязательные поля: ${missingFields.join(', ')}`,
+      );
+    }
+  }
+
   // Мгновенная отправка письма (синхронно)
   async sendInstantMail(
     to: string,
@@ -28,6 +51,8 @@ export class MailerService {
       );
       throw new BadRequestException('Email, тема и шаблон обязательны');
     }
+
+    this.validateTemplateContext(template, context);
 
     this.logger.debug(`Начало мгновенной отправки письма на ${to}`);
     try {
@@ -62,6 +87,11 @@ export class MailerService {
       this.logger.warn('Отсутствует шаблон письма');
       throw new BadRequestException('Шаблон письма обязателен');
     }
+
+    // Проверяем контекст для каждого получателя
+    recipients.forEach((recipient) =>
+      this.validateTemplateContext(template, recipient.context),
+    );
 
     this.logger.debug(
       `Подготовка массовой рассылки для ${recipients.length} получателей`,
@@ -103,6 +133,8 @@ export class MailerService {
       );
       throw new BadRequestException('Email, тема и шаблон обязательны');
     }
+
+    this.validateTemplateContext(template, context);
 
     this.logger.debug(`Подготовка асинхронной отправки письма на ${to}`);
     try {
