@@ -14,7 +14,6 @@ import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 import { UsersService } from '../users/users.service';
 
-// Константа для TTL кэша (взята из env или по умолчанию 1 час)
 const CACHE_TTL = parseInt(process.env.CACHE_TTL ?? '3600', 10);
 
 @Injectable()
@@ -24,15 +23,18 @@ export class GroupsService implements IGroupsService {
   constructor(
     @InjectModel('Group') private groupModel: Model<GroupDocument>,
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
-    private usersService: UsersService, // Инжектируем UsersService
+    private usersService: UsersService,
   ) {}
 
-  // Создание группы
+  // Создание группы с кэшированием
   async create(createGroupDto: CreateGroupDto): Promise<GroupDocument> {
     this.logger.log(`Создание группы: ${createGroupDto.name}`);
     const group = new this.groupModel({ ...createGroupDto, students: [] });
     const savedGroup = await group.save();
-    await this.cacheManager.del('groups:all'); // Сбрасываем кэш списка групп
+
+    // Сбрасываем кэш списка групп
+    await this.cacheManager.del('groups:all');
+    this.logger.debug(`Группа ${savedGroup._id} создана и кэш сброшен`);
     return savedGroup;
   }
 
@@ -85,7 +87,7 @@ export class GroupsService implements IGroupsService {
     return group;
   }
 
-  // Добавление студента в группу с валидацией
+  // Добавление студента в группу с валидацией и кэшированием
   async addStudent(groupId: string, studentId: string): Promise<GroupDocument> {
     if (
       !Types.ObjectId.isValid(groupId) ||
@@ -100,24 +102,38 @@ export class GroupsService implements IGroupsService {
       throw new NotFoundException(`Студент с ID ${studentId} не найден`);
     }
 
-    const group = await this.groupModel
+    // Проверяем, существует ли группа и студент уже в ней
+    const group = await this.groupModel.findById(groupId).exec();
+    if (!group) {
+      throw new NotFoundException(`Группа с ID ${groupId} не найдена`);
+    }
+    if (group.students.some((id) => id.equals(studentId))) {
+      this.logger.warn(
+        `Студент ${studentId} уже находится в группе ${groupId}`,
+      );
+      throw new BadRequestException(`Студент уже состоит в группе ${groupId}`);
+    }
+
+    // Добавляем студента
+    const updatedGroup = await this.groupModel
       .findByIdAndUpdate(
         groupId,
         { $addToSet: { students: studentId } },
         { new: true },
       )
       .exec();
-    if (!group) {
+
+    if (!updatedGroup) {
       throw new NotFoundException(`Группа с ID ${groupId} не найдена`);
     }
 
     this.logger.log(`Студент ${studentId} добавлен в группу ${groupId}`);
     await this.cacheManager.del(`group:${groupId}`); // Сбрасываем кэш группы
     await this.cacheManager.del('groups:all'); // Сбрасываем кэш списка групп
-    return group;
+    return updatedGroup;
   }
 
-  // Удаление студента из группы
+  // Удаление студента из группы с кэшированием
   async removeStudent(
     groupId: string,
     studentId: string,
@@ -146,7 +162,7 @@ export class GroupsService implements IGroupsService {
     return group;
   }
 
-  // Удаление группы
+  // Удаление группы с кэшированием
   async delete(id: string): Promise<void> {
     if (!Types.ObjectId.isValid(id)) {
       throw new BadRequestException(`Неверный ID группы: ${id}`);
