@@ -16,6 +16,7 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { CreateGroupDto } from './dto/create-group.dto';
 import {
+  ApiSecurity,
   ApiTags,
   ApiParam,
   ApiOperation,
@@ -24,7 +25,7 @@ import {
 } from '@nestjs/swagger';
 import { ParseIntPipe, DefaultValuePipe } from '@nestjs/common';
 
-@ApiTags('Groups')
+@ApiTags('Группы')
 @Controller('groups')
 @UseGuards(AuthGuard('jwt'), RolesGuard)
 export class GroupsController {
@@ -33,6 +34,7 @@ export class GroupsController {
   constructor(private groupsService: GroupsService) {}
 
   @Post()
+  @ApiSecurity('JWT-auth')
   @ApiOperation({ summary: 'Создать новую группу' })
   @ApiResponse({
     status: 201,
@@ -47,6 +49,7 @@ export class GroupsController {
   }
 
   @Get()
+  @ApiSecurity('JWT-auth')
   @ApiOperation({ summary: 'Получить все группы' })
   @ApiQuery({
     name: 'skip',
@@ -85,6 +88,7 @@ export class GroupsController {
   }
 
   @Get(':id')
+  @ApiSecurity('JWT-auth')
   @ApiOperation({ summary: 'Получить группу по ID' })
   @ApiParam({
     name: 'id',
@@ -105,6 +109,7 @@ export class GroupsController {
   }
 
   @Post(':id/students/:studentId')
+  @ApiSecurity('JWT-auth')
   @ApiOperation({ summary: 'Добавить студента в группу' })
   @ApiParam({
     name: 'id',
@@ -129,6 +134,7 @@ export class GroupsController {
   }
 
   @Delete(':id/students/:studentId')
+  @ApiSecurity('JWT-auth')
   @ApiOperation({ summary: 'Удалить студента из группы' })
   @ApiParam({
     name: 'id',
@@ -158,6 +164,7 @@ export class GroupsController {
   }
 
   @Delete(':id')
+  @ApiSecurity('JWT-auth')
   @ApiOperation({ summary: 'Удалить группу' })
   @ApiParam({
     name: 'id',
