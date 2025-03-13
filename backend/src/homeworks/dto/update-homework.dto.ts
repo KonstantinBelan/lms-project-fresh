@@ -1,40 +1,51 @@
 import { PartialType } from '@nestjs/mapped-types';
-import { CreateHomeworkDto } from './create-homework.dto';
+import { CreateHomeworkDto, HomeworkCategory } from './create-homework.dto';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class UpdateHomeworkDto extends PartialType(CreateHomeworkDto) {
   @ApiProperty({
     example: '507f1f77bcf86cd799439011',
-    description: 'The ID of the lesson',
+    description: 'Идентификатор урока для обновления',
     required: false,
   })
   lessonId?: string;
 
   @ApiProperty({
-    example: 'This is a homework description',
-    description: 'The description of the homework',
+    example: 'Это обновлённое описание домашнего задания',
+    description: 'Обновлённое описание домашнего задания',
     required: false,
   })
   description?: string;
 
   @ApiProperty({
-    example: 'theory',
-    description: 'The category of the homework (theory, practice, or project)',
+    example: HomeworkCategory.THEORY,
+    description:
+      'Обновлённая категория домашнего задания (теория, практика или проект)',
     required: false,
+    enum: HomeworkCategory,
   })
-  category?: string;
+  category?: HomeworkCategory;
 
   @ApiProperty({
     example: '2025-03-15T00:00:00Z',
-    description: 'The deadline of the homework',
+    description: 'Обновлённый крайний срок выполнения домашнего задания',
     required: false,
   })
   deadline?: string;
 
   @ApiProperty({
     example: true,
-    description: 'Whether the homework is active',
+    description: 'Обновлённый статус активности домашнего задания',
     required: false,
+    default: false,
   })
   isActive?: boolean;
+
+  @ApiProperty({
+    example: 15,
+    description:
+      'Обновлённые баллы за выполнение домашнего задания (от 0 до 100)',
+    required: false,
+  })
+  points?: number;
 }
