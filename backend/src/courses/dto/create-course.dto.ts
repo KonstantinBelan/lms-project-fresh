@@ -1,18 +1,20 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString } from 'class-validator';
+import { IsString, IsNotEmpty } from 'class-validator';
 
 export class CreateCourseDto {
   @ApiProperty({
-    example: 'Introduction to Programming',
-    description: 'The title of the course',
+    example: 'Введение в программирование',
+    description: 'Название курса',
   })
   @IsString()
+  @IsNotEmpty({ message: 'Название курса не может быть пустым' })
   title: string;
 
   @ApiProperty({
-    example: 'This course provides an introduction to programming concepts.',
-    description: 'The description of the course',
+    example: 'Этот курс знакомит с основами программирования.',
+    description: 'Описание курса',
   })
   @IsString()
+  @IsNotEmpty({ message: 'Описание курса не может быть пустым' })
   description: string;
 }

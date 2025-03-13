@@ -3,8 +3,8 @@ import { ApiProperty } from '@nestjs/swagger';
 
 export class UpdateCourseDto {
   @ApiProperty({
-    example: 'Introduction to Programming',
-    description: 'The title of the course',
+    example: 'Введение в программирование',
+    description: 'Название курса',
     required: false,
   })
   @IsOptional()
@@ -12,8 +12,8 @@ export class UpdateCourseDto {
   title?: string;
 
   @ApiProperty({
-    example: 'This course provides an introduction to programming concepts.',
-    description: 'The description of the course',
+    example: 'Этот курс знакомит с основами программирования.',
+    description: 'Описание курса',
     required: false,
   })
   @IsOptional()

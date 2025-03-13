@@ -10,33 +10,23 @@ import { CoursesController } from './courses.controller';
 import { CoursesService } from './courses.service';
 import { AuthModule } from '../auth/auth.module';
 import { EnrollmentsModule } from '../enrollments/enrollments.module';
-import { CacheModule } from '@nestjs/cache-manager'; // Добавляем для консистентности
-import { UsersModule } from '../users/users.module'; // Для UsersService
+import { CacheModule } from '@nestjs/cache-manager';
+import { UsersModule } from '../users/users.module';
 
 @Module({
   imports: [
     MongooseModule.forFeature([
-      { name: Course.name, schema: CourseSchema },
-      { name: ModuleSchema.name, schema: ModuleSchemaDefinition },
-      { name: Lesson.name, schema: LessonSchema },
+      { name: Course.name, schema: CourseSchema }, // Модель курса
+      { name: ModuleSchema.name, schema: ModuleSchemaDefinition }, // Модель модуля
+      { name: Lesson.name, schema: LessonSchema }, // Модель урока
     ]),
-    CacheModule.register(), // Убеждаемся, что кэш доступен
-    AuthModule,
-    UsersModule,
-    forwardRef(() => EnrollmentsModule),
+    CacheModule.register(), // Модуль кэширования
+    AuthModule, // Модуль авторизации
+    UsersModule, // Модуль пользователей
+    forwardRef(() => EnrollmentsModule), // Модуль записей на курсы
   ],
   controllers: [CoursesController],
   providers: [CoursesService],
   exports: [CoursesService, MongooseModule],
 })
-export class CoursesModule {
-  constructor() {
-    console.log('CoursesModule initialized, imports:', [
-      'MongooseModule',
-      'CacheModule',
-      'AuthModule',
-      'UsersModule',
-      'EnrollmentsModule',
-    ]);
-  }
-}
+export class CoursesModule {}

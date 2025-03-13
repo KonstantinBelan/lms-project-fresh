@@ -1,7 +1,6 @@
 import {
   IsNotEmpty,
   IsString,
-  IsOptional,
   ArrayNotEmpty,
   ValidateNested,
 } from 'class-validator';
@@ -10,29 +9,31 @@ import { Type } from 'class-transformer';
 
 class CourseDto {
   @ApiProperty({
-    example: 'Course 1',
-    description: 'The title of the course',
+    example: 'Курс 1',
+    description: 'Название курса',
   })
   @IsString()
+  @IsNotEmpty({ message: 'Название курса не может быть пустым' })
   title: string;
 
   @ApiProperty({
-    example: 'This is a description of Course 1',
-    description: 'The description of the course',
+    example: 'Это описание курса 1',
+    description: 'Описание курса',
   })
   @IsString()
+  @IsNotEmpty({ message: 'Описание курса не может быть пустым' })
   description: string;
 }
 
 export class BatchCourseDto {
   @ApiProperty({
     example: [
-      { title: 'Course 1', description: 'Description for course 1' },
-      { title: 'Course 2', description: 'Description for course 2' },
+      { title: 'Курс 1', description: 'Описание курса 1' },
+      { title: 'Курс 2', description: 'Описание курса 2' },
     ],
-    description: 'Array of courses to be created',
+    description: 'Массив курсов для создания',
   })
-  @ArrayNotEmpty()
+  @ArrayNotEmpty({ message: 'Массив курсов не может быть пустым' })
   @ValidateNested({ each: true })
   @Type(() => CourseDto)
   courses: CourseDto[];

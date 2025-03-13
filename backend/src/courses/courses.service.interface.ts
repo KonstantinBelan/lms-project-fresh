@@ -6,6 +6,7 @@ import { UpdateCourseDto } from './dto/update-course.dto';
 import { CreateModuleDto } from './dto/create-module.dto';
 import { CreateLessonDto } from './dto/create-lesson.dto';
 import { BatchCourseDto } from './dto/batch-course.dto';
+import { LeaderboardEntry } from './dto/leaderboard-entry.dto';
 
 export interface ICoursesService {
   createCourse(createCourseDto: CreateCourseDto): Promise<Course>;
@@ -28,7 +29,23 @@ export interface ICoursesService {
     createLessonDto: CreateLessonDto,
   ): Promise<Lesson>;
   findLessonById(lessonId: string): Promise<Lesson | null>;
-  getCourseStatistics(courseId: string): Promise<any>; // Добавляем новый метод
+  updateLesson(
+    courseId: string,
+    moduleId: string,
+    lessonId: string,
+    updateLessonDto: CreateLessonDto,
+  ): Promise<Lesson | null>;
+  deleteLesson(
+    courseId: string,
+    moduleId: string,
+    lessonId: string,
+  ): Promise<void>;
+  getCourseStatistics(courseId: string): Promise<any>;
+  getCourseStructure(courseId: string): Promise<any>;
+  getStudentCourseStructure(studentId: string, courseId: string): Promise<any>;
+  getCourseAnalytics(courseId: string): Promise<CourseAnalytics>;
+  exportCourseAnalyticsToCSV(courseId: string): Promise<string>;
+  getLeaderboard(courseId: string, limit: number): Promise<LeaderboardEntry[]>;
 }
 
 export interface CourseAnalytics {

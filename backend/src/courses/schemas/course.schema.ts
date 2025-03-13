@@ -35,6 +35,16 @@ export class Course {
 }
 
 export const CourseSchema = SchemaFactory.createForClass(Course);
-CourseSchema.index({ title: 1 }); // Индекс для title
-CourseSchema.index({ description: 1 }); // Индекс для title
-CourseSchema.index({ modules: 1 }); // Индекс для modules
+CourseSchema.index({ title: 1 }); // Индекс для быстрого поиска по названию
+
+export interface Course {
+  _id: Types.ObjectId;
+  title: string;
+  description: string;
+  modules: Types.ObjectId[];
+  pointsConfig: {
+    lessons: number;
+    modules: number;
+    quizzes: number;
+  };
+}

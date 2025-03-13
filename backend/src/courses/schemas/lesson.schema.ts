@@ -7,12 +7,12 @@ export class Lesson {
   title: string;
 
   @Prop({ required: true })
-  content: string; // Текст, HTML, или ссылка на файл
+  content: string; // Текст, HTML или ссылка на файл
 
   @Prop({ type: String, default: null }) // Опциональное поле для мультимедиа
   media?: string;
 
-  @Prop({ type: Number, default: 1 }) // Добавляем баллы за урок
+  @Prop({ type: Number, default: 1 }) // Баллы за завершение урока
   points: number;
 
   _id: Types.ObjectId;
@@ -22,4 +22,12 @@ export class Lesson {
 
 export type LessonDocument = Lesson & Document;
 export const LessonSchema = SchemaFactory.createForClass(Lesson);
-LessonSchema.index({ moduleId: 1 }); // Добавляем индекс
+LessonSchema.index({ title: 1 }); // Индекс для быстрого поиска по названию
+
+export interface Lesson {
+  _id: Types.ObjectId;
+  title: string;
+  content: string;
+  media?: string;
+  points: number;
+}

@@ -5,7 +5,6 @@ import {
   Get,
   Param,
   Req,
-  Request,
   Put,
   Delete,
   UsePipes,
@@ -17,6 +16,9 @@ import {
   DefaultValuePipe,
   ParseIntPipe,
   UnauthorizedException,
+  NotFoundException,
+  BadRequestException,
+  Logger,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -29,6 +31,7 @@ import { BatchCourseDto } from './dto/batch-course.dto';
 import { LeaderboardEntry } from './dto/leaderboard-entry.dto';
 import { JwtRequest } from '../common/interfaces/jwt-request.interface';
 import { Role } from '../auth/roles.enum';
+import { Roles } from '../auth/decorators/roles.decorator';
 import { Response } from 'express';
 import {
   ApiTags,
@@ -36,282 +39,250 @@ import {
   ApiResponse,
   ApiParam,
   ApiQuery,
+  ApiBearerAuth,
 } from '@nestjs/swagger';
+import { Course } from './schemas/course.schema';
+import { Module } from './schemas/module.schema';
+import { Lesson } from './schemas/lesson.schema';
 
-@ApiTags('Courses')
+@ApiTags('Курсы')
 @Controller('courses')
+@ApiBearerAuth('JWT-auth')
 export class CoursesController {
+  private readonly logger = new Logger(CoursesController.name);
+
   constructor(private readonly coursesService: CoursesService) {}
 
   @Post()
-  @ApiOperation({ summary: 'Create a new course' })
-  @ApiResponse({
-    status: 201,
-    description: 'Course created',
-    type: CreateCourseDto,
-  })
-  @ApiResponse({ status: 400, description: 'Bad Request' })
+  @ApiOperation({ summary: 'Создать новый курс' })
+  @ApiResponse({ status: 201, description: 'Курс создан', type: Course })
+  @ApiResponse({ status: 400, description: 'Неверный запрос' })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @SetMetadata('roles', [Role.TEACHER, Role.ADMIN, Role.MANAGER])
+  @Roles(Role.ADMIN, Role.TEACHER, Role.MANAGER)
   @UsePipes(new ValidationPipe())
-  async create(@Body() createCourseDto: CreateCourseDto) {
+  async create(@Body() createCourseDto: CreateCourseDto): Promise<Course> {
+    this.logger.log(`Создание курса: ${createCourseDto.title}`);
     return this.coursesService.createCourse(createCourseDto);
   }
 
   @Post('batch')
-  @ApiOperation({ summary: 'Create multiple courses' })
-  @ApiResponse({
-    status: 201,
-    description: 'Courses created',
-    type: BatchCourseDto,
-  })
-  @ApiResponse({ status: 400, description: 'Bad Request' })
+  @ApiOperation({ summary: 'Создать несколько курсов' })
+  @ApiResponse({ status: 201, description: 'Курсы созданы', type: [Course] })
+  @ApiResponse({ status: 400, description: 'Неверный запрос' })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @SetMetadata('roles', [Role.ADMIN, Role.MANAGER])
+  @Roles(Role.ADMIN, Role.MANAGER)
   @UsePipes(new ValidationPipe())
-  async createBatch(@Body() batchCourseDto: BatchCourseDto) {
+  async createBatch(@Body() batchCourseDto: BatchCourseDto): Promise<Course[]> {
+    this.logger.log(
+      `Создание нескольких курсов: ${batchCourseDto.courses.length} шт.`,
+    );
     return this.coursesService.createBatchCourses(batchCourseDto);
   }
 
   @Get()
-  @ApiOperation({ summary: 'Get all courses' })
+  @ApiOperation({ summary: 'Получить все курсы' })
   @ApiResponse({
     status: 200,
-    description: 'Courses retrieved successfully',
-    type: [CreateCourseDto],
+    description: 'Курсы успешно получены',
+    type: [Course],
   })
-  @ApiResponse({ status: 403, description: 'Forbidden' })
+  @ApiResponse({ status: 403, description: 'Доступ запрещен' })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @SetMetadata('roles', [
-    Role.STUDENT,
-    Role.TEACHER,
-    Role.ADMIN,
-    Role.MANAGER,
-    Role.ASSISTANT,
-  ])
-  async findAll() {
+  @Roles(Role.ADMIN, Role.TEACHER, Role.MANAGER, Role.STUDENT, Role.ASSISTANT)
+  async findAll(): Promise<Course[]> {
+    this.logger.log('Получение списка всех курсов');
     return this.coursesService.findAllCourses();
   }
 
   @Get(':id')
-  @ApiOperation({ summary: 'Get course by ID' })
+  @ApiOperation({ summary: 'Получить курс по ID' })
   @ApiParam({
     name: 'id',
-    description: 'Course ID',
+    description: 'ID курса',
     example: '507f1f77bcf86cd799439011',
   })
-  @ApiResponse({
-    status: 200,
-    description: 'Course found',
-    type: CreateCourseDto,
-  })
-  @ApiResponse({ status: 404, description: 'Course not found' })
-  @ApiResponse({ status: 403, description: 'Forbidden' })
+  @ApiResponse({ status: 200, description: 'Курс найден', type: Course })
+  @ApiResponse({ status: 404, description: 'Курс не найден' })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @SetMetadata('roles', [
-    Role.STUDENT,
-    Role.TEACHER,
-    Role.ADMIN,
-    Role.MANAGER,
-    Role.ASSISTANT,
-  ])
-  async findOne(@Param('id') id: string) {
-    return this.coursesService.findCourseById(id);
+  @Roles(Role.ADMIN, Role.TEACHER, Role.MANAGER, Role.STUDENT, Role.ASSISTANT)
+  async findOne(@Param('id') id: string): Promise<Course> {
+    this.logger.log(`Поиск курса с ID: ${id}`);
+    const course = await this.coursesService.findCourseById(id);
+    if (!course) throw new NotFoundException(`Курс с ID ${id} не найден`);
+    return course;
   }
 
   @Get(':courseId/structure')
-  @ApiOperation({ summary: 'Get course structure' })
+  @ApiOperation({ summary: 'Получить структуру курса' })
   @ApiParam({
     name: 'courseId',
-    description: 'Course ID',
+    description: 'ID курса',
     example: '507f1f77bcf86cd799439011',
   })
-  @ApiResponse({
-    status: 200,
-    description: 'Course structure retrieved successfully',
-  })
-  @ApiResponse({ status: 404, description: 'Course not found' })
-  @ApiResponse({ status: 403, description: 'Forbidden' })
+  @ApiResponse({ status: 200, description: 'Структура курса успешно получена' })
+  @ApiResponse({ status: 404, description: 'Курс не найден' })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @SetMetadata('roles', [
-    Role.STUDENT,
-    Role.TEACHER,
-    Role.ADMIN,
-    Role.MANAGER,
-    Role.ASSISTANT,
-  ])
-  async courseStructure(@Param('courseId') courseId: string) {
+  @Roles(Role.ADMIN, Role.TEACHER, Role.MANAGER, Role.STUDENT, Role.ASSISTANT)
+  async courseStructure(@Param('courseId') courseId: string): Promise<any> {
+    this.logger.log(`Получение структуры курса с ID: ${courseId}`);
     return this.coursesService.getCourseStructure(courseId);
   }
 
   @Get(':courseId/student-structure')
   @ApiOperation({
-    summary: 'Get course structure for a student based on their tariff',
+    summary: 'Получить структуру курса для студента с учетом тарифа',
   })
   @ApiParam({
     name: 'courseId',
-    description: 'Course ID',
+    description: 'ID курса',
     example: '507f1f77bcf86cd799439011',
   })
   @ApiResponse({
     status: 200,
-    description: 'Student course structure retrieved successfully',
+    description: 'Структура курса для студента успешно получена',
   })
-  @ApiResponse({ status: 404, description: 'Course or enrollment not found' })
-  @ApiResponse({ status: 403, description: 'Forbidden' })
+  @ApiResponse({
+    status: 404,
+    description: 'Курс или запись о зачислении не найдены',
+  })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @SetMetadata('roles', [Role.STUDENT])
+  @Roles(Role.STUDENT)
   async getStudentCourseStructure(
     @Param('courseId') courseId: string,
-    @Req() req: JwtRequest, // Используем новый тип
-  ) {
-    const studentId = req.user?.sub || req.user?._id; // Безопасно извлекаем sub
-    console.log(studentId);
+    @Req() req: JwtRequest,
+  ): Promise<any> {
+    const studentId = req.user?.sub || req.user?._id;
     if (!studentId) {
-      throw new UnauthorizedException('Student ID not found in token');
+      this.logger.error('Отсутствует ID студента в токене', req.user);
+      throw new UnauthorizedException('ID студента не найден в токене');
     }
+    this.logger.log(
+      `Получение структуры курса ${courseId} для студента ${studentId}`,
+    );
     return this.coursesService.getStudentCourseStructure(studentId, courseId);
   }
 
   @Put(':id')
-  @ApiOperation({ summary: 'Update a course' })
+  @ApiOperation({ summary: 'Обновить курс' })
   @ApiParam({
     name: 'id',
-    description: 'Course ID',
+    description: 'ID курса',
     example: '507f1f77bcf86cd799439011',
   })
-  @ApiResponse({
-    status: 200,
-    description: 'Course updated',
-    type: UpdateCourseDto,
-  })
-  @ApiResponse({ status: 404, description: 'Course not found' })
-  @ApiResponse({ status: 400, description: 'Bad Request' })
+  @ApiResponse({ status: 200, description: 'Курс обновлен', type: Course })
+  @ApiResponse({ status: 404, description: 'Курс не найден' })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @SetMetadata('roles', [Role.TEACHER, Role.ADMIN, Role.MANAGER])
+  @Roles(Role.TEACHER, Role.ADMIN, Role.MANAGER)
   @UsePipes(new ValidationPipe())
   async update(
     @Param('id') id: string,
     @Body() updateCourseDto: UpdateCourseDto,
-  ) {
-    return this.coursesService.updateCourse(id, updateCourseDto);
+  ): Promise<Course> {
+    this.logger.log(`Обновление курса с ID: ${id}`);
+    const updatedCourse = await this.coursesService.updateCourse(
+      id,
+      updateCourseDto,
+    );
+    if (!updatedCourse)
+      throw new NotFoundException(`Курс с ID ${id} не найден`);
+    return updatedCourse;
   }
 
   @Delete(':id')
-  @ApiOperation({ summary: 'Delete a course' })
+  @ApiOperation({ summary: 'Удалить курс' })
   @ApiParam({
     name: 'id',
-    description: 'Course ID',
+    description: 'ID курса',
     example: '507f1f77bcf86cd799439011',
   })
   @ApiResponse({
     status: 200,
-    description: 'Course deleted',
-    schema: {
-      example: { message: 'Course deleted' },
-    },
+    description: 'Курс удален',
+    schema: { example: { message: 'Курс удален' } },
   })
-  @ApiResponse({ status: 404, description: 'Course not found' })
-  @ApiResponse({ status: 403, description: 'Forbidden' })
+  @ApiResponse({ status: 404, description: 'Курс не найден' })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @SetMetadata('roles', [Role.ADMIN, Role.MANAGER])
-  async delete(@Param('id') id: string) {
-    return this.coursesService.deleteCourse(id);
+  @Roles(Role.ADMIN, Role.MANAGER)
+  async delete(@Param('id') id: string): Promise<{ message: string }> {
+    this.logger.log(`Удаление курса с ID: ${id}`);
+    await this.coursesService.deleteCourse(id);
+    return { message: 'Курс удален' };
   }
 
   @Post(':courseId/modules')
-  @ApiOperation({ summary: 'Create a new module' })
+  @ApiOperation({ summary: 'Создать новый модуль' })
   @ApiParam({
     name: 'courseId',
-    description: 'Course ID',
+    description: 'ID курса',
     example: '507f1f77bcf86cd799439011',
   })
-  @ApiResponse({
-    status: 201,
-    description: 'Module created',
-    type: CreateModuleDto,
-  })
-  @ApiResponse({ status: 400, description: 'Bad Request' })
-  @ApiResponse({ status: 404, description: 'Course not found' })
+  @ApiResponse({ status: 201, description: 'Модуль создан', type: Module })
+  @ApiResponse({ status: 400, description: 'Неверный запрос' })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @SetMetadata('roles', [Role.TEACHER, Role.ADMIN, Role.MANAGER])
+  @Roles(Role.TEACHER, Role.ADMIN, Role.MANAGER)
   @UsePipes(new ValidationPipe())
   async createModule(
     @Param('courseId') courseId: string,
     @Body() createModuleDto: CreateModuleDto,
-  ) {
+  ): Promise<Module> {
+    this.logger.log(`Создание модуля для курса ${courseId}`);
     return this.coursesService.createModule(courseId, createModuleDto);
   }
 
   @Get(':courseId/modules/:moduleId')
-  @ApiOperation({ summary: 'Get module by ID' })
+  @ApiOperation({ summary: 'Получить модуль по ID' })
   @ApiParam({
     name: 'courseId',
-    description: 'Course ID',
+    description: 'ID курса',
     example: '507f1f77bcf86cd799439011',
   })
   @ApiParam({
     name: 'moduleId',
-    description: 'Module ID',
-    example: '507f1f77bcf86cd799439011',
+    description: 'ID модуля',
+    example: '507f1f77bcf86cd799439012',
   })
-  @ApiResponse({
-    status: 200,
-    description: 'Module found',
-  })
-  @ApiResponse({ status: 404, description: 'Module not found' })
-  @ApiResponse({ status: 403, description: 'Forbidden' })
+  @ApiResponse({ status: 200, description: 'Модуль найден', type: Module })
+  @ApiResponse({ status: 404, description: 'Модуль не найден' })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @SetMetadata('roles', [
-    Role.STUDENT,
-    Role.TEACHER,
-    Role.ADMIN,
-    Role.MANAGER,
-    Role.ASSISTANT,
-  ])
+  @Roles(Role.ADMIN, Role.TEACHER, Role.MANAGER, Role.STUDENT, Role.ASSISTANT)
   async findModule(
     @Param('courseId') courseId: string,
     @Param('moduleId') moduleId: string,
-  ) {
+  ): Promise<Module> {
+    this.logger.log(`Поиск модуля ${moduleId} в курсе ${courseId}`);
     const course = await this.coursesService.findCourseById(courseId);
-    if (!course) throw new Error('Course not found');
+    if (!course) throw new NotFoundException(`Курс с ID ${courseId} не найден`);
     const module = await this.coursesService.findModuleById(moduleId);
-    if (!module) throw new Error('Module not found');
+    if (!module)
+      throw new NotFoundException(`Модуль с ID ${moduleId} не найден`);
     return module;
   }
 
   @Post(':courseId/modules/:moduleId/lessons')
-  @ApiOperation({ summary: 'Create a new lesson' })
+  @ApiOperation({ summary: 'Создать новый урок' })
   @ApiParam({
     name: 'courseId',
-    description: 'Course ID',
+    description: 'ID курса',
     example: '507f1f77bcf86cd799439011',
   })
   @ApiParam({
     name: 'moduleId',
-    description: 'Module ID',
-    example: '507f1f77bcf86cd799439011',
+    description: 'ID модуля',
+    example: '507f1f77bcf86cd799439012',
   })
-  @ApiResponse({
-    status: 201,
-    description: 'Lesson created',
-    type: CreateLessonDto,
-  })
-  @ApiResponse({ status: 400, description: 'Bad Request' })
-  @ApiResponse({ status: 404, description: 'Course or module not found' })
+  @ApiResponse({ status: 201, description: 'Урок создан', type: Lesson })
+  @ApiResponse({ status: 400, description: 'Неверный запрос' })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @SetMetadata('roles', [
-    Role.TEACHER,
-    Role.ADMIN,
-    Role.MANAGER,
-    Role.ASSISTANT,
-  ])
+  @Roles(Role.ADMIN, Role.TEACHER, Role.MANAGER, Role.ASSISTANT)
   @UsePipes(new ValidationPipe())
   async createLesson(
     @Param('courseId') courseId: string,
     @Param('moduleId') moduleId: string,
     @Body() createLessonDto: CreateLessonDto,
-  ) {
+  ): Promise<Lesson> {
+    this.logger.log(
+      `Создание урока для модуля ${moduleId} в курсе ${courseId}`,
+    );
     return this.coursesService.createLesson(
       courseId,
       moduleId,
@@ -320,228 +291,209 @@ export class CoursesController {
   }
 
   @Get(':courseId/modules/:moduleId/lessons/:lessonId')
-  @ApiOperation({ summary: 'Get lesson by ID' })
+  @ApiOperation({ summary: 'Получить урок по ID' })
   @ApiParam({
     name: 'courseId',
-    description: 'Course ID',
+    description: 'ID курса',
     example: '507f1f77bcf86cd799439011',
   })
   @ApiParam({
     name: 'moduleId',
-    description: 'Module ID',
-    example: '507f1f77bcf86cd799439011',
+    description: 'ID модуля',
+    example: '507f1f77bcf86cd799439012',
   })
   @ApiParam({
     name: 'lessonId',
-    description: 'Lesson ID',
-    example: '507f1f77bcf86cd799439011',
+    description: 'ID урока',
+    example: '507f1f77bcf86cd799439013',
   })
-  @ApiResponse({
-    status: 200,
-    description: 'Lesson found',
-  })
-  @ApiResponse({ status: 404, description: 'Lesson not found' })
-  @ApiResponse({ status: 403, description: 'Forbidden' })
+  @ApiResponse({ status: 200, description: 'Урок найден', type: Lesson })
+  @ApiResponse({ status: 404, description: 'Урок не найден' })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @SetMetadata('roles', [
-    Role.STUDENT,
-    Role.TEACHER,
-    Role.ADMIN,
-    Role.MANAGER,
-    Role.ASSISTANT,
-  ])
+  @Roles(Role.STUDENT, Role.ADMIN, Role.TEACHER, Role.MANAGER, Role.ASSISTANT)
   async findLesson(
     @Param('courseId') courseId: string,
     @Param('moduleId') moduleId: string,
     @Param('lessonId') lessonId: string,
-  ) {
+  ): Promise<Lesson> {
+    this.logger.log(
+      `Поиск урока ${lessonId} в модуле ${moduleId} курса ${courseId}`,
+    );
     const course = await this.coursesService.findCourseById(courseId);
-    if (!course) throw new Error('Course not found');
+    if (!course) throw new NotFoundException(`Курс с ID ${courseId} не найден`);
     const module = await this.coursesService.findModuleById(moduleId);
-    if (!module) throw new Error('Module not found');
+    if (!module)
+      throw new NotFoundException(`Модуль с ID ${moduleId} не найден`);
     const lesson = await this.coursesService.findLessonById(lessonId);
-    if (!lesson) throw new Error('Lesson not found');
+    if (!lesson) throw new NotFoundException(`Урок с ID ${lessonId} не найден`);
     return lesson;
   }
 
   @Get(':id/statistics')
-  @ApiOperation({ summary: 'Get course statistics' })
+  @ApiOperation({ summary: 'Получить статистику курса' })
   @ApiParam({
     name: 'id',
-    description: 'Course ID',
+    description: 'ID курса',
     example: '507f1f77bcf86cd799439011',
   })
   @ApiResponse({
     status: 200,
-    description: 'Course statistics retrieved successfully',
+    description: 'Статистика курса успешно получена',
   })
-  @ApiResponse({ status: 404, description: 'Course not found' })
-  @ApiResponse({ status: 403, description: 'Forbidden' })
+  @ApiResponse({ status: 404, description: 'Курс не найден' })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @SetMetadata('roles', [Role.TEACHER, Role.ADMIN, Role.MANAGER])
-  async getCourseStatistics(@Param('id') courseId: string) {
+  @Roles(Role.ADMIN, Role.TEACHER, Role.MANAGER)
+  async getCourseStatistics(@Param('id') courseId: string): Promise<any> {
+    this.logger.log(`Получение статистики курса ${courseId}`);
     return this.coursesService.getCourseStatistics(courseId);
   }
 
   @Put(':courseId/modules/:moduleId/lessons/:lessonId')
-  @ApiOperation({ summary: 'Update a lesson' })
+  @ApiOperation({ summary: 'Обновить урок' })
   @ApiParam({
     name: 'courseId',
-    description: 'Course ID',
+    description: 'ID курса',
     example: '507f1f77bcf86cd799439011',
   })
   @ApiParam({
     name: 'moduleId',
-    description: 'Module ID',
-    example: '507f1f77bcf86cd799439011',
+    description: 'ID модуля',
+    example: '507f1f77bcf86cd799439012',
   })
   @ApiParam({
     name: 'lessonId',
-    description: 'Lesson ID',
-    example: '507f1f77bcf86cd799439011',
+    description: 'ID урока',
+    example: '507f1f77bcf86cd799439013',
   })
-  @ApiResponse({
-    status: 200,
-    description: 'Lesson updated',
-    type: CreateLessonDto, // Можно создать отдельный UpdateLessonDto
-  })
-  @ApiResponse({ status: 404, description: 'Lesson not found' })
-  @ApiResponse({ status: 400, description: 'Bad Request' })
+  @ApiResponse({ status: 200, description: 'Урок обновлен', type: Lesson })
+  @ApiResponse({ status: 404, description: 'Урок не найден' })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @SetMetadata('roles', [Role.ADMIN])
+  @Roles(Role.ADMIN)
+  @UsePipes(new ValidationPipe())
   async updateLesson(
     @Param('courseId') courseId: string,
     @Param('moduleId') moduleId: string,
     @Param('lessonId') lessonId: string,
     @Body() updateLessonDto: CreateLessonDto,
-  ) {
-    return this.coursesService.updateLesson(
+  ): Promise<Lesson> {
+    this.logger.log(
+      `Обновление урока ${lessonId} в модуле ${moduleId} курса ${courseId}`,
+    );
+    const updatedLesson = await this.coursesService.updateLesson(
       courseId,
       moduleId,
       lessonId,
       updateLessonDto,
     );
+    if (!updatedLesson)
+      throw new NotFoundException(`Урок с ID ${lessonId} не найден`);
+    return updatedLesson;
   }
 
   @Delete(':courseId/modules/:moduleId/lessons/:lessonId')
-  @ApiOperation({ summary: 'Delete a lesson' })
+  @ApiOperation({ summary: 'Удалить урок' })
   @ApiParam({
     name: 'courseId',
-    description: 'Course ID',
+    description: 'ID курса',
     example: '507f1f77bcf86cd799439011',
   })
   @ApiParam({
     name: 'moduleId',
-    description: 'Module ID',
-    example: '507f1f77bcf86cd799439011',
+    description: 'ID модуля',
+    example: '507f1f77bcf86cd799439012',
   })
   @ApiParam({
     name: 'lessonId',
-    description: 'Lesson ID',
-    example: '507f1f77bcf86cd799439011',
+    description: 'ID урока',
+    example: '507f1f77bcf86cd799439013',
   })
   @ApiResponse({
     status: 200,
-    description: 'Lesson deleted',
-    schema: {
-      example: { message: 'Lesson deleted' },
-    },
+    description: 'Урок удален',
+    schema: { example: { message: 'Урок удален' } },
   })
-  @ApiResponse({ status: 404, description: 'Lesson not found' })
-  @ApiResponse({ status: 403, description: 'Forbidden' })
+  @ApiResponse({ status: 404, description: 'Урок не найден' })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @SetMetadata('roles', [Role.ADMIN])
+  @Roles(Role.ADMIN)
   async deleteLesson(
     @Param('courseId') courseId: string,
     @Param('moduleId') moduleId: string,
     @Param('lessonId') lessonId: string,
-  ) {
-    return this.coursesService.deleteLesson(courseId, moduleId, lessonId);
+  ): Promise<{ message: string }> {
+    this.logger.log(
+      `Удаление урока ${lessonId} из модуля ${moduleId} курса ${courseId}`,
+    );
+    await this.coursesService.deleteLesson(courseId, moduleId, lessonId);
+    return { message: 'Урок удален' };
   }
 
   @Get(':courseId/analytics')
-  @ApiOperation({ summary: 'Get course analytics' })
+  @ApiOperation({ summary: 'Получить аналитику курса' })
   @ApiParam({
     name: 'courseId',
-    description: 'Course ID',
+    description: 'ID курса',
     example: '507f1f77bcf86cd799439011',
   })
-  @ApiResponse({
-    status: 200,
-    description: 'Course analytics retrieved successfully',
-  })
-  @ApiResponse({ status: 404, description: 'Course not found' })
-  @ApiResponse({ status: 403, description: 'Forbidden' })
+  @ApiResponse({ status: 200, description: 'Аналитика курса успешно получена' })
+  @ApiResponse({ status: 404, description: 'Курс не найден' })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @SetMetadata('roles', [Role.ADMIN, Role.TEACHER])
-  async getCourseAnalytics(@Param('courseId') courseId: string) {
+  @Roles(Role.ADMIN, Role.TEACHER)
+  async getCourseAnalytics(@Param('courseId') courseId: string): Promise<any> {
+    this.logger.log(`Получение аналитики курса ${courseId}`);
     return this.coursesService.getCourseAnalytics(courseId);
   }
 
   @Get(':courseId/export/csv')
-  @ApiOperation({ summary: 'Export course analytics to CSV' })
+  @ApiOperation({ summary: 'Экспортировать аналитику курса в CSV' })
   @ApiParam({
     name: 'courseId',
-    description: 'Course ID',
+    description: 'ID курса',
     example: '507f1f77bcf86cd799439011',
   })
   @ApiResponse({
     status: 200,
-    description: 'Course analytics exported successfully',
+    description: 'Аналитика курса успешно экспортирована',
   })
-  @ApiResponse({ status: 404, description: 'Course not found' })
-  @ApiResponse({ status: 403, description: 'Forbidden' })
+  @ApiResponse({ status: 404, description: 'Курс не найден' })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @SetMetadata('roles', [Role.ADMIN, Role.TEACHER])
+  @Roles(Role.ADMIN, Role.TEACHER)
   async exportCourseAnalytics(
     @Param('courseId') courseId: string,
     @Res() res: Response,
-  ) {
+  ): Promise<void> {
+    this.logger.log(`Экспорт аналитики курса ${courseId} в CSV`);
     const filePath =
       await this.coursesService.exportCourseAnalyticsToCSV(courseId);
     res.download(filePath);
   }
 
   @Get(':courseId/leaderboard')
-  @ApiOperation({ summary: 'Get course leaderboard' })
+  @ApiOperation({ summary: 'Получить таблицу лидеров курса' })
   @ApiParam({
     name: 'courseId',
-    description: 'Course ID',
+    description: 'ID курса',
     example: '507f1f77bcf86cd799439011',
   })
   @ApiQuery({
     name: 'limit',
     required: false,
-    description: 'Number of entries to return',
+    description: 'Количество записей для возврата',
     example: 10,
   })
   @ApiResponse({
     status: 200,
-    description: 'Leaderboard retrieved successfully',
+    description: 'Таблица лидеров успешно получена',
     type: [LeaderboardEntry],
-    content: {
-      'application/json': {
-        example: [
-          {
-            studentId: '507f1f77bcf86cd799439011',
-            name: 'John Doe',
-            completionPercentage: 85,
-            points: 150,
-          },
-          {
-            studentId: '67c92217f30e0a8bcd56bf86',
-            name: 'Jane Smith',
-            completionPercentage: 90,
-            points: 180,
-          },
-        ],
-      },
-    },
   })
+  @ApiResponse({ status: 404, description: 'Курс не найден' })
+  @Roles(Role.ADMIN, Role.TEACHER, Role.MANAGER, Role.STUDENT, Role.ASSISTANT)
   async getLeaderboard(
     @Param('courseId') courseId: string,
     @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number,
   ): Promise<LeaderboardEntry[]> {
+    this.logger.log(
+      `Получение таблицы лидеров для курса ${courseId} с лимитом ${limit}`,
+    );
     return this.coursesService.getLeaderboard(courseId, limit);
   }
 }

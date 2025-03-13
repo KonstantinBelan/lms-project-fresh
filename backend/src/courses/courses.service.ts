@@ -3,33 +3,30 @@ import {
   Injectable,
   Logger,
   BadRequestException,
+  NotFoundException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { Course, CourseDocument } from './schemas/course.schema';
 import { Module, ModuleDocument } from './schemas/module.schema';
 import { Lesson, LessonDocument } from './schemas/lesson.schema';
-import { User } from '../users/schemas/user.schema';
-import { Tariff, TariffDocument } from '../tariffs/schemas/tariff.schema';
 import { ICoursesService, CourseAnalytics } from './courses.service.interface';
 import { CreateCourseDto } from './dto/create-course.dto';
 import { UpdateCourseDto } from './dto/update-course.dto';
 import { CreateModuleDto } from './dto/create-module.dto';
 import { CreateLessonDto } from './dto/create-lesson.dto';
 import { BatchCourseDto } from './dto/batch-course.dto';
-import { Types } from 'mongoose';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 import { createObjectCsvWriter } from 'csv-writer';
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import { UsersService } from '../users/users.service'; // Добавляем зависимость
-import { EnrollmentsService } from '../enrollments/enrollments.service'; // Добавляем зависимость
-import { LeaderboardEntry } from './dto/leaderboard-entry.dto'; // DTO для лидерборда
+import { UsersService } from '../users/users.service';
+import { EnrollmentsService } from '../enrollments/enrollments.service';
+import { LeaderboardEntry } from './dto/leaderboard-entry.dto';
 
-// Настраиваемый TTL кэша (в секундах)
-const CACHE_TTL = parseInt(process.env.CACHE_TTL ?? '3600', 10); // 1 час по умолчанию
-const CSV_EXPIRY_DAYS = parseInt(process.env.CSV_EXPIRY_DAYS ?? '90', 10); // Срок хранения файлов в днях
+const CACHE_TTL = parseInt(process.env.CACHE_TTL ?? '3600', 10); // Время жизни кэша в секундах (по умолчанию 1 час)
+const CSV_EXPIRY_DAYS = parseInt(process.env.CSV_EXPIRY_DAYS ?? '90', 10); // Срок хранения CSV-файлов в днях
 
 @Injectable()
 export class CoursesService implements ICoursesService {
@@ -39,21 +36,25 @@ export class CoursesService implements ICoursesService {
     @InjectModel(Course.name) private courseModel: Model<CourseDocument>,
     @InjectModel(Module.name) private moduleModel: Model<ModuleDocument>,
     @InjectModel(Lesson.name) private lessonModel: Model<LessonDocument>,
-    @Inject(CACHE_MANAGER) private cacheManager: Cache, // Инжектируем кэш
-
-    private usersService: UsersService, // Добавляем UsersService
-    private enrollmentsService: EnrollmentsService, // Добавляем EnrollmentsService
+    @Inject(CACHE_MANAGER) private cacheManager: Cache,
+    private usersService: UsersService,
+    private enrollmentsService: EnrollmentsService,
   ) {}
 
   async createCourse(createCourseDto: CreateCourseDto): Promise<Course> {
+    if (!createCourseDto.title || !createCourseDto.description) {
+      throw new BadRequestException('Название и описание курса обязательны');
+    }
+    this.logger.log(`Создание курса: ${createCourseDto.title}`);
     const newCourse = new this.courseModel(createCourseDto);
-    return newCourse.save();
+    const savedCourse = await newCourse.save();
+    await this.cacheManager.del('courses:all');
+    return savedCourse.toObject();
   }
 
   async createBatchCourses(batchCourseDto: BatchCourseDto): Promise<Course[]> {
-    this.logger.debug('Creating batch courses:', batchCourseDto);
+    this.logger.log(`Создание ${batchCourseDto.courses.length} курсов`);
     const courses: Course[] = [];
-
     for (const courseData of batchCourseDto.courses) {
       try {
         const course = await this.createCourse({
@@ -63,41 +64,35 @@ export class CoursesService implements ICoursesService {
         courses.push(course);
       } catch (error) {
         this.logger.error(
-          `Failed to create course ${courseData.title}:`,
-          error,
+          `Ошибка при создании курса ${courseData.title}: ${error.message}`,
         );
-        // Можно продолжить с остальными, если ошибка не критична
       }
     }
-
     return courses;
   }
 
   async findAllCourses(): Promise<Course[]> {
+    this.logger.debug('Получение всех курсов');
     const cacheKey = 'courses:all';
     const cachedCourses = await this.cacheManager.get<Course[]>(cacheKey);
-    if (cachedCourses) {
-      this.logger.debug('Courses found in cache:', cachedCourses);
-      return cachedCourses;
-    }
+    if (cachedCourses) return cachedCourses;
 
     const courses = await this.courseModel.find().lean().exec();
-    this.logger.debug('Courses found in DB:', courses);
-    await this.cacheManager.set(cacheKey, courses, 3600); // Кэшируем на 1 час
+    await this.cacheManager.set(cacheKey, courses, CACHE_TTL);
     return courses;
   }
 
-  async findCourseById(id: string): Promise<Course | null> {
-    const cacheKey = `course:${id}`;
-    const cachedCourse = await this.cacheManager.get<Course>(cacheKey);
-    if (cachedCourse) {
-      this.logger.debug('Course found in cache:', cachedCourse);
-      return cachedCourse;
+  async findCourseById(courseId: string): Promise<Course | null> {
+    if (!Types.ObjectId.isValid(courseId)) {
+      throw new BadRequestException('Некорректный ID курса');
     }
+    this.logger.debug(`Поиск курса по ID: ${courseId}`);
+    const cacheKey = `course:${courseId}`;
+    const cachedCourse = await this.cacheManager.get<Course>(cacheKey);
+    if (cachedCourse) return cachedCourse;
 
-    const course = await this.courseModel.findById(id).lean().exec();
-    this.logger.debug('Course found in DB:', course);
-    if (course) await this.cacheManager.set(cacheKey, course, 3600); // Кэшируем на 1 час
+    const course = await this.courseModel.findById(courseId).lean().exec();
+    if (course) await this.cacheManager.set(cacheKey, course, CACHE_TTL);
     return course;
   }
 
@@ -105,66 +100,59 @@ export class CoursesService implements ICoursesService {
     courseId: string,
     updateCourseDto: UpdateCourseDto,
   ): Promise<Course | null> {
+    if (!Types.ObjectId.isValid(courseId)) {
+      throw new BadRequestException('Некорректный ID курса');
+    }
+    this.logger.log(`Обновление курса с ID: ${courseId}`);
     const updatedCourse = await this.courseModel
       .findByIdAndUpdate(courseId, updateCourseDto, { new: true })
+      .lean()
       .exec();
+    if (!updatedCourse)
+      throw new NotFoundException(`Курс с ID ${courseId} не найден`);
     await this.cacheManager.del(`course:${courseId}`);
-    await this.cacheManager.del('courses:all'); // Очистка общего кэша
+    await this.cacheManager.del('courses:all');
     return updatedCourse;
   }
 
   async deleteCourse(courseId: string): Promise<void> {
-    await this.cacheManager.del(`course:${courseId}`); // Очищаем кэш для этой записи
-    await this.cacheManager.del('courses:all'); // Очищаем кэш всех курсов
-    await this.courseModel.findByIdAndDelete(courseId).exec();
+    if (!Types.ObjectId.isValid(courseId)) {
+      throw new BadRequestException('Некорректный ID курса');
+    }
+    this.logger.log(`Удаление курса с ID: ${courseId}`);
+    const result = await this.courseModel.findByIdAndDelete(courseId).exec();
+    if (!result) throw new NotFoundException(`Курс с ID ${courseId} не найден`);
+    await this.cacheManager.del(`course:${courseId}`);
+    await this.cacheManager.del('courses:all');
   }
 
   async createModule(
     courseId: string,
     createModuleDto: CreateModuleDto,
   ): Promise<Module> {
-    const course = (await this.courseModel.findById(
-      courseId,
-    )) as CourseDocument;
-    if (!course) throw new Error('Course not found');
+    if (!Types.ObjectId.isValid(courseId)) {
+      throw new BadRequestException('Некорректный ID курса');
+    }
+    this.logger.log(`Создание модуля для курса ${courseId}`);
+    const course = await this.courseModel.findById(courseId).exec();
+    if (!course) throw new NotFoundException(`Курс с ID ${courseId} не найден`);
 
-    const newModule = new this.moduleModel({
-      ...createModuleDto,
-      courseId: course._id,
-    });
-    const savedModule = (await newModule.save()) as ModuleDocument;
-
-    course.modules.push(savedModule._id); // Теперь добавляем Types.ObjectId
+    const newModule = new this.moduleModel(createModuleDto);
+    const savedModule = await newModule.save();
+    course.modules.push(savedModule._id);
     await course.save();
 
-    await this.cacheManager.del(`course:${courseId}`); // Очищаем кэш курса
-    await this.cacheManager.del('courses:all'); // Очищаем кэш всех курсов
-
-    return savedModule;
+    await this.cacheManager.del(`course:${courseId}`);
+    await this.cacheManager.del('courses:all');
+    return savedModule.toObject();
   }
 
   async findModuleById(moduleId: string): Promise<Module | null> {
-    return this.moduleModel.findById(moduleId).lean().exec();
-  }
-
-  async findModuleByCourseAndTitle(
-    courseId: string,
-    title: string,
-  ): Promise<Module | null> {
-    const cacheKey = `module:course:${courseId}:title:${title}`;
-    const cachedModule = await this.cacheManager.get<Module>(cacheKey);
-    if (cachedModule) {
-      this.logger.debug('Module found in cache:', cachedModule);
-      return cachedModule;
+    if (!Types.ObjectId.isValid(moduleId)) {
+      throw new BadRequestException('Некорректный ID модуля');
     }
-
-    const module = await this.moduleModel
-      .findOne({ courseId: new Types.ObjectId(courseId), title })
-      .lean()
-      .exec();
-    this.logger.debug('Module found in DB:', module);
-    if (module) await this.cacheManager.set(cacheKey, module, 3600); // Кэшируем на 1 час
-    return module;
+    this.logger.debug(`Поиск модуля по ID: ${moduleId}`);
+    return this.moduleModel.findById(moduleId).lean().exec();
   }
 
   async createLesson(
@@ -172,130 +160,139 @@ export class CoursesService implements ICoursesService {
     moduleId: string,
     createLessonDto: CreateLessonDto,
   ): Promise<Lesson> {
-    const module = (await this.moduleModel.findById(
-      moduleId,
-    )) as ModuleDocument;
-    if (!module) throw new Error('Module not found');
+    if (
+      !Types.ObjectId.isValid(courseId) ||
+      !Types.ObjectId.isValid(moduleId)
+    ) {
+      throw new BadRequestException('Некорректный ID курса или модуля');
+    }
+    this.logger.log(
+      `Создание урока для модуля ${moduleId} в курсе ${courseId}`,
+    );
+    const module = await this.moduleModel.findById(moduleId).exec();
+    if (!module)
+      throw new NotFoundException(`Модуль с ID ${moduleId} не найден`);
 
-    const newLesson = new this.lessonModel({
-      ...createLessonDto,
-      moduleId: module._id,
-    });
-    const savedLesson = (await newLesson.save()) as LessonDocument;
-
-    module.lessons.push(savedLesson._id); // Теперь добавляем Types.ObjectId
+    const newLesson = new this.lessonModel(createLessonDto);
+    const savedLesson = await newLesson.save();
+    module.lessons.push(savedLesson._id);
     await module.save();
 
-    await this.cacheManager.del(`module:${moduleId}`); // Очищаем кэш модуля
-    await this.cacheManager.del(`course:${courseId}`); // Очищаем кэш курса
-
-    return savedLesson;
+    await this.cacheManager.del(`module:${moduleId}`);
+    await this.cacheManager.del(`course:${courseId}`);
+    return savedLesson.toObject();
   }
 
   async findLessonById(lessonId: string): Promise<Lesson | null> {
+    if (!Types.ObjectId.isValid(lessonId)) {
+      throw new BadRequestException('Некорректный ID урока');
+    }
+    this.logger.debug(`Поиск урока по ID: ${lessonId}`);
     return this.lessonModel.findById(lessonId).lean().exec();
   }
 
-  async findCourseByLesson(lessonId: string): Promise<Course | null> {
-    const cacheKey = `course:lesson:${lessonId}`;
-    const cachedCourse = await this.cacheManager.get<Course>(cacheKey);
-    if (cachedCourse) {
-      this.logger.debug('Course found in cache for lesson:', cachedCourse);
-      return cachedCourse;
+  async updateLesson(
+    courseId: string,
+    moduleId: string,
+    lessonId: string,
+    updateLessonDto: CreateLessonDto,
+  ): Promise<Lesson | null> {
+    if (
+      !Types.ObjectId.isValid(courseId) ||
+      !Types.ObjectId.isValid(moduleId) ||
+      !Types.ObjectId.isValid(lessonId)
+    ) {
+      throw new BadRequestException('Некорректный ID курса, модуля или урока');
     }
-
-    const objectId = new Types.ObjectId(lessonId);
-    this.logger.debug(`Searching module for lessonId: ${lessonId}`);
-
-    // Найти модуль, содержащий урок
-    const module = await this.moduleModel
-      .findOne({ lessons: objectId })
+    this.logger.log(
+      `Обновление урока ${lessonId} в модуле ${moduleId} курса ${courseId}`,
+    );
+    const updatedLesson = await this.lessonModel
+      .findByIdAndUpdate(lessonId, updateLessonDto, { new: true })
       .lean()
       .exec();
-    if (!module) {
-      this.logger.error(`No module found for lessonId: ${lessonId}`);
-      return null;
-    }
-    this.logger.debug(`Module found for lesson: ${JSON.stringify(module)}`);
+    if (!updatedLesson)
+      throw new NotFoundException(`Урок с ID ${lessonId} не найден`);
+    await this.cacheManager.del(`module:${moduleId}`);
+    await this.cacheManager.del(`course:${courseId}`);
+    return updatedLesson;
+  }
 
-    // Найти курс, содержащий этот модуль
-    const course = await this.courseModel
-      .findOne({ modules: module._id })
-      .lean()
+  async deleteLesson(
+    courseId: string,
+    moduleId: string,
+    lessonId: string,
+  ): Promise<void> {
+    if (
+      !Types.ObjectId.isValid(courseId) ||
+      !Types.ObjectId.isValid(moduleId) ||
+      !Types.ObjectId.isValid(lessonId)
+    ) {
+      throw new BadRequestException('Некорректный ID курса, модуля или урока');
+    }
+    this.logger.log(
+      `Удаление урока ${lessonId} из модуля ${moduleId} курса ${courseId}`,
+    );
+    const result = await this.lessonModel.findByIdAndDelete(lessonId).exec();
+    if (!result) throw new NotFoundException(`Урок с ID ${lessonId} не найден`);
+    await this.moduleModel
+      .updateOne({ _id: moduleId }, { $pull: { lessons: lessonId } })
       .exec();
-    if (!course) {
-      this.logger.error(`No course found for moduleId: ${module._id}`);
-      return null;
-    }
-    this.logger.debug(`Course found for module: ${JSON.stringify(course)}`);
-
-    await this.cacheManager.set(cacheKey, course, 3600); // Кэшируем на 1 час
-    return course;
+    await this.cacheManager.del(`module:${moduleId}`);
+    await this.cacheManager.del(`course:${courseId}`);
   }
 
   async getCourseStatistics(courseId: string): Promise<any> {
+    if (!Types.ObjectId.isValid(courseId)) {
+      throw new BadRequestException('Некорректный ID курса');
+    }
+    this.logger.debug(`Получение статистики курса ${courseId}`);
     const cacheKey = `course:stats:${courseId}`;
     const cachedStats = await this.cacheManager.get<any>(cacheKey);
-    if (cachedStats) {
-      this.logger.debug('Course statistics found in cache:', cachedStats);
-      return cachedStats;
-    }
+    if (cachedStats) return cachedStats;
 
-    const course = (await this.courseModel
-      .findById(courseId)
-      .lean()) as CourseDocument;
-    if (!course) throw new Error('Course not found');
+    const course = await this.courseModel.findById(courseId).lean().exec();
+    if (!course) throw new NotFoundException(`Курс с ID ${courseId} не найден`);
 
     const totalModules = course.modules.length || 0;
-    const totalLessons = await this.moduleModel
-      .aggregate([
-        {
-          $match: {
-            _id: { $in: course.modules.map((id) => new Types.ObjectId(id)) },
-          },
-        },
-        { $unwind: '$lessons' },
-        { $group: { _id: null, total: { $sum: 1 } } },
-      ])
+    const modules = await this.moduleModel
+      .find({ _id: { $in: course.modules } })
+      .lean()
       .exec();
+    const totalLessons = modules.reduce(
+      (sum, module) => sum + (module.lessons?.length || 0),
+      0,
+    );
 
     const stats = {
       courseId: course._id.toString(),
       courseTitle: course.title,
       totalModules,
-      totalLessons: totalLessons.length > 0 ? totalLessons[0].total : 0,
+      totalLessons,
     };
 
-    await this.cacheManager.set(cacheKey, stats, 3600); // Кэшируем на 1 час
-    this.logger.debug('Calculated course statistics:', stats);
+    await this.cacheManager.set(cacheKey, stats, CACHE_TTL);
     return stats;
   }
 
   async getCourseStructure(courseId: string): Promise<any> {
+    if (!Types.ObjectId.isValid(courseId)) {
+      throw new BadRequestException('Некорректный ID курса');
+    }
+    this.logger.debug(`Получение структуры курса ${courseId}`);
     const cacheKey = `course:structure:${courseId}`;
     const cachedStructure = await this.cacheManager.get<any>(cacheKey);
-    if (cachedStructure) {
-      this.logger.debug('Course structure found in cache:', cachedStructure);
-      return cachedStructure;
-    }
+    if (cachedStructure) return cachedStructure;
 
     const course = await this.courseModel.findById(courseId).lean().exec();
-    if (!course) throw new Error('Course not found');
+    if (!course) throw new NotFoundException(`Курс с ID ${courseId} не найден`);
 
     const modules = await this.moduleModel
-      .find({
-        _id: { $in: course.modules.map((id) => new Types.ObjectId(id)) },
-      })
+      .find({ _id: { $in: course.modules } })
       .lean()
       .exec();
     const lessons = await this.lessonModel
-      .find({
-        _id: {
-          $in: modules.flatMap((m) =>
-            m.lessons.map((id) => new Types.ObjectId(id)),
-          ),
-        },
-      })
+      .find({ _id: { $in: modules.flatMap((m) => m.lessons) } })
       .lean()
       .exec();
 
@@ -317,8 +314,7 @@ export class CoursesService implements ICoursesService {
       })),
     };
 
-    await this.cacheManager.set(cacheKey, structure, 3600); // Кэшируем на 1 час
-    this.logger.debug('Course structure calculated:', structure);
+    await this.cacheManager.set(cacheKey, structure, CACHE_TTL);
     return structure;
   }
 
@@ -326,51 +322,41 @@ export class CoursesService implements ICoursesService {
     studentId: string,
     courseId: string,
   ): Promise<any> {
+    if (
+      !Types.ObjectId.isValid(studentId) ||
+      !Types.ObjectId.isValid(courseId)
+    ) {
+      throw new BadRequestException('Некорректный ID студента или курса');
+    }
+    this.logger.debug(
+      `Получение структуры курса ${courseId} для студента ${studentId}`,
+    );
     const cacheKey = `course:student-structure:${courseId}:student:${studentId}`;
     const cachedStructure = await this.cacheManager.get<any>(cacheKey);
-    if (cachedStructure) {
-      this.logger.debug(
-        'Student course structure found in cache:',
-        cachedStructure,
-      );
-      return cachedStructure;
-    }
+    if (cachedStructure) return cachedStructure;
 
     const course = await this.courseModel.findById(courseId).lean().exec();
-    if (!course) throw new BadRequestException('Course not found');
+    if (!course) throw new NotFoundException(`Курс с ID ${courseId} не найден`);
 
     const enrollment = await this.enrollmentsService.findOneByStudentAndCourse(
       studentId,
       courseId,
     );
-    if (!enrollment) {
-      throw new BadRequestException(
-        'Enrollment not found for this student and course',
-      );
-    }
-
-    const tariff = enrollment.tariffId as TariffDocument | undefined;
+    if (!enrollment)
+      throw new NotFoundException('Запись о зачислении не найдена');
 
     const modules = await this.moduleModel
-      .find({
-        _id: { $in: course.modules.map((id) => new Types.ObjectId(id)) },
-      })
+      .find({ _id: { $in: course.modules } })
       .lean()
       .exec();
     const lessons = await this.lessonModel
-      .find({
-        _id: {
-          $in: modules.flatMap((m) =>
-            m.lessons.map((id) => new Types.ObjectId(id)),
-          ),
-        },
-      })
+      .find({ _id: { $in: modules.flatMap((m) => m.lessons) } })
       .lean()
       .exec();
 
-    // Фильтруем модули на основе тарифа, если он есть
+    const tariff = enrollment.tariffId;
     let accessibleModules = modules;
-    if (tariff && tariff.accessibleModules.length > 0) {
+    if (tariff && tariff.accessibleModules?.length > 0) {
       accessibleModules = modules.filter((module) =>
         tariff.accessibleModules.some(
           (m) => m.toString() === module._id.toString(),
@@ -396,87 +382,28 @@ export class CoursesService implements ICoursesService {
       })),
     };
 
-    await this.cacheManager.set(cacheKey, structure, 3600);
-    this.logger.debug('Student course structure calculated:', structure);
+    await this.cacheManager.set(cacheKey, structure, CACHE_TTL);
     return structure;
   }
 
-  async getTotalLessonsForCourse(courseId: string): Promise<number> {
-    const cacheKey = `course:total-lessons:${courseId}`;
-    const cachedTotal = await this.cacheManager.get<number>(cacheKey);
-    if (cachedTotal !== undefined && cachedTotal !== null) {
-      // Проверяем на undefined и null
-      this.logger.debug(
-        'Total lessons found in cache for course:',
-        cachedTotal,
-      );
-      return cachedTotal; // Гарантируем, что возвращается number
-    }
-
-    const course = await this.courseModel.findById(courseId).lean().exec();
-    if (!course) throw new Error('Course not found');
-
-    const totalLessons = await this.moduleModel
-      .aggregate([
-        {
-          $match: {
-            _id: { $in: course.modules.map((id) => new Types.ObjectId(id)) },
-          },
-        },
-        { $unwind: '$lessons' },
-        { $group: { _id: null, total: { $sum: 1 } } },
-      ])
-      .exec();
-
-    const total = totalLessons.length > 0 ? totalLessons[0].total : 0;
-    await this.cacheManager.set(cacheKey, total, 3600); // Кэшируем на 1 час
-    this.logger.debug('Calculated total lessons for course:', total);
-    return total;
-  }
-
-  async updateLesson(
-    courseId: string,
-    moduleId: string,
-    lessonId: string,
-    updateLessonDto: CreateLessonDto,
-  ): Promise<Lesson | null> {
-    const lesson = await this.lessonModel
-      .findByIdAndUpdate(lessonId, updateLessonDto, { new: true })
-      .lean()
-      .exec();
-    await this.cacheManager.del(`module:${moduleId}`);
-    await this.cacheManager.del(`course:${courseId}`);
-    return lesson;
-  }
-
-  async deleteLesson(
-    courseId: string,
-    moduleId: string,
-    lessonId: string,
-  ): Promise<void> {
-    await this.lessonModel.findByIdAndDelete(lessonId).exec();
-    await this.cacheManager.del(`module:${moduleId}`);
-    await this.cacheManager.del(`course:${courseId}`);
-  }
-
-  // Аналитика
   async getCourseAnalytics(courseId: string): Promise<CourseAnalytics> {
+    if (!Types.ObjectId.isValid(courseId)) {
+      throw new BadRequestException('Некорректный ID курса');
+    }
+    this.logger.debug(`Получение аналитики курса ${courseId}`);
     const cacheKey = `course:analytics:${courseId}`;
     const cachedAnalytics =
       await this.cacheManager.get<CourseAnalytics>(cacheKey);
-    if (cachedAnalytics) {
-      console.log('Analytics found in cache:', cachedAnalytics);
-      return cachedAnalytics;
-    }
+    if (cachedAnalytics) return cachedAnalytics;
 
-    // Подсчёт общего количества модулей и уроков в курсе
     const course = await this.courseModel.findById(courseId).lean().exec();
-    const totalModules = course?.modules?.length || 0;
+    if (!course) throw new NotFoundException(`Курс с ID ${courseId} не найден`);
+
+    const totalModules = course.modules?.length || 0;
     const totalLessons = await this.lessonModel.countDocuments({
-      moduleId: { $in: course?.modules || [] },
+      moduleId: { $in: course.modules || [] },
     });
 
-    // Агрегация данных из enrollments
     const analytics = await this.courseModel.db
       .collection('enrollments')
       .aggregate<CourseAnalytics>([
@@ -565,66 +492,66 @@ export class CoursesService implements ICoursesService {
         completionRate: 0,
       },
     };
-    console.log('Analytics calculated:', result);
+
     await this.cacheManager.set(cacheKey, result, CACHE_TTL);
     return result;
   }
 
   async exportCourseAnalyticsToCSV(courseId: string): Promise<string> {
+    if (!Types.ObjectId.isValid(courseId)) {
+      throw new BadRequestException('Некорректный ID курса');
+    }
+    this.logger.log(`Экспорт аналитики курса ${courseId} в CSV`);
     const analytics = await this.getCourseAnalytics(courseId);
     const dirPath = `analytics/course_${courseId}`;
     const filePath = `${dirPath}/course_${courseId}_analytics_${Date.now()}.csv`;
 
-    // Создаём директорию, если её нет
     await fs.mkdir(dirPath, { recursive: true });
-
-    // Удаляем старые файлы
     await this.cleanOldCSVFiles(dirPath);
 
     const csvWriter = createObjectCsvWriter({
       path: filePath,
       header: [
-        { id: 'metric', title: 'Metric' },
-        { id: 'value', title: 'Value' },
+        { id: 'metric', title: 'Метрика' },
+        { id: 'value', title: 'Значение' },
       ],
     });
 
     const records = [
-      { metric: 'Total Students', value: analytics.totalStudents },
-      { metric: 'Completed Students', value: analytics.completedStudents },
+      { metric: 'Всего студентов', value: analytics.totalStudents },
+      { metric: 'Завершивших студентов', value: analytics.completedStudents },
       {
-        metric: 'Completion Rate (%)',
+        metric: 'Процент завершения (%)',
         value: analytics.completionRate.toFixed(2),
       },
-      { metric: 'Average Grade', value: analytics.averageGrade.toFixed(2) },
+      { metric: 'Средняя оценка', value: analytics.averageGrade.toFixed(2) },
       {
-        metric: 'Total Modules',
+        metric: 'Всего модулей',
         value: analytics.moduleCompletion.totalModules,
       },
       {
-        metric: 'Completed Modules',
+        metric: 'Завершенных модулей',
         value: analytics.moduleCompletion.completedModules,
       },
       {
-        metric: 'Module Completion Rate (%)',
+        metric: 'Процент завершения модулей (%)',
         value: analytics.moduleCompletion.completionRate.toFixed(2),
       },
       {
-        metric: 'Total Lessons',
+        metric: 'Всего уроков',
         value: analytics.lessonCompletion.totalLessons,
       },
       {
-        metric: 'Completed Lessons',
+        metric: 'Завершенных уроков',
         value: analytics.lessonCompletion.completedLessons,
       },
       {
-        metric: 'Lesson Completion Rate (%)',
+        metric: 'Процент завершения уроков (%)',
         value: analytics.lessonCompletion.completionRate.toFixed(2),
       },
     ];
 
     await csvWriter.writeRecords(records);
-    console.log('CSV file saved:', filePath);
     return filePath;
   }
 
@@ -632,22 +559,21 @@ export class CoursesService implements ICoursesService {
     try {
       const files = await fs.readdir(dirPath);
       const now = Date.now();
-      const expiryMs = CSV_EXPIRY_DAYS * 24 * 60 * 60 * 1000; // 90 дней в миллисекундах
+      const expiryMs = CSV_EXPIRY_DAYS * 24 * 60 * 60 * 1000;
 
       for (const file of files) {
         const filePath = path.join(dirPath, file);
         const stats = await fs.stat(filePath);
-        const fileAgeMs = now - stats.mtimeMs;
-
-        if (fileAgeMs > expiryMs) {
+        if (now - stats.mtimeMs > expiryMs) {
           await fs.unlink(filePath);
-          console.log(`Deleted old CSV file: ${filePath}`);
+          this.logger.debug(`Удален старый CSV-файл: ${filePath}`);
         }
       }
     } catch (error) {
       if (error.code !== 'ENOENT') {
-        // Игнорируем ошибку, если папка ещё не существует
-        console.error('Error cleaning old CSV files:', error);
+        this.logger.error(
+          `Ошибка при очистке старых CSV-файлов: ${error.message}`,
+        );
       }
     }
   }
@@ -656,29 +582,26 @@ export class CoursesService implements ICoursesService {
     courseId: string,
     limit: number = 10,
   ): Promise<LeaderboardEntry[]> {
+    if (!Types.ObjectId.isValid(courseId)) {
+      throw new BadRequestException('Некорректный ID курса');
+    }
+    this.logger.debug(
+      `Получение таблицы лидеров для курса ${courseId} с лимитом ${limit}`,
+    );
     const cacheKey = `leaderboard:${courseId}:limit:${limit}`;
     const cachedLeaderboard =
       await this.cacheManager.get<LeaderboardEntry[]>(cacheKey);
-    if (cachedLeaderboard) {
-      this.logger.debug(`Leaderboard from cache for course ${courseId}`);
-      return cachedLeaderboard;
-    }
-
-    if (!Types.ObjectId.isValid(courseId))
-      throw new BadRequestException('Invalid courseId');
+    if (cachedLeaderboard) return cachedLeaderboard;
 
     const course = await this.courseModel.findById(courseId).lean().exec();
-    if (!course) throw new BadRequestException('Course not found');
+    if (!course) throw new NotFoundException(`Курс с ID ${courseId} не найден`);
 
     const enrollments = await this.enrollmentsService.findByCourseId(courseId);
-    if (!enrollments.length) {
-      this.logger.warn(`No enrollments for course ${courseId}`);
-      return [];
-    }
+    if (!enrollments.length) return [];
 
     const studentIds = enrollments.map((e) => e.studentId.toString());
     const users = await this.usersService.findManyByIds(studentIds);
-    const userMap = new Map<string, User>(
+    const userMap = new Map<string, any>(
       users.map((u) => [u._id.toString(), u]),
     );
 
@@ -690,10 +613,10 @@ export class CoursesService implements ICoursesService {
       const completedLessons = enrollment.completedLessons.length;
       return {
         studentId,
-        name: user?.name ?? 'Unknown',
+        name: user?.name ?? 'Неизвестно',
         completionPercentage:
           totalLessons > 0 ? (completedLessons / totalLessons) * 100 : 0,
-        points: enrollment.points || 0, // Используем сохранённые баллы
+        points: enrollment.points || 0,
       };
     });
 
@@ -701,23 +624,30 @@ export class CoursesService implements ICoursesService {
       .sort((a, b) => b.points - a.points)
       .slice(0, limit);
     await this.cacheManager.set(cacheKey, sortedLeaderboard, CACHE_TTL);
-    this.logger.debug(`Leaderboard calculated for course ${courseId}`);
     return sortedLeaderboard;
   }
 
-  async getLessonsForCourse(courseId: string): Promise<string[]> {
-    const course = await this.findCourseById(courseId);
-    if (!course || !course.modules) return [];
-    const modules = await Promise.all(
-      course.modules.map((moduleId: Types.ObjectId) =>
-        this.moduleModel.findById(moduleId).lean().exec(),
-      ),
+  async getTotalLessonsForCourse(courseId: string): Promise<number> {
+    if (!Types.ObjectId.isValid(courseId)) {
+      throw new BadRequestException('Некорректный ID курса');
+    }
+    const cacheKey = `course:total-lessons:${courseId}`;
+    const cachedTotal = await this.cacheManager.get<number>(cacheKey);
+    if (cachedTotal !== undefined) return cachedTotal;
+
+    const course = await this.courseModel.findById(courseId).lean().exec();
+    if (!course) throw new NotFoundException(`Курс с ID ${courseId} не найден`);
+
+    const modules = await this.moduleModel
+      .find({ _id: { $in: course.modules } })
+      .lean()
+      .exec();
+    const total = modules.reduce(
+      (sum, module) => sum + (module.lessons?.length || 0),
+      0,
     );
-    return modules.reduce((acc, mod) => {
-      const lessonIds = (mod?.lessons || []).map((id: Types.ObjectId) =>
-        id.toString(),
-      );
-      return [...acc, ...lessonIds];
-    }, []);
+
+    await this.cacheManager.set(cacheKey, total, CACHE_TTL);
+    return total;
   }
 }

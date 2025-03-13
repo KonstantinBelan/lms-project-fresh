@@ -1,24 +1,26 @@
-import { IsString, IsOptional } from 'class-validator';
+import { IsString, IsOptional, IsNotEmpty } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class CreateLessonDto {
   @ApiProperty({
-    example: 'Lesson 1',
-    description: 'The title of the lesson',
+    example: 'Урок 1',
+    description: 'Название урока',
   })
   @IsString()
+  @IsNotEmpty({ message: 'Название урока не может быть пустым' })
   title: string;
 
   @ApiProperty({
-    example: 'This is the content of Lesson 1',
-    description: 'The content of the lesson',
+    example: 'Это содержимое урока 1',
+    description: 'Содержимое урока',
   })
   @IsString()
+  @IsNotEmpty({ message: 'Содержимое урока не может быть пустым' })
   content: string;
 
   @ApiProperty({
     example: 'http://example.com/media',
-    description: 'Optional media URL for the lesson',
+    description: 'Опциональная ссылка на мультимедиа для урока',
     required: false,
   })
   @IsOptional()

@@ -1,11 +1,12 @@
-import { IsString } from 'class-validator';
+import { IsString, IsNotEmpty } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class CreateModuleDto {
   @ApiProperty({
-    example: 'Module 1',
-    description: 'The title of the module',
+    example: 'Модуль 1',
+    description: 'Название модуля',
   })
   @IsString()
+  @IsNotEmpty({ message: 'Название модуля не может быть пустым' })
   title: string;
 }
