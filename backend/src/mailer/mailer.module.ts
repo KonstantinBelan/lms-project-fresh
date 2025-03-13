@@ -27,7 +27,6 @@ import { join } from 'path';
       },
       template: {
         dir: join(process.cwd(), 'dist', 'mailer', 'templates'), // Папка с шаблонами
-        // dir: join(__dirname, '../../src/mailer/templates'), // Указываем путь к src
         adapter: new HandlebarsAdapter(), // Используем Handlebars для шаблонов
         options: { strict: true },
       },

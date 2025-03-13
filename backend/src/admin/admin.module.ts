@@ -16,10 +16,10 @@ import {
 @Module({
   imports: [
     MongooseModule.forFeature([
-      { name: User.name, schema: UserSchema },
-      { name: Course.name, schema: CourseSchema },
-      { name: Enrollment.name, schema: EnrollmentSchema },
-      { name: Notification.name, schema: NotificationSchema },
+      { name: User.name, schema: UserSchema }, // Схема пользователей
+      { name: Course.name, schema: CourseSchema }, // Схема курсов
+      { name: Enrollment.name, schema: EnrollmentSchema }, // Схема записей о зачислении
+      { name: Notification.name, schema: NotificationSchema }, // Схема уведомлений
     ]),
   ],
   controllers: [AdminController],

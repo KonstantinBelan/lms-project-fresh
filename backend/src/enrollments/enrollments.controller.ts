@@ -41,6 +41,7 @@ export class EnrollmentsController {
   constructor(private readonly enrollmentsService: EnrollmentsService) {}
 
   @Post()
+  @ApiSecurity('JWT-auth')
   @ApiOperation({ summary: 'Создать новое зачисление' })
   @ApiResponse({
     status: 201,
@@ -81,6 +82,7 @@ export class EnrollmentsController {
   }
 
   @Post('batch')
+  @ApiSecurity('JWT-auth')
   @ApiOperation({ summary: 'Создать массовые зачисления' })
   @ApiResponse({
     status: 201,
@@ -113,6 +115,7 @@ export class EnrollmentsController {
   }
 
   @Get('student/:studentId/course/:courseId/progress')
+  @ApiSecurity('JWT-auth')
   @ApiOperation({ summary: 'Получить прогресс студента по курсу' })
   @ApiParam({
     name: 'studentId',
@@ -137,6 +140,7 @@ export class EnrollmentsController {
   }
 
   @Get('student/:studentId/detailed-progress')
+  @ApiSecurity('JWT-auth')
   @ApiOperation({ summary: 'Получить детальный прогресс студента' })
   @ApiParam({
     name: 'studentId',
@@ -156,6 +160,7 @@ export class EnrollmentsController {
   }
 
   @Get('course/:courseId')
+  @ApiSecurity('JWT-auth')
   @ApiOperation({ summary: 'Получить зачисления по идентификатору курса' })
   @ApiParam({
     name: 'courseId',
@@ -172,6 +177,7 @@ export class EnrollmentsController {
   }
 
   @Get(':id')
+  @ApiSecurity('JWT-auth')
   @ApiOperation({ summary: 'Получить зачисление по идентификатору' })
   @ApiParam({
     name: 'id',
@@ -188,6 +194,7 @@ export class EnrollmentsController {
   }
 
   @Put(':id/progress')
+  @ApiSecurity('JWT-auth')
   @ApiOperation({ summary: 'Обновить прогресс студента' })
   @ApiParam({
     name: 'id',
@@ -221,6 +228,7 @@ export class EnrollmentsController {
   }
 
   @Put(':id/complete')
+  @ApiSecurity('JWT-auth')
   @ApiOperation({ summary: 'Завершить курс' })
   @ApiParam({
     name: 'id',
@@ -245,6 +253,7 @@ export class EnrollmentsController {
   }
 
   @Delete(':id')
+  @ApiSecurity('JWT-auth')
   @ApiOperation({ summary: 'Удалить зачисление' })
   @ApiParam({
     name: 'id',
@@ -265,6 +274,7 @@ export class EnrollmentsController {
   }
 
   @Get('export/csv')
+  @ApiSecurity('JWT-auth')
   @ApiOperation({ summary: 'Экспортировать зачисления в CSV' })
   @ApiResponse({
     status: 200,
@@ -282,6 +292,7 @@ export class EnrollmentsController {
   }
 
   @Get('test-index/:studentId/:courseId')
+  @ApiSecurity('JWT-auth')
   @ApiOperation({ summary: 'Тестовый запрос индекса' })
   @ApiParam({
     name: 'studentId',
@@ -306,6 +317,7 @@ export class EnrollmentsController {
   }
 
   @Post('lesson/complete')
+  @ApiSecurity('JWT-auth')
   @ApiOperation({ summary: 'Завершить урок и начислить баллы' })
   @ApiResponse({ status: 200, description: 'Урок успешно завершен' })
   @ApiResponse({ status: 400, description: 'Некорректный запрос' })
