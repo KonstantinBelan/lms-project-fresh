@@ -1,7 +1,8 @@
-import { Controller, Post, Body } from '@nestjs/common';
+import { Controller, Post, Body, ValidationPipe } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { MailerService } from './mailer.service';
 import { ErrorResponseDto } from '../common/dto/error-response.dto';
+import { BulkMailDto } from './dto/bulk-mail.dto';
 
 @ApiTags('Mailer')
 @Controller('mailer')
@@ -25,12 +26,7 @@ export class MailerController {
     type: ErrorResponseDto,
   })
   async sendBulkMail(
-    @Body()
-    body: {
-      recipients: { to: string; context: any }[];
-      subject: string;
-      template: string;
-    },
+    @Body(ValidationPipe) body: BulkMailDto, // Используем ValidationPipe для валидации
   ) {
     await this.mailerService.sendBulkMail(
       body.recipients,

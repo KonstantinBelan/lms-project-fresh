@@ -24,6 +24,7 @@ import { Types } from 'mongoose';
 import {
   ApiTags,
   ApiOperation,
+  ApiSecurity,
   ApiResponse,
   ApiParam,
   ApiBody,
@@ -35,6 +36,7 @@ export class HomeworksController {
   constructor(private readonly homeworksService: HomeworksService) {}
 
   @Post()
+  @ApiSecurity('JWT-auth')
   @ApiOperation({ summary: 'Создать новое домашнее задание' })
   @ApiResponse({
     status: 201,
@@ -54,6 +56,7 @@ export class HomeworksController {
   }
 
   @Put(':id')
+  @ApiSecurity('JWT-auth')
   @ApiOperation({ summary: 'Обновить домашнее задание' })
   @ApiParam({
     name: 'id',
@@ -86,6 +89,7 @@ export class HomeworksController {
   }
 
   @Delete(':id')
+  @ApiSecurity('JWT-auth')
   @ApiOperation({ summary: 'Удалить домашнее задание' })
   @ApiParam({
     name: 'id',
@@ -114,6 +118,7 @@ export class HomeworksController {
   }
 
   @Get(':id')
+  @ApiSecurity('JWT-auth')
   @ApiOperation({ summary: 'Получить домашнее задание по идентификатору' })
   @ApiParam({
     name: 'id',
@@ -138,6 +143,7 @@ export class HomeworksController {
   }
 
   @Get('lesson/:lessonId')
+  @ApiSecurity('JWT-auth')
   @ApiOperation({
     summary: 'Получить домашние задания по идентификатору урока',
   })
@@ -162,6 +168,7 @@ export class HomeworksController {
   }
 
   @Post('submissions')
+  @ApiSecurity('JWT-auth')
   @ApiOperation({ summary: 'Создать новое решение' })
   @ApiResponse({
     status: 201,
@@ -181,6 +188,7 @@ export class HomeworksController {
   }
 
   @Put('submissions/:id')
+  @ApiSecurity('JWT-auth')
   @ApiOperation({ summary: 'Обновить решение' })
   @ApiParam({
     name: 'id',
@@ -214,6 +222,7 @@ export class HomeworksController {
   }
 
   @Get('submissions/:id')
+  @ApiSecurity('JWT-auth')
   @ApiOperation({ summary: 'Получить решение по идентификатору' })
   @ApiParam({
     name: 'id',
@@ -236,6 +245,7 @@ export class HomeworksController {
   }
 
   @Get('submissions/homework/:homeworkId')
+  @ApiSecurity('JWT-auth')
   @ApiOperation({
     summary: 'Получить решения по идентификатору домашнего задания',
   })
@@ -262,6 +272,7 @@ export class HomeworksController {
   }
 
   @Get('submissions/student/:studentId')
+  @ApiSecurity('JWT-auth')
   @ApiOperation({ summary: 'Получить решения по идентификатору студента' })
   @ApiParam({
     name: 'studentId',
@@ -284,6 +295,7 @@ export class HomeworksController {
   }
 
   @Post('submissions/auto-check')
+  @ApiSecurity('JWT-auth')
   @ApiOperation({ summary: 'Автоматическая проверка решения' })
   @ApiBody({
     schema: {

@@ -2,11 +2,16 @@
   <head>
     <title>Добро пожаловать!</title>
   </head>
-  <body>
-    <h1>Привет, {{name}}!</h1>
+  <body style='font-family: Arial, sans-serif; color: #333;'>
+    <h1 style='color: #2c3e50;'>Привет, {{name}}!</h1>
     <p>Добро пожаловать на курс "{{courseTitle}}".</p>
-    <p>Начни обучение прямо сейчас:
-      <a href='{{courseUrl}}'>Перейти к курсу</a></p>
+    <p>
+      Начни обучение прямо сейчас:
+      <a
+        href='{{courseUrl}}'
+        style='color: #3498db; text-decoration: none;'
+      >Перейти к курсу</a>
+    </p>
     <p>С уважением,<br />Команда Deasy LMS</p>
   </body>
 </html>

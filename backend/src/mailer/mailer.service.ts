@@ -4,6 +4,11 @@ import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
 import { Logger } from '@nestjs/common';
 
+// Интерфейс для типизации контекста письма
+interface MailContext {
+  [key: string]: any;
+}
+
 @Injectable()
 export class MailerService {
   private readonly logger = new Logger(MailerService.name);
@@ -18,8 +23,16 @@ export class MailerService {
     to: string,
     subject: string,
     template: string,
-    context: any,
+    context: MailContext,
   ) {
+    // Проверка входных данных
+    if (!to || !subject || !template) {
+      this.logger.warn(
+        'Отсутствуют обязательные параметры для отправки письма',
+      );
+      throw new BadRequestException('Email, тема и шаблон обязательны');
+    }
+
     try {
       await this.mailerService.sendMail({
         to,
@@ -36,7 +49,7 @@ export class MailerService {
 
   // Массовая отправка через очередь
   async sendBulkMail(
-    recipients: { to: string; context: any }[],
+    recipients: { to: string; context: MailContext }[],
     subject: string,
     template: string,
   ) {
@@ -65,19 +78,26 @@ export class MailerService {
         template,
       },
       {
-        attempts: 3,
-        backoff: 5000,
+        attempts: 3, // Количество попыток при ошибке
+        backoff: 5000, // Задержка между попытками в миллисекундах
       },
     );
   }
 
-  // (Опционально) Асинхронная отправка одного письма через очередь
+  // Асинхронная отправка одного письма через очередь
   async sendInstantMailAsync(
     to: string,
     subject: string,
     template: string,
-    context: any,
+    context: MailContext,
   ) {
+    if (!to || !subject || !template) {
+      this.logger.warn(
+        'Отсутствуют обязательные параметры для отправки письма',
+      );
+      throw new BadRequestException('Email, тема и шаблон обязательны');
+    }
+
     this.logger.log(`Добавление письма для ${to} в очередь`);
     await this.mailerQueue.add(
       'sendInstant',

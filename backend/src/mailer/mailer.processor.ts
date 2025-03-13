@@ -9,6 +9,7 @@ export class MailerProcessor {
 
   constructor(private readonly mailerService: NestMailerService) {}
 
+  // Обработка мгновенной отправки письма
   @Process('sendInstant')
   async handleSendInstant(job: Job) {
     const { to, subject, template, context } = job.data;
@@ -24,16 +25,19 @@ export class MailerProcessor {
       this.logger.log(`Письмо успешно отправлено на ${to}`);
     } catch (error) {
       this.logger.error(`Ошибка отправки письма на ${to}: ${error.message}`);
-      throw error; // Bull автоматически обработает повторные попытки
+      throw error; // Bull обработает повторные попытки
     }
   }
 
+  // Обработка массовой рассылки
   @Process('sendBulk')
   async handleSendBulk(job: Job) {
     const { recipients, subject, template } = job.data;
     this.logger.debug(
       `Обработка массовой рассылки для ${recipients.length} получателей`,
     );
+
+    const errors: { to: string; error: string }[] = []; // Список ошибок
 
     for (const { to, context } of recipients) {
       try {
@@ -45,9 +49,18 @@ export class MailerProcessor {
         });
         this.logger.log(`Письмо отправлено на ${to}`);
       } catch (error) {
-        this.logger.error(`Ошибка отправки письма на ${to}: ${error.message}`);
-        // Продолжаем отправку остальным, не прерывая процесс
+        const errorMsg = `Ошибка отправки письма на ${to}: ${error.message}`;
+        this.logger.error(errorMsg);
+        errors.push({ to, error: error.message });
       }
     }
+
+    if (errors.length > 0) {
+      this.logger.warn(
+        `Массовое отправление завершено с ошибками: ${errors.length}`,
+      );
+      return { success: false, errors }; // Возвращаем ошибки для анализа
+    }
+    return { success: true };
   }
 }
