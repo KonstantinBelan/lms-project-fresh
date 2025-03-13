@@ -11,7 +11,11 @@ import { LeaderboardEntry } from './dto/leaderboard-entry.dto';
 export interface ICoursesService {
   createCourse(createCourseDto: CreateCourseDto): Promise<Course>;
   createBatchCourses(batchCourseDto: BatchCourseDto): Promise<Course[]>;
-  findAllCourses(): Promise<Course[]>;
+  // findAllCourses(): Promise<Course[]>;
+  findAllCourses(
+    skip?: number,
+    limit?: number,
+  ): Promise<{ courses: Course[]; total: number }>;
   findCourseById(courseId: string): Promise<Course | null>;
   updateCourse(
     courseId: string,
