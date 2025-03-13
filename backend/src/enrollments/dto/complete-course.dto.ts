@@ -1,13 +1,14 @@
 import { IsNumber, Min, Max } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
+// DTO для завершения курса
 export class CompleteCourseDto {
   @ApiProperty({
     example: 85,
-    description: 'The grade obtained in the course',
+    description: 'Оценка, полученная за курс',
   })
-  @IsNumber()
-  @Min(0)
-  @Max(100)
+  @IsNumber({}, { message: 'Оценка должна быть числом' })
+  @Min(0, { message: 'Оценка не может быть меньше 0' })
+  @Max(100, { message: 'Оценка не может быть больше 100' })
   grade: number;
 }

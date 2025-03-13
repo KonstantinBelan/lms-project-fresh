@@ -1,4 +1,3 @@
-// src/enrollments/enrollments.service.spec.ts
 import { Test, TestingModule } from '@nestjs/testing';
 import { EnrollmentsService } from './enrollments.service';
 import { getModelToken } from '@nestjs/mongoose';
@@ -57,7 +56,7 @@ describe('EnrollmentsService', () => {
   };
 
   const mockCoursesService = {
-    findCourseById: jest.fn().mockResolvedValue({ title: 'Test Course' }),
+    findCourseById: jest.fn().mockResolvedValue({ title: 'Тестовый курс' }),
   };
 
   const mockNotificationsService = {
@@ -95,7 +94,7 @@ describe('EnrollmentsService', () => {
   afterEach(() => jest.clearAllMocks());
 
   describe('updateStudentProgress', () => {
-    it('should update progress with new moduleId and lessonId', async () => {
+    it('должен обновить прогресс с новым moduleId и lessonId', async () => {
       const result = await service.updateStudentProgress(
         validStudentId,
         validCourseId,
@@ -111,7 +110,7 @@ describe('EnrollmentsService', () => {
       );
     });
 
-    it('should throw BadRequestException if enrollment not found', async () => {
+    it('должен выбросить BadRequestException, если зачисление не найдено', async () => {
       mockEnrollmentModel.findOne.mockImplementation(() => ({
         lean: jest.fn().mockReturnValue({
           exec: jest.fn().mockResolvedValue(null),
@@ -119,8 +118,8 @@ describe('EnrollmentsService', () => {
       }));
       await expect(
         service.updateStudentProgress(
-          new Types.ObjectId().toString(), // Валидный ObjectId
-          new Types.ObjectId().toString(), // Валидный ObjectId
+          new Types.ObjectId().toString(),
+          new Types.ObjectId().toString(),
           validModuleId,
           validLessonId,
         ),

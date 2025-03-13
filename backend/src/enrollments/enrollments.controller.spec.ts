@@ -1,4 +1,3 @@
-// src/enrollments/enrollments.controller.spec.ts
 import { Test, TestingModule } from '@nestjs/testing';
 import { EnrollmentsController } from './enrollments.controller';
 import { EnrollmentsService } from './enrollments.service';
@@ -55,7 +54,7 @@ describe('EnrollmentsController', () => {
   afterEach(() => jest.clearAllMocks());
 
   describe('updateProgress', () => {
-    it('should update student progress with new module and lesson', async () => {
+    it('должен обновить прогресс студента с новым модулем и уроком', async () => {
       const enrollmentId = '67c59acebe3880a60e6f53b1';
       const updateProgressDto = {
         moduleId: '67c5861505ac038b1bf9c1af',

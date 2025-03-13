@@ -1,46 +1,50 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
 
+// Тип для документа зачисления
 export type EnrollmentDocument = Enrollment &
   Document & { _id: Types.ObjectId };
 
+// Схема зачисления
 @Schema()
 export class Enrollment extends Document {
   @Prop({ required: true, type: Types.ObjectId, ref: 'User' })
-  studentId: string;
+  studentId: string; // Идентификатор студента
 
   @Prop({ required: true, type: Types.ObjectId, ref: 'Course' })
-  courseId: Types.ObjectId; // Оставляем как ObjectId, без populate
+  courseId: Types.ObjectId; // Идентификатор курса
 
   @Prop({ type: Types.ObjectId, ref: 'Stream', required: false })
-  streamId?: Types.ObjectId; // Новое поле для потока
+  streamId?: Types.ObjectId; // Идентификатор потока (опционально)
 
   @Prop({ type: [String], default: [] })
-  completedModules: string[];
+  completedModules: string[]; // Завершенные модули
 
   @Prop({ type: [String], default: [] })
-  completedLessons: string[];
+  completedLessons: string[]; // Завершенные уроки
 
   @Prop({ type: Boolean, default: false })
-  isCompleted: boolean;
+  isCompleted: boolean; // Завершен ли курс
 
   @Prop({ type: Number, min: 0, max: 100 })
-  grade?: number;
+  grade?: number; // Оценка за курс (опционально)
 
   @Prop({ type: Date })
-  deadline?: Date;
+  deadline?: Date; // Дедлайн (опционально)
 
-  @Prop({ type: Number, default: 0 }) // Добавляем общее количество баллов
-  points: number;
+  @Prop({ type: Number, default: 0 })
+  points: number; // Количество набранных баллов
 
   @Prop({ type: Types.ObjectId, ref: 'Tariff', required: false })
-  tariffId?: Types.ObjectId; // Новое поле
+  tariffId?: Types.ObjectId; // Идентификатор тарифа (опционально)
 
   @Prop({ default: 0 })
-  __v: number; // Mongoose version key
+  __v: number; // Версия документа Mongoose
 }
 
 export const EnrollmentSchema = SchemaFactory.createForClass(Enrollment);
+
+// Индексы для оптимизации запросов
 EnrollmentSchema.index({ studentId: 1 });
 EnrollmentSchema.index({ courseId: 1 });
 EnrollmentSchema.index({ deadline: 1 });

@@ -7,39 +7,46 @@ import {
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
+// DTO для создания записи о зачислении
 export class CreateEnrollmentDto {
   @ApiProperty({
     example: '507f1f77bcf86cd799439011',
-    description: 'The ID of the student',
+    description: 'Идентификатор студента',
   })
-  @IsNotEmpty()
-  @IsMongoId()
+  @IsNotEmpty({ message: 'Идентификатор студента обязателен' })
+  @IsMongoId({ message: 'Идентификатор студента должен быть валидным MongoID' })
   studentId: string;
 
   @ApiProperty({
     example: '507f1f77bcf86cd799439011',
-    description: 'The ID of the course',
+    description: 'Идентификатор курса',
   })
-  @IsNotEmpty()
-  @IsMongoId()
+  @IsNotEmpty({ message: 'Идентификатор курса обязателен' })
+  @IsMongoId({ message: 'Идентификатор курса должен быть валидным MongoID' })
   courseId: string;
 
   @ApiProperty({
     example: '2023-12-31T23:59:59.999Z',
-    description: 'The optional deadline for the enrollment',
+    description: 'Дедлайн для зачисления (опционально)',
     required: false,
   })
   @IsOptional()
-  @IsDateString()
+  @IsDateString({}, { message: 'Дедлайн должен быть валидной строкой ISO' })
   deadline?: string;
 
-  @ApiProperty({ description: 'ID of the stream (optional)', required: false })
+  @ApiProperty({
+    description: 'Идентификатор потока (опционально)',
+    required: false,
+  })
   @IsOptional()
-  @IsString()
-  streamId?: string; // Новое поле
+  @IsString({ message: 'Идентификатор потока должен быть строкой' })
+  streamId?: string;
 
-  @ApiProperty({ description: 'ID of the tariff (optional)', required: false })
+  @ApiProperty({
+    description: 'Идентификатор тарифа (опционально)',
+    required: false,
+  })
   @IsOptional()
-  @IsString()
-  tariffId?: string; // Новое поле
+  @IsString({ message: 'Идентификатор тарифа должен быть строкой' })
+  tariffId?: string;
 }

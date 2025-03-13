@@ -20,17 +20,17 @@ import { CacheModule } from '@nestjs/cache-manager';
     MongooseModule.forFeature([
       { name: Enrollment.name, schema: EnrollmentSchema },
     ]),
-    CacheModule.register(), // Регистрируем CacheModule
+    CacheModule.register(), // Регистрация модуля кэширования
     UsersModule,
     forwardRef(() => CoursesModule),
     AuthModule,
     forwardRef(() => NotificationsModule),
     BullModule.forRoot({
-      redis: { host: 'localhost', port: 6379 }, // Укажи свои настройки Redis
+      redis: { host: 'localhost', port: 6379 }, // Настройки Redis
     }),
-    BullModule.registerQueue({ name: 'notifications' }),
-    forwardRef(() => HomeworksModule), // Используем forwardRef для HomeworksModule
-    forwardRef(() => QuizzesModule), // Используем forwardRef для QuizzesModule
+    BullModule.registerQueue({ name: 'notifications' }), // Очередь для уведомлений
+    forwardRef(() => HomeworksModule),
+    forwardRef(() => QuizzesModule),
     forwardRef(() => StreamsModule),
     forwardRef(() => TariffsModule),
     MailerModule,
@@ -39,15 +39,4 @@ import { CacheModule } from '@nestjs/cache-manager';
   providers: [EnrollmentsService],
   exports: [EnrollmentsService, MongooseModule],
 })
-export class EnrollmentsModule {
-  constructor() {
-    console.log('EnrollmentsModule initialized, imports:', [
-      'MongooseModule',
-      'CacheModule',
-      'UsersModule',
-      'CoursesModule',
-      'AuthModule',
-      'NotificationsModule',
-    ]);
-  }
-}
+export class EnrollmentsModule {}
