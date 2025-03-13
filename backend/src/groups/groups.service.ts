@@ -38,12 +38,14 @@ export class GroupsService implements IGroupsService {
     return savedGroup;
   }
 
-  // Получение всех групп с пагинацией и кэшированием
+  // Получение всех групп с пагинацией и сортировкой
   async findAll(
     skip: number = 0,
     limit: number = 10,
+    sortBy: 'name' | 'students' = 'name',
+    sortOrder: 'asc' | 'desc' = 'asc',
   ): Promise<{ groups: GroupDocument[]; total: number }> {
-    const cacheKey = `groups:all:skip:${skip}:limit:${limit}`;
+    const cacheKey = `groups:all:skip:${skip}:limit:${limit}:sortBy:${sortBy}:sortOrder:${sortOrder}`;
     const cachedResult = await this.cacheManager.get<{
       groups: GroupDocument[];
       total: number;
@@ -55,11 +57,21 @@ export class GroupsService implements IGroupsService {
       return cachedResult;
     }
 
+    // Определяем сортировку
+    const sortCriteria: any = {};
+    if (sortBy === 'name') {
+      sortCriteria.name = sortOrder === 'asc' ? 1 : -1;
+    } else if (sortBy === 'students') {
+      sortCriteria['students.length'] = sortOrder === 'asc' ? 1 : -1;
+    }
+
     const [groups, total] = await Promise.all([
-      this.groupModel.find().skip(skip).limit(limit).exec(),
+      this.groupModel.find().sort(sortCriteria).skip(skip).limit(limit).exec(),
       this.groupModel.countDocuments().exec(),
     ]);
-    this.logger.debug(`Найдено ${groups.length} групп из ${total} в БД`);
+    this.logger.debug(
+      `Найдено ${groups.length} групп из ${total} в БД с сортировкой по ${sortBy} (${sortOrder})`,
+    );
     const result = { groups, total };
     await this.cacheManager.set(cacheKey, result, CACHE_TTL);
     return result;
@@ -107,7 +119,7 @@ export class GroupsService implements IGroupsService {
     if (!group) {
       throw new NotFoundException(`Группа с ID ${groupId} не найдена`);
     }
-    if (group.students.some((id) => id.equals(studentId))) {
+    if (group.students.some((id) => id.toString() === studentId)) {
       this.logger.warn(
         `Студент ${studentId} уже находится в группе ${groupId}`,
       );

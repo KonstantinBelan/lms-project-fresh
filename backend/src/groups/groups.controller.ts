@@ -63,6 +63,18 @@ export class GroupsController {
     type: Number,
     description: 'Максимальное количество групп',
   })
+  @ApiQuery({
+    name: 'sortBy',
+    required: false,
+    enum: ['name', 'students'],
+    description: 'Сортировать по имени или количеству студентов',
+  })
+  @ApiQuery({
+    name: 'sortOrder',
+    required: false,
+    enum: ['asc', 'desc'],
+    description: 'Порядок сортировки',
+  })
   @ApiResponse({
     status: 200,
     description: 'Группы успешно получены',
@@ -82,9 +94,13 @@ export class GroupsController {
   async findAll(
     @Query('skip', new DefaultValuePipe(0), ParseIntPipe) skip: number,
     @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number,
+    @Query('sortBy') sortBy: 'name' | 'students' = 'name',
+    @Query('sortOrder') sortOrder: 'asc' | 'desc' = 'asc',
   ) {
-    this.logger.log(`Получение всех групп: skip=${skip}, limit=${limit}`);
-    return this.groupsService.findAll(skip, limit);
+    this.logger.log(
+      `Получение всех групп: skip=${skip}, limit=${limit}, sortBy=${sortBy}, sortOrder=${sortOrder}`,
+    );
+    return this.groupsService.findAll(skip, limit, sortBy, sortOrder);
   }
 
   @Get(':id')

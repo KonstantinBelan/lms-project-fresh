@@ -6,6 +6,8 @@ export interface IGroupsService {
   findAll(
     skip?: number,
     limit?: number,
+    sortBy?: 'name' | 'students',
+    sortOrder?: 'asc' | 'desc',
   ): Promise<{ groups: GroupDocument[]; total: number }>;
   findById(id: string): Promise<GroupDocument>;
   addStudent(groupId: string, studentId: string): Promise<GroupDocument>;
