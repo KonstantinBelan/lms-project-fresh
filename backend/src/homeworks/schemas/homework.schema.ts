@@ -2,7 +2,7 @@ import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
 import { Lesson } from '../../courses/schemas/lesson.schema';
 
-export type HomeworkDocument = Homework & Document; // Убедимся, что это определение корректно
+export type HomeworkDocument = Homework & Document;
 
 @Schema({ collection: 'homeworks', timestamps: true })
 export class Homework {
@@ -19,21 +19,21 @@ export class Homework {
   })
   category: string;
 
-  @Prop({})
-  deadline?: Date; // Сделали deadline опциональным, чтобы соответствовать интерфейсу
+  @Prop({ type: Date }) // Уточняем тип как Date
+  deadline?: Date;
 
   @Prop({ default: false })
   isActive: boolean;
 
-  @Prop({ type: Number, default: 10 }) // Добавляем баллы за домашку
+  @Prop({ type: Number, default: 10, min: 0, max: 100 }) // Добавляем ограничения
   points: number;
 
   __v: number;
 }
 
 export const HomeworkSchema = SchemaFactory.createForClass(Homework);
-HomeworkSchema.index({ lessonId: 1 }); // Индекс для lessonId
-HomeworkSchema.index({ deadline: 1 }); // Индекс для deadline (опционально)
+HomeworkSchema.index({ lessonId: 1 }); // Индекс для поиска по lessonId
+HomeworkSchema.index({ deadline: 1 }); // Индекс для поиска по deadline
 
 // Явно расширяем интерфейс Homework для включения _id и опционального deadline
 export interface Homework {
@@ -48,7 +48,8 @@ export interface Homework {
   updatedAt: Date;
 }
 
+// Хук перед сохранением для логирования
 HomeworkSchema.pre('save', function (next) {
-  console.log('Saving homework with lessonId:', this.lessonId);
+  console.log('Сохранение домашнего задания с lessonId:', this.lessonId);
   next();
 });
