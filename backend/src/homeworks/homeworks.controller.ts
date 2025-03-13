@@ -9,7 +9,6 @@ import {
   UsePipes,
   ValidationPipe,
   UseGuards,
-  SetMetadata,
   BadRequestException,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
@@ -20,262 +19,306 @@ import { UpdateHomeworkDto } from './dto/update-homework.dto';
 import { CreateSubmissionDto } from './dto/create-submission.dto';
 import { UpdateSubmissionDto } from './dto/update-submission.dto';
 import { Role } from '../auth/roles.enum';
-import { Types } from 'mongoose'; // Импортируем Types для проверки ObjectId
-import { ApiTags, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { Types } from 'mongoose';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiParam,
+  ApiBody,
+} from '@nestjs/swagger';
 
-@ApiTags('Homeworks')
+@ApiTags('Домашние задания')
 @Controller('homeworks')
 export class HomeworksController {
   constructor(private readonly homeworksService: HomeworksService) {}
 
   @Post()
-  @ApiOperation({ summary: 'Create a new homework' })
+  @ApiOperation({ summary: 'Создать новое домашнее задание' })
   @ApiResponse({
     status: 201,
-    description: 'Homework created',
+    description: 'Домашнее задание успешно создано',
     type: CreateHomeworkDto,
   })
-  @ApiResponse({ status: 400, description: 'Bad Request' })
+  @ApiResponse({ status: 400, description: 'Некорректный запрос' })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @SetMetadata('roles', [Role.TEACHER, Role.ADMIN, Role.MANAGER])
+  @Roles(Role.TEACHER, Role.ADMIN, Role.MANAGER)
   @UsePipes(new ValidationPipe())
   async createHomework(@Body() createHomeworkDto: CreateHomeworkDto) {
-    return this.homeworksService.createHomework(createHomeworkDto);
+    try {
+      return await this.homeworksService.createHomework(createHomeworkDto);
+    } catch (error) {
+      throw new BadRequestException('Ошибка при создании домашнего задания');
+    }
   }
 
   @Put(':id')
-  @ApiOperation({ summary: 'Update homework' })
+  @ApiOperation({ summary: 'Обновить домашнее задание' })
   @ApiParam({
     name: 'id',
-    description: 'Homework ID',
+    description: 'Идентификатор домашнего задания',
     example: '507f1f77bcf86cd799439011',
   })
   @ApiResponse({
     status: 200,
-    description: 'Homework updated',
+    description: 'Домашнее задание успешно обновлено',
     type: UpdateHomeworkDto,
   })
-  @ApiResponse({ status: 400, description: 'Bad Request' })
+  @ApiResponse({ status: 400, description: 'Некорректный запрос' })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @SetMetadata('roles', [Role.TEACHER, Role.ADMIN, Role.MANAGER])
+  @Roles(Role.TEACHER, Role.ADMIN, Role.MANAGER)
   @UsePipes(new ValidationPipe())
   async updateHomework(
     @Param('id') id: string,
     @Body() updateHomeworkDto: UpdateHomeworkDto,
   ) {
-    return this.homeworksService.updateHomework(id, updateHomeworkDto);
+    if (!Types.ObjectId.isValid(id)) {
+      throw new BadRequestException(
+        'Некорректный идентификатор домашнего задания',
+      );
+    }
+    try {
+      return await this.homeworksService.updateHomework(id, updateHomeworkDto);
+    } catch (error) {
+      throw new BadRequestException('Ошибка при обновлении домашнего задания');
+    }
   }
 
   @Delete(':id')
-  @ApiOperation({ summary: 'Delete homework' })
+  @ApiOperation({ summary: 'Удалить домашнее задание' })
   @ApiParam({
     name: 'id',
-    description: 'Homework ID',
+    description: 'Идентификатор домашнего задания',
     example: '507f1f77bcf86cd799439011',
   })
   @ApiResponse({
     status: 200,
-    description: 'Homework deleted',
+    description: 'Домашнее задание успешно удалено',
   })
-  @ApiResponse({ status: 400, description: 'Bad Request' })
+  @ApiResponse({ status: 400, description: 'Некорректный запрос' })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @SetMetadata('roles', [Role.TEACHER, Role.ADMIN, Role.MANAGER])
+  @Roles(Role.TEACHER, Role.ADMIN, Role.MANAGER)
   async deleteHomework(@Param('id') id: string) {
-    return this.homeworksService.deleteHomework(id);
+    if (!Types.ObjectId.isValid(id)) {
+      throw new BadRequestException(
+        'Некорректный идентификатор домашнего задания',
+      );
+    }
+    try {
+      await this.homeworksService.deleteHomework(id);
+      return { message: 'Домашнее задание успешно удалено' };
+    } catch (error) {
+      throw new BadRequestException('Ошибка при удалении домашнего задания');
+    }
   }
 
   @Get(':id')
-  @ApiOperation({ summary: 'Get homework by ID' })
+  @ApiOperation({ summary: 'Получить домашнее задание по идентификатору' })
   @ApiParam({
     name: 'id',
-    description: 'Homework ID',
+    description: 'Идентификатор домашнего задания',
     example: '507f1f77bcf86cd799439011',
   })
   @ApiResponse({
     status: 200,
-    description: 'Homework retrieved successfully',
+    description: 'Домашнее задание успешно получено',
   })
-  @ApiResponse({ status: 404, description: 'Homework not found' })
-  @ApiResponse({ status: 403, description: 'Forbidden' })
+  @ApiResponse({ status: 404, description: 'Домашнее задание не найдено' })
+  @ApiResponse({ status: 403, description: 'Доступ запрещён' })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @SetMetadata('roles', [
-    Role.STUDENT,
-    Role.TEACHER,
-    Role.ADMIN,
-    Role.MANAGER,
-    Role.ASSISTANT,
-  ])
+  @Roles(Role.STUDENT, Role.TEACHER, Role.ADMIN, Role.MANAGER, Role.ASSISTANT)
   async findHomeworkById(@Param('id') id: string) {
+    if (!Types.ObjectId.isValid(id)) {
+      throw new BadRequestException(
+        'Некорректный идентификатор домашнего задания',
+      );
+    }
     return this.homeworksService.findHomeworkById(id);
   }
 
   @Get('lesson/:lessonId')
-  @ApiOperation({ summary: 'Get homeworks by lesson ID' })
+  @ApiOperation({
+    summary: 'Получить домашние задания по идентификатору урока',
+  })
   @ApiParam({
     name: 'lessonId',
-    description: 'Lesson ID',
+    description: 'Идентификатор урока',
     example: '507f1f77bcf86cd799439011',
   })
   @ApiResponse({
     status: 200,
-    description: 'Homeworks retrieved successfully',
+    description: 'Домашние задания успешно получены',
   })
-  @ApiResponse({ status: 404, description: 'Homeworks not found' })
-  @ApiResponse({ status: 403, description: 'Forbidden' })
+  @ApiResponse({ status: 404, description: 'Домашние задания не найдены' })
+  @ApiResponse({ status: 403, description: 'Доступ запрещён' })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @SetMetadata('roles', [
-    Role.STUDENT,
-    Role.TEACHER,
-    Role.ADMIN,
-    Role.MANAGER,
-    Role.ASSISTANT,
-  ])
+  @Roles(Role.STUDENT, Role.TEACHER, Role.ADMIN, Role.MANAGER, Role.ASSISTANT)
   async findHomeworksByLesson(@Param('lessonId') lessonId: string) {
+    if (!Types.ObjectId.isValid(lessonId)) {
+      throw new BadRequestException('Некорректный идентификатор урока');
+    }
     return this.homeworksService.findHomeworksByLesson(lessonId);
   }
 
   @Post('submissions')
-  @ApiOperation({ summary: 'Create a new submission' })
+  @ApiOperation({ summary: 'Создать новое решение' })
   @ApiResponse({
     status: 201,
-    description: 'Submission created',
+    description: 'Решение успешно создано',
     type: CreateSubmissionDto,
   })
-  @ApiResponse({ status: 400, description: 'Bad Request' })
+  @ApiResponse({ status: 400, description: 'Некорректный запрос' })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @SetMetadata('roles', [Role.STUDENT])
+  @Roles(Role.STUDENT)
   @UsePipes(new ValidationPipe())
   async createSubmission(@Body() createSubmissionDto: CreateSubmissionDto) {
-    return this.homeworksService.createSubmission(createSubmissionDto);
+    try {
+      return await this.homeworksService.createSubmission(createSubmissionDto);
+    } catch (error) {
+      throw new BadRequestException('Ошибка при создании решения');
+    }
   }
 
   @Put('submissions/:id')
-  @ApiOperation({ summary: 'Update submission' })
+  @ApiOperation({ summary: 'Обновить решение' })
   @ApiParam({
     name: 'id',
-    description: 'Submission ID',
+    description: 'Идентификатор решения',
     example: '507f1f77bcf86cd799439011',
   })
   @ApiResponse({
     status: 200,
-    description: 'Submission updated',
+    description: 'Решение успешно обновлено',
     type: UpdateSubmissionDto,
   })
-  @ApiResponse({ status: 400, description: 'Bad Request' })
+  @ApiResponse({ status: 400, description: 'Некорректный запрос' })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @SetMetadata('roles', [
-    Role.TEACHER,
-    Role.ADMIN,
-    Role.MANAGER,
-    Role.ASSISTANT,
-  ])
+  @Roles(Role.TEACHER, Role.ADMIN, Role.MANAGER, Role.ASSISTANT)
   @UsePipes(new ValidationPipe())
   async updateSubmission(
     @Param('id') id: string,
     @Body() updateSubmissionDto: UpdateSubmissionDto,
   ) {
-    return this.homeworksService.updateSubmission(id, updateSubmissionDto);
+    if (!Types.ObjectId.isValid(id)) {
+      throw new BadRequestException('Некорректный идентификатор решения');
+    }
+    try {
+      return await this.homeworksService.updateSubmission(
+        id,
+        updateSubmissionDto,
+      );
+    } catch (error) {
+      throw new BadRequestException('Ошибка при обновлении решения');
+    }
   }
 
   @Get('submissions/:id')
-  @ApiOperation({ summary: 'Get submission by ID' })
+  @ApiOperation({ summary: 'Получить решение по идентификатору' })
   @ApiParam({
     name: 'id',
-    description: 'Submission ID',
+    description: 'Идентификатор решения',
     example: '507f1f77bcf86cd799439011',
   })
   @ApiResponse({
     status: 200,
-    description: 'Submission retrieved successfully',
+    description: 'Решение успешно получено',
   })
-  @ApiResponse({ status: 404, description: 'Submission not found' })
-  @ApiResponse({ status: 403, description: 'Forbidden' })
+  @ApiResponse({ status: 404, description: 'Решение не найдено' })
+  @ApiResponse({ status: 403, description: 'Доступ запрещён' })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @SetMetadata('roles', [
-    Role.STUDENT,
-    Role.TEACHER,
-    Role.ADMIN,
-    Role.MANAGER,
-    Role.ASSISTANT,
-  ])
+  @Roles(Role.STUDENT, Role.TEACHER, Role.ADMIN, Role.MANAGER, Role.ASSISTANT)
   async findSubmissionById(@Param('id') id: string) {
+    if (!Types.ObjectId.isValid(id)) {
+      throw new BadRequestException('Некорректный идентификатор решения');
+    }
     return this.homeworksService.findSubmissionById(id);
   }
 
   @Get('submissions/homework/:homeworkId')
-  @ApiOperation({ summary: 'Get submissions by homework ID' })
+  @ApiOperation({
+    summary: 'Получить решения по идентификатору домашнего задания',
+  })
   @ApiParam({
     name: 'homeworkId',
-    description: 'Homework ID',
+    description: 'Идентификатор домашнего задания',
     example: '507f1f77bcf86cd799439011',
   })
   @ApiResponse({
     status: 200,
-    description: 'Submissions retrieved successfully',
+    description: 'Решения успешно получены',
   })
-  @ApiResponse({ status: 404, description: 'Submissions not found' })
-  @ApiResponse({ status: 403, description: 'Forbidden' })
+  @ApiResponse({ status: 404, description: 'Решения не найдены' })
+  @ApiResponse({ status: 403, description: 'Доступ запрещён' })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @SetMetadata('roles', [
-    Role.TEACHER,
-    Role.ADMIN,
-    Role.MANAGER,
-    Role.ASSISTANT,
-  ])
+  @Roles(Role.TEACHER, Role.ADMIN, Role.MANAGER, Role.ASSISTANT)
   async findSubmissionsByHomework(@Param('homeworkId') homeworkId: string) {
+    if (!Types.ObjectId.isValid(homeworkId)) {
+      throw new BadRequestException(
+        'Некорректный идентификатор домашнего задания',
+      );
+    }
     return this.homeworksService.findSubmissionsByHomework(homeworkId);
   }
 
   @Get('submissions/student/:studentId')
-  @ApiOperation({ summary: 'Get submissions by student ID' })
+  @ApiOperation({ summary: 'Получить решения по идентификатору студента' })
   @ApiParam({
     name: 'studentId',
-    description: 'Student ID',
+    description: 'Идентификатор студента',
     example: '507f1f77bcf86cd799439011',
   })
   @ApiResponse({
     status: 200,
-    description: 'Submissions retrieved successfully',
+    description: 'Решения успешно получены',
   })
-  @ApiResponse({ status: 404, description: 'Submissions not found' })
-  @ApiResponse({ status: 403, description: 'Forbidden' })
+  @ApiResponse({ status: 404, description: 'Решения не найдены' })
+  @ApiResponse({ status: 403, description: 'Доступ запрещён' })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @SetMetadata('roles', [
-    Role.STUDENT,
-    Role.TEACHER,
-    Role.ADMIN,
-    Role.MANAGER,
-    Role.ASSISTANT,
-  ])
+  @Roles(Role.STUDENT, Role.TEACHER, Role.ADMIN, Role.MANAGER, Role.ASSISTANT)
   async findSubmissionsByStudent(@Param('studentId') studentId: string) {
+    if (!Types.ObjectId.isValid(studentId)) {
+      throw new BadRequestException('Некорректный идентификатор студента');
+    }
     return this.homeworksService.findSubmissionsByStudent(studentId);
   }
 
-  // Обновлённый роут для автоматической проверки решений с улучшенной валидацией submissionId
   @Post('submissions/auto-check')
-  @ApiOperation({ summary: 'Auto-check submission' })
+  @ApiOperation({ summary: 'Автоматическая проверка решения' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        submissionId: {
+          type: 'string',
+          example: '507f1f77bcf86cd799439011',
+          description: 'Идентификатор решения для проверки',
+        },
+      },
+    },
+  })
   @ApiResponse({
     status: 200,
-    description: 'Submission auto-checked successfully',
+    description: 'Решение успешно проверено автоматически',
+    type: Object,
+    example: { grade: 85, comment: 'Автоматическая проверка: 85%' },
   })
-  @ApiResponse({ status: 400, description: 'Bad Request' })
-  @ApiResponse({ status: 404, description: 'Submission not found' })
-  @ApiResponse({ status: 403, description: 'Forbidden' })
+  @ApiResponse({ status: 400, description: 'Некорректный запрос' })
+  @ApiResponse({ status: 404, description: 'Решение не найдено' })
+  @ApiResponse({ status: 403, description: 'Доступ запрещён' })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @SetMetadata('roles', [
-    Role.TEACHER,
-    Role.ADMIN,
-    Role.MANAGER,
-    Role.ASSISTANT,
-  ]) // Ограничение доступа для учителей и администраторов
-  @UsePipes(new ValidationPipe({ transform: true, whitelist: true })) // Улучшаем валидацию
+  @Roles(Role.TEACHER, Role.ADMIN, Role.MANAGER, Role.ASSISTANT)
+  @UsePipes(new ValidationPipe({ transform: true, whitelist: true }))
   async autoCheckSubmission(@Body('submissionId') submissionId: string) {
-    // Валидация submissionId как ObjectId
     if (!Types.ObjectId.isValid(submissionId)) {
+      throw new BadRequestException('Некорректный идентификатор решения');
+    }
+    try {
+      return await this.homeworksService.autoCheckSubmission(submissionId);
+    } catch (error) {
       throw new BadRequestException(
-        'Invalid submissionId: must be a valid ObjectId',
+        'Ошибка при автоматической проверке решения',
       );
     }
-    return this.homeworksService.autoCheckSubmission(submissionId);
   }
 }
