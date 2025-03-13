@@ -5,42 +5,53 @@ import {
   IsOptional,
   IsEnum,
   IsDateString,
-  ValidationOptions,
+  IsNumber,
+  Min,
+  Max,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
-import { Role } from '../../auth/roles.enum';
+
+// Определяем перечисление для категорий домашнего задания
+export enum HomeworkCategory {
+  THEORY = 'theory',
+  PRACTICE = 'practice',
+  PROJECT = 'project',
+}
 
 export class CreateHomeworkDto {
   @ApiProperty({
     example: '507f1f77bcf86cd799439011',
-    description: 'The ID of the lesson',
+    description: 'Идентификатор урока',
   })
-  @IsNotEmpty()
-  @IsMongoId()
+  @IsNotEmpty({ message: 'Идентификатор урока не может быть пустым' })
+  @IsMongoId({
+    message: 'Идентификатор урока должен быть валидным MongoDB ObjectId',
+  })
   lessonId: string;
 
   @ApiProperty({
-    example: 'This is a homework description',
-    description: 'The description of the homework',
+    example: 'Это описание домашнего задания',
+    description: 'Описание домашнего задания',
   })
-  @IsNotEmpty()
-  @IsString()
+  @IsNotEmpty({ message: 'Описание не может быть пустым' })
+  @IsString({ message: 'Описание должно быть строкой' })
   description: string;
 
   @ApiProperty({
-    example: 'theory',
-    description: 'The category of the homework (theory, practice, or project)',
+    example: HomeworkCategory.THEORY,
+    description: 'Категория домашнего задания (теория, практика или проект)',
     required: false,
+    enum: HomeworkCategory,
   })
   @IsOptional()
-  @IsEnum(['theory', 'practice', 'project'], {
-    message: 'Category must be theory, practice, or project',
+  @IsEnum(HomeworkCategory, {
+    message: 'Категория должна быть одной из: theory, practice, project',
   })
-  category?: string;
+  category?: HomeworkCategory;
 
   @ApiProperty({
     example: '2025-03-15T00:00:00Z',
-    description: 'The deadline of the homework',
+    description: 'Крайний срок выполнения домашнего задания',
     required: false,
   })
   @IsOptional()
@@ -48,24 +59,28 @@ export class CreateHomeworkDto {
     {},
     {
       message:
-        'Deadline must be a valid ISO date string (e.g., "2025-03-15T00:00:00Z")',
+        'Крайний срок должен быть валидной строкой даты в формате ISO (например, "2025-03-15T00:00:00Z")',
     },
   )
   deadline?: string;
 
   @ApiProperty({
     example: true,
-    description: 'Whether the homework is active',
+    description: 'Активно ли домашнее задание',
     required: false,
+    default: false,
   })
   @IsOptional()
   isActive?: boolean;
 
   @ApiProperty({
     example: 10,
-    description: 'Points awarded for completing the homework',
+    description: 'Баллы за выполнение домашнего задания (от 0 до 100)',
     required: false,
   })
   @IsOptional()
-  points?: number; // Добавляем опциональное поле для баллов
+  @IsNumber({}, { message: 'Баллы должны быть числом' })
+  @Min(0, { message: 'Баллы не могут быть меньше 0' })
+  @Max(100, { message: 'Баллы не могут превышать 100' })
+  points?: number;
 }
