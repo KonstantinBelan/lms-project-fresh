@@ -24,6 +24,7 @@ import { createObjectCsvWriter } from 'csv-writer';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { UsersService } from '../users/users.service';
+import { HomeworksService } from '../homeworks/homeworks.service';
 import { EnrollmentsService } from '../enrollments/enrollments.service';
 import { LeaderboardEntry } from './dto/leaderboard-entry.dto';
 
@@ -39,9 +40,10 @@ export class CoursesService implements ICoursesService {
     @InjectModel(Course.name) private courseModel: Model<CourseDocument>,
     @InjectModel(Module.name) private moduleModel: Model<ModuleDocument>,
     @InjectModel(Lesson.name) private lessonModel: Model<LessonDocument>,
-    @Inject(CACHE_MANAGER) private cacheManager: Cache,
     private usersService: UsersService,
+    private readonly homeworksService: HomeworksService,
     private enrollmentsService: EnrollmentsService,
+    @Inject(CACHE_MANAGER) private cacheManager: Cache,
   ) {}
 
   // Создание нового курса

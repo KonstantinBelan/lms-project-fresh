@@ -40,11 +40,13 @@ export class EnrollmentsService implements IEnrollmentsService {
     @InjectModel(Enrollment.name)
     private enrollmentModel: Model<EnrollmentDocument>,
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
-    private readonly homeworksService: HomeworksService,
+    @Inject(forwardRef(() => HomeworksService))
+    private homeworksService: HomeworksService,
     private readonly quizzesService: QuizzesService,
     private usersService: UsersService,
     @Inject(forwardRef(() => CoursesService))
     private coursesService: CoursesService,
+    @Inject(forwardRef(() => NotificationsService))
     private notificationsService: NotificationsService,
     @InjectQueue('notifications') private notificationsQueue: Queue,
     @InjectModel(Lesson.name) private lessonModel: Model<Lesson>,

@@ -12,6 +12,7 @@ import { AuthModule } from '../auth/auth.module';
 import { EnrollmentsModule } from '../enrollments/enrollments.module';
 import { CacheModule } from '@nestjs/cache-manager';
 import { UsersModule } from '../users/users.module';
+import { HomeworksModule } from '../homeworks/homeworks.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { UsersModule } from '../users/users.module';
     AuthModule, // Модуль авторизации
     UsersModule, // Модуль пользователей
     forwardRef(() => EnrollmentsModule), // Модуль записей на курсы
+    forwardRef(() => HomeworksModule),
   ],
   controllers: [CoursesController],
   providers: [CoursesService],

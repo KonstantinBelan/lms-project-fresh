@@ -1,6 +1,7 @@
 import {
   Inject,
   Injectable,
+  forwardRef,
   Logger,
   NotFoundException,
   BadRequestException,
@@ -30,13 +31,18 @@ export class HomeworksService {
     @InjectModel(Submission.name)
     private submissionModel: Model<SubmissionDocument>,
     private notificationsService: NotificationsService,
-    private readonly usersService: UsersService,
-    @Inject(CoursesService)
+    @Inject(forwardRef(() => CoursesService))
     private coursesService: CoursesService,
-    @Inject(EnrollmentsService)
     private enrollmentsService: EnrollmentsService,
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
-  ) {}
+  ) {
+    this.logger.debug('Конструктор HomeworksService вызван');
+    this.logger.debug('Модель домашних заданий:', !!this.homeworkModel);
+    this.logger.debug('Модель подписок ДЗ:', !!this.submissionModel);
+    this.logger.debug('Сервис уведомлений:', !!this.notificationsService);
+    this.logger.debug('Сервис курсов:', !!this.coursesService);
+    this.logger.debug('Сервис поступлений:', !!this.enrollmentsService);
+  }
 
   // Методы для домашних заданий (уже обработаны в предыдущем шаге)
   async findAllHomeworks(): Promise<HomeworkDocument[]> {
@@ -84,14 +90,32 @@ export class HomeworksService {
       );
     }
 
-    // Создаём объект с правильной типизацией для Homework
-    const updateData: Partial<Homework> & { deadline?: Date } = {
-      ...updateHomeworkDto,
-      ...(updateHomeworkDto.lessonId && {
-        lessonId: new Types.ObjectId(updateHomeworkDto.lessonId),
-      }), // Преобразуем lessonId в ObjectId, если он указан
-    };
+    // Создаём объект с явной типизацией для всех полей
+    const updateData: Partial<Homework> & {
+      deadline?: Date;
+      lessonId?: Types.ObjectId;
+    } = {};
 
+    // Преобразуем и добавляем свойства, если они присутствуют в updateHomeworkDto
+    if (updateHomeworkDto.lessonId) {
+      if (!Types.ObjectId.isValid(updateHomeworkDto.lessonId)) {
+        throw new BadRequestException('Некорректный идентификатор урока');
+      }
+      updateData.lessonId = new Types.ObjectId(updateHomeworkDto.lessonId);
+    }
+
+    if (updateHomeworkDto.description !== undefined) {
+      updateData.description = updateHomeworkDto.description;
+    }
+    if (updateHomeworkDto.category !== undefined) {
+      updateData.category = updateHomeworkDto.category;
+    }
+    if (updateHomeworkDto.isActive !== undefined) {
+      updateData.isActive = updateHomeworkDto.isActive;
+    }
+    if (updateHomeworkDto.points !== undefined) {
+      updateData.points = updateHomeworkDto.points;
+    }
     if (updateHomeworkDto.deadline) {
       const deadline = new Date(updateHomeworkDto.deadline);
       if (isNaN(deadline.getTime())) {

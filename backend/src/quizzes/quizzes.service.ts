@@ -39,6 +39,7 @@ export class QuizzesService {
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
     @Inject(forwardRef(() => EnrollmentsService))
     private enrollmentsService: EnrollmentsService,
+    @Inject(forwardRef(() => NotificationsService))
     private notificationsService: NotificationsService,
     private readonly usersService: UsersService,
   ) {}
