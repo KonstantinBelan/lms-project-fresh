@@ -29,6 +29,7 @@ import {
   ApiParam,
   ApiBearerAuth,
   ApiBody,
+  ApiSecurity,
 } from '@nestjs/swagger';
 // import { MailerService } from '../mailer/mailer.service'; // Добавляем MailerService
 
@@ -48,6 +49,7 @@ export class NotificationsController {
   ) {}
 
   @Post()
+  @ApiSecurity('JWT-auth')
   @ApiOperation({ summary: 'Создание нового уведомления' })
   @ApiResponse({
     status: 201,
@@ -70,6 +72,7 @@ export class NotificationsController {
   }
 
   @Put(':id/read')
+  @ApiSecurity('JWT-auth')
   @ApiOperation({ summary: 'Отметить уведомление как прочитанное' })
   @ApiParam({
     name: 'id',
@@ -102,6 +105,7 @@ export class NotificationsController {
   }
 
   @Delete(':id')
+  @ApiSecurity('JWT-auth')
   @ApiOperation({ summary: 'Удалить уведомление' })
   @ApiParam({
     name: 'id',
@@ -157,45 +161,131 @@ export class NotificationsController {
 
   @Post('test-telegram')
   @ApiOperation({ summary: 'Отправить тестовое Telegram-уведомление' })
-  @ApiResponse({ status: 200, description: 'Сообщение Telegram отправлено' })
-  @ApiResponse({ status: 400, description: 'Неверный запрос' })
-  @ApiBearerAuth()
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        message: {
+          type: 'string',
+          example: 'Привет, это тестовое сообщение для Telegram!',
+          description: 'Сообщение для отправки в Telegram',
+        },
+      },
+      required: ['message'],
+    },
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Сообщение Telegram отправлено',
+    content: {
+      'application/json': {
+        example: { message: 'Telegram-уведомление отправлено' },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Неверный запрос - отсутствует сообщение или userId',
+  })
+  @ApiSecurity('JWT-auth')
   @UseGuards(AuthGuard('jwt'))
   async testTelegram(
     @Req() req: RequestWithUser,
     @Body() body: { message: string },
   ) {
     const userId = req.user?.sub || req.user?._id;
+    const { message } = body;
+
     if (!userId) {
       this.logger.warn('Идентификатор пользователя не найден в токене');
       throw new BadRequestException(
         'Идентификатор пользователя не найден в токене',
       );
     }
-    this.logger.log(`Отправка тестового Telegram пользователю ${userId}`);
-    await this.notificationsService.sendTelegram(userId, body.message);
-    this.logger.log(`Тестовое Telegram отправлено пользователю ${userId}`);
+
+    if (!message || message.trim() === '') {
+      this.logger.warn(
+        `Отсутствует или пустое сообщение для пользователя ${userId}`,
+      );
+      throw new BadRequestException('Сообщение обязательно для отправки');
+    }
+
+    this.logger.log(
+      `Отправка тестового Telegram пользователю ${userId} с сообщением: "${message}"`,
+    );
+    await this.notificationsService.sendTelegram(userId, message);
+    this.logger.log(
+      `Тестовое Telegram успешно отправлено пользователю ${userId}`,
+    );
     return { message: 'Telegram-уведомление отправлено' };
   }
 
   @Post('test-sms')
   @ApiOperation({ summary: 'Отправить тестовое SMS-уведомление' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        userId: {
+          type: 'string',
+          example: '507f1f77bcf86cd799439011',
+          description: 'Идентификатор пользователя',
+        },
+        message: {
+          type: 'string',
+          example: 'Привет, это тестовое SMS!',
+          description: 'Сообщение для отправки через SMS',
+        },
+      },
+      required: ['userId', 'message'],
+    },
+  })
   @ApiResponse({
     status: 200,
     description: 'Тестовое SMS успешно отправлено',
+    content: {
+      'application/json': {
+        example: {
+          status: 'success',
+          message: 'Тестовое SMS успешно отправлено',
+        },
+      },
+    },
   })
-  @ApiResponse({ status: 400, description: 'Неверный запрос' })
+  @ApiResponse({
+    status: 400,
+    description: 'Неверный запрос - отсутствует userId или сообщение',
+  })
+  @ApiSecurity('JWT-auth')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @SetMetadata('roles', [Role.ADMIN])
   async testSMS(@Body() body: { userId: string; message: string }) {
     const { userId, message } = body;
-    this.logger.log(`Отправка тестового SMS пользователю ${userId}`);
+
+    if (!userId) {
+      this.logger.warn('Отсутствует userId в теле запроса');
+      throw new BadRequestException(
+        'Требуется идентификатор пользователя (userId)',
+      );
+    }
+
+    if (!message || message.trim() === '') {
+      this.logger.warn(
+        `Отсутствует или пустое сообщение для пользователя ${userId}`,
+      );
+      throw new BadRequestException('Сообщение обязательно для отправки');
+    }
+
+    this.logger.log(
+      `Отправка тестового SMS пользователю ${userId} с сообщением: "${message}"`,
+    );
     await this.notificationsService.sendSMS(userId, message);
-    this.logger.log(`Тестовое SMS отправлено пользователю ${userId}`);
+    this.logger.log(`Тестовое SMS успешно отправлено пользователю ${userId}`);
     return { status: 'success', message: 'Тестовое SMS успешно отправлено' };
   }
 
   @Post('bulk')
+  @ApiSecurity('JWT-auth')
   @ApiOperation({ summary: 'Создать массовое уведомление' })
   @ApiResponse({
     status: 201,
@@ -225,6 +315,7 @@ export class NotificationsController {
   }
 
   @Put(':id')
+  @ApiSecurity('JWT-auth')
   @ApiOperation({ summary: 'Обновить уведомление' })
   @ApiParam({
     name: 'id',
@@ -257,6 +348,7 @@ export class NotificationsController {
   }
 
   @Get('user/:userId')
+  @ApiSecurity('JWT-auth')
   @ApiOperation({ summary: 'Получить уведомления по ID пользователя' })
   @ApiParam({
     name: 'userId',
@@ -288,6 +380,7 @@ export class NotificationsController {
   }
 
   @Post(':id/send')
+  @ApiSecurity('JWT-auth')
   @HttpCode(200)
   @ApiOperation({ summary: 'Отправить уведомление одному пользователю' })
   @ApiParam({
@@ -351,6 +444,7 @@ export class NotificationsController {
   }
 
   @Post(':id/send-bulk')
+  @ApiSecurity('JWT-auth')
   @ApiOperation({ summary: 'Отправить уведомление нескольким пользователям' })
   @ApiParam({
     name: 'id',
