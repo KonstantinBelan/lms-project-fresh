@@ -44,8 +44,8 @@ import { join } from 'path';
         from: '"Deasy LMS" <kosbelan@gmail.com>',
       },
       template: {
-        // dir: join(process.cwd(), 'dist', 'mailer', 'templates'), // Папка с шаблонами писем
-        dir: join(__dirname, '..', 'templates'), // Путь к шаблонам относительно текущего файла
+        dir: join(process.cwd(), 'dist', 'mailer', 'templates'), // Папка с шаблонами писем
+        // dir: join(__dirname, '..', 'templates'), // Путь к шаблонам относительно текущего файла
         adapter: new HandlebarsAdapter(), // Используем Handlebars для рендеринга шаблонов
         options: { strict: true },
       },
