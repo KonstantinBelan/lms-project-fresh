@@ -5,7 +5,7 @@ import { ApiProperty } from '@nestjs/swagger';
 export class CreateNotificationDto {
   @ApiProperty({
     example: 'new_course',
-    description: 'Notification key',
+    description: 'Ключ уведомления (уникальный идентификатор шаблона)',
     required: false,
   })
   @IsOptional()
@@ -14,21 +14,21 @@ export class CreateNotificationDto {
 
   @ApiProperty({
     example: 'Важное объявление',
-    description: 'The title of the notification',
+    description: 'Заголовок уведомления',
   })
   @IsString()
   title: string;
 
   @ApiProperty({
     example: 'Это тестовое уведомление',
-    description: 'The notification message',
+    description: 'Сообщение уведомления',
   })
   @IsString()
   message: string;
 
   @ApiProperty({
     example: '507f1f77bcf86cd799439011',
-    description: 'The ID of a single user (optional)',
+    description: 'Идентификатор одного пользователя (опционально)',
     required: false,
   })
   @IsOptional()
@@ -37,7 +37,7 @@ export class CreateNotificationDto {
 
   @ApiProperty({
     example: ['507f1f77bcf86cd799439011', '67c92217f30e0a8bcd56bf86'],
-    description: 'Array of recipient IDs (optional)',
+    description: 'Массив идентификаторов получателей (опционально)',
     required: false,
   })
   @IsOptional()

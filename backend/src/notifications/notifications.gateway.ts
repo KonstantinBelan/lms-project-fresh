@@ -15,7 +15,7 @@ import { EnrollmentsService } from '../enrollments/enrollments.service';
 import { CoursesService } from '../courses/courses.service';
 import { HomeworksService } from '../homeworks/homeworks.service';
 
-@WebSocketGateway({ cors: { origin: '*' } }) // Глобальный шлюз без namespace
+@WebSocketGateway({ cors: { origin: '*' } }) // Глобальный шлюз без пространства имен
 @Injectable()
 export class NotificationsGateway
   implements OnGatewayConnection, OnGatewayDisconnect, OnGatewayInit
@@ -34,47 +34,52 @@ export class NotificationsGateway
     @Inject(forwardRef(() => HomeworksService))
     private readonly homeworksService: HomeworksService,
   ) {
-    this.logger.log('NotificationsGateway initialized');
-    this.logger.log('NotificationsService:', !!this.notificationsService);
-    this.logger.log('EnrollmentsService:', !!this.enrollmentsService);
-    this.logger.log('CoursesService:', !!this.coursesService);
-    this.logger.log('HomeworksService:', !!this.homeworksService);
+    this.logger.log('Инициализация NotificationsGateway');
+    this.logger.log(`NotificationsService: ${!!this.notificationsService}`);
+    this.logger.log(`EnrollmentsService: ${!!this.enrollmentsService}`);
+    this.logger.log(`CoursesService: ${!!this.coursesService}`);
+    this.logger.log(`HomeworksService: ${!!this.homeworksService}`);
   }
 
+  // Инициализация WebSocket-сервера
   afterInit() {
-    this.logger.log('WebSocket server initialized');
+    this.logger.log('WebSocket-сервер инициализирован');
   }
 
+  // Обработка подключения клиента
   handleConnection(client: Socket) {
-    this.logger.log(`Client connected: ${client.id}`);
+    this.logger.log(`Клиент подключился: ${client.id}`);
   }
 
+  // Обработка отключения клиента
   handleDisconnect(client: Socket) {
     const userId = [...this.subscriptions.entries()].find(
       ([, socketId]) => socketId === client.id,
     )?.[0];
     if (userId) {
       this.subscriptions.delete(userId);
-      this.logger.log(`Client unsubscribed: ${userId}`);
+      this.logger.log(`Клиент отписался: ${userId}`);
     }
-    this.logger.log(`Client disconnected: ${client.id}`);
+    this.logger.log(`Клиент отключился: ${client.id}`);
   }
 
+  // Подписка клиента на уведомления
   @SubscribeMessage('subscribe')
   handleSubscribe(
     @MessageBody() data: { userId: string },
     @ConnectedSocket() client: Socket,
   ) {
     this.subscriptions.set(data.userId, client.id);
-    this.logger.log(`Client subscribed: ${data.userId}`);
+    this.logger.log(`Клиент подписался на уведомления: ${data.userId}`);
   }
 
+  // Подписка на обновления прогресса
   @SubscribeMessage('subscribe-progress')
   async handleSubscribeProgress(
     @MessageBody() data: { userId: string },
     @ConnectedSocket() client: Socket,
   ) {
-    this.logger.log(`Subscribe progress for userId: ${data.userId}`);
+    this.logger.log(`Подписка на прогресс для пользователя: ${data.userId}`);
     try {
       const enrollments = await this.enrollmentsService.getEnrollmentsByStudent(
         data.userId,
@@ -89,29 +94,31 @@ export class NotificationsGateway
           return {
             courseTitle:
               (await this.coursesService.findCourseById(courseId))?.title ||
-              'Unknown',
-            ...progressData, // courseId уже есть в progressData
+              'Неизвестно',
+            ...progressData,
           };
         }),
       );
       this.server
         .to(data.userId)
         .emit('progress-update', { userId: data.userId, progress });
+      this.logger.debug(`Прогресс отправлен пользователю: ${data.userId}`);
     } catch (error) {
-      this.logger.error(`Error in subscribe-progress: ${error.message}`);
+      this.logger.error(`Ошибка в subscribe-progress: ${error.message}`);
       this.server.to(data.userId).emit('error', {
-        message: 'Failed to get progress',
+        message: 'Не удалось получить прогресс',
         error: error.message,
       });
     }
   }
 
+  // Подписка на активность курса
   @SubscribeMessage('subscribe-activity')
   async handleSubscribeActivity(
     @MessageBody() data: { courseId: string },
     @ConnectedSocket() client: Socket,
   ) {
-    this.logger.log(`Subscribe activity for courseId: ${data.courseId}`);
+    this.logger.log(`Подписка на активность для курса: ${data.courseId}`);
     try {
       const enrollments = await this.enrollmentsService.getEnrollmentsByCourse(
         data.courseId,
@@ -130,15 +137,17 @@ export class NotificationsGateway
         recentActivity: submissions.slice(0, 5),
       };
       this.server.to(data.courseId).emit('activity-update', activity);
+      this.logger.debug(`Активность отправлена для курса: ${data.courseId}`);
     } catch (error) {
-      this.logger.error(`Error in subscribe-activity: ${error.message}`);
+      this.logger.error(`Ошибка в subscribe-activity: ${error.message}`);
       this.server.to(data.courseId).emit('error', {
-        message: 'Failed to get activity',
+        message: 'Не удалось получить активность',
         error: error.message,
       });
     }
   }
 
+  // Отправка уведомления пользователю через WebSocket
   notifyUser(userId: string, message: string) {
     const socketId = this.subscriptions.get(userId);
     if (socketId) {
@@ -146,7 +155,11 @@ export class NotificationsGateway
         message,
         timestamp: new Date().toISOString(),
       });
-      this.logger.log(`Notification sent to user ${userId}: ${message}`);
+      this.logger.log(
+        `Уведомление отправлено пользователю ${userId}: ${message}`,
+      );
+    } else {
+      this.logger.warn(`Пользователь ${userId} не подписан на WebSocket`);
     }
   }
 }

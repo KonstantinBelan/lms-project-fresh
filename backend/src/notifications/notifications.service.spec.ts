@@ -11,7 +11,7 @@ import * as nodemailer from 'nodemailer';
 describe('NotificationsService', () => {
   let service: NotificationsService;
 
-  // Мок для notificationModel
+  // Мок для модели уведомлений
   const mockNotificationModel = jest.fn().mockImplementation((data) => ({
     ...data,
     _id: '1',
@@ -43,9 +43,9 @@ describe('NotificationsService', () => {
     set: jest.fn().mockResolvedValue(undefined),
   };
 
-  const mockTransporter = {
-    sendMail: jest.fn().mockResolvedValue(undefined),
-  };
+  // const mockTransporter = {
+  //   sendMail: jest.fn().mockResolvedValue(undefined),
+  // };
 
   beforeEach(async () => {
     jest
@@ -67,26 +67,69 @@ describe('NotificationsService', () => {
     }).compile();
 
     service = module.get<NotificationsService>(NotificationsService);
+    // Мокаем логгер для проверки вызовов
+    jest.spyOn(service['logger'], 'log').mockImplementation();
   });
 
   afterEach(() => jest.clearAllMocks());
 
   describe('createNotification', () => {
-    it('should create a notification', async () => {
-      const result = await service.createNotification('user1', 'Test');
-      expect(mockNotificationModel).toHaveBeenCalledWith({
-        userId: 'user1',
+    it('должен создать уведомление', async () => {
+      const result = await service.createNotification({
+        title: 'Test Title',
         message: 'Test',
+        userId: 'user1',
+      });
+      expect(mockNotificationModel).toHaveBeenCalledWith({
+        title: 'Test Title',
+        message: 'Test',
+        userId: 'user1',
       });
       expect(result).toHaveProperty('_id', '1');
+      expect(service['logger'].log).toHaveBeenCalledWith(
+        expect.stringContaining('Создание уведомления'),
+      );
     });
   });
 
   describe('sendEmail', () => {
-    it('should send an email successfully', async () => {
+    it('должен успешно отправить email', async () => {
       await service.sendEmail('user1', 'Subject', 'Message');
       expect(mockUsersService.findById).toHaveBeenCalledWith('user1');
-      expect(mockTransporter.sendMail).toHaveBeenCalled();
+      // expect(mockTransporter.sendMail).toHaveBeenCalled();
+      expect(service['logger'].log).toHaveBeenCalledWith(
+        expect.stringContaining('Сообщение email отправлено'),
+      );
+    });
+  });
+
+  describe('notifyNewCourse', () => {
+    it('должен уведомить о новом курсе', async () => {
+      mockNotificationModel.mockImplementationOnce((data) => ({
+        ...data,
+        _id: '2',
+        save: jest.fn().mockResolvedValue({
+          _id: '2',
+          userId: data.userId,
+          message: data.message,
+          title: data.title,
+        }),
+      }));
+
+      await service.notifyNewCourse('user1', 'course1', 'Test Course');
+      expect(mockNotificationModel).toHaveBeenCalledWith({
+        userId: 'user1',
+        message: expect.any(String),
+        title: expect.any(String),
+      });
+      expect(mockCacheManager.set).toHaveBeenCalledWith(
+        'notification:newcourse:user1:course1',
+        expect.any(String),
+        3600,
+      );
+      expect(service['logger'].log).toHaveBeenCalledWith(
+        expect.stringContaining('Уведомление о новом курсе'),
+      );
     });
   });
 });

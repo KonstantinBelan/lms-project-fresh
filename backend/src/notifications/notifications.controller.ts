@@ -28,52 +28,60 @@ import {
   ApiResponse,
   ApiParam,
   ApiBearerAuth,
+  ApiBody,
 } from '@nestjs/swagger';
+// import { MailerService } from '../mailer/mailer.service'; // Добавляем MailerService
 
-// Определяем тип RequestWithUser
+// Тип для запроса с пользователем из JWT
 interface RequestWithUser extends Request {
-  user: { sub?: string; _id?: string }; // Тип зависит от твоего JWT payload
+  user: { sub?: string; _id?: string };
 }
 
-@ApiTags('Notifications')
-// @Controller('notifications')
+@ApiTags('Уведомления')
 @Controller({ path: 'notifications', version: '1' })
 export class NotificationsController {
-  private logger = new Logger('notificationsService');
+  private logger = new Logger(NotificationsController.name);
 
-  constructor(private readonly notificationsService: NotificationsService) {}
+  constructor(
+    private readonly notificationsService: NotificationsService,
+    // private readonly mailerService: MailerService, // Добавляем MailerService
+  ) {}
 
   @Post()
-  @ApiOperation({ summary: 'Create a new notification' })
+  @ApiOperation({ summary: 'Создание нового уведомления' })
   @ApiResponse({
     status: 201,
-    description: 'Notification created',
+    description: 'Уведомление успешно создано',
     type: CreateNotificationDto,
   })
-  @ApiResponse({ status: 400, description: 'Bad Request' })
+  @ApiResponse({ status: 400, description: 'Неверный запрос' })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @SetMetadata('roles', [Role.STUDENT, Role.TEACHER, Role.ADMIN, Role.MANAGER])
   @UsePipes(new ValidationPipe())
   async create(@Body() createNotificationDto: CreateNotificationDto) {
+    this.logger.log(
+      `Создание уведомления: ${JSON.stringify(createNotificationDto)}`,
+    );
     const notification = await this.notificationsService.createNotification(
       createNotificationDto,
     );
-    return notification; // Возвращаем созданное уведомление, а не список
+    this.logger.log(`Уведомление создано: ${notification._id}`);
+    return notification;
   }
 
   @Put(':id/read')
-  @ApiOperation({ summary: 'Mark notification as read' })
+  @ApiOperation({ summary: 'Отметить уведомление как прочитанное' })
   @ApiParam({
     name: 'id',
-    description: 'Notification ID',
+    description: 'Идентификатор уведомления',
     example: '507f1f77bcf86cd799439011',
   })
   @ApiResponse({
     status: 200,
-    description: 'Notification marked as read',
+    description: 'Уведомление отмечено как прочитанное',
   })
-  @ApiResponse({ status: 404, description: 'Notification not found' })
-  @ApiResponse({ status: 403, description: 'Forbidden' })
+  @ApiResponse({ status: 404, description: 'Уведомление не найдено' })
+  @ApiResponse({ status: 403, description: 'Доступ запрещен' })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @SetMetadata('roles', [
     Role.STUDENT,
@@ -84,50 +92,73 @@ export class NotificationsController {
   ])
   @UsePipes(new ValidationPipe())
   async markAsRead(@Param('id') id: string) {
-    return this.notificationsService.markAsRead(id);
+    this.logger.log(`Отметка уведомления ${id} как прочитанного`);
+    const result = await this.notificationsService.markAsRead(id);
+    if (!result) {
+      this.logger.warn(`Уведомление ${id} не найдено`);
+      throw new NotFoundException(`Уведомление ${id} не найдено`);
+    }
+    return result;
   }
 
   @Delete(':id')
-  @ApiOperation({ summary: 'Delete a notification' })
+  @ApiOperation({ summary: 'Удалить уведомление' })
   @ApiParam({
     name: 'id',
-    description: 'Notification ID',
+    description: 'Идентификатор уведомления',
     example: '507f1f77bcf86cd799439011',
   })
   @ApiResponse({
     status: 200,
-    description: 'Notification deleted',
+    description: 'Уведомление удалено',
     schema: {
-      example: { message: 'Notification deleted' },
+      example: { message: 'Уведомление удалено' },
     },
   })
-  @ApiResponse({ status: 404, description: 'Notification not found' })
-  @ApiResponse({ status: 403, description: 'Forbidden' })
+  @ApiResponse({ status: 404, description: 'Уведомление не найдено' })
+  @ApiResponse({ status: 403, description: 'Доступ запрещен' })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @SetMetadata('roles', [Role.STUDENT, Role.ADMIN, Role.MANAGER])
   async delete(@Param('id') id: string) {
-    return this.notificationsService.deleteNotification(id);
+    this.logger.log(`Удаление уведомления ${id}`);
+    await this.notificationsService.deleteNotification(id);
+    return { message: 'Уведомление удалено' };
   }
 
   // @Post('test-email')
-  // @ApiOperation({ summary: 'Send a test email notification' })
+  // @ApiOperation({ summary: 'Отправить тестовое email-уведомление' })
+  // @ApiBody({
+  //   schema: {
+  //     example: {
+  //       userId: '507f1f77bcf86cd799439011',
+  //       message: 'Тестовое сообщение',
+  //     },
+  //   },
+  // })
   // @ApiResponse({
   //   status: 200,
-  //   description: 'Test email sent successfully',
+  //   description: 'Тестовое email успешно отправлено',
   // })
-  // @ApiResponse({ status: 400, description: 'Bad Request' })
+  // @ApiResponse({ status: 400, description: 'Неверный запрос' })
   // @UseGuards(AuthGuard('jwt'), RolesGuard)
-  // @SetMetadata('roles', [Role.ADMIN]) // Ограничиваем доступ только для администратора
+  // @SetMetadata('roles', [Role.ADMIN])
   // async testEmail(@Body() body: { userId: string; message: string }) {
   //   const { userId, message } = body;
-  //   await this.notificationsService.sendEmail(userId, 'Test Email', message);
-  //   return { status: 'success', message: 'Test email sent successfully' };
+  //   this.logger.log(`Отправка тестового email пользователю ${userId}`);
+  //   await this.mailerService.sendInstantMail(
+  //     userId,
+  //     'Тестовое письмо',
+  //     'welcome',
+  //     { name: 'User', message },
+  //   );
+  //   this.logger.log(`Тестовое email отправлено пользователю ${userId}`);
+  //   return { status: 'success', message: 'Тестовое email успешно отправлено' };
   // }
 
   @Post('test-telegram')
-  @ApiOperation({ summary: 'Test Telegram notification' })
-  @ApiResponse({ status: 200, description: 'Telegram message sent' })
-  @ApiResponse({ status: 400, description: 'Bad Request' })
+  @ApiOperation({ summary: 'Отправить тестовое Telegram-уведомление' })
+  @ApiResponse({ status: 200, description: 'Сообщение Telegram отправлено' })
+  @ApiResponse({ status: 400, description: 'Неверный запрос' })
   @ApiBearerAuth()
   @UseGuards(AuthGuard('jwt'))
   async testTelegram(
@@ -136,60 +167,72 @@ export class NotificationsController {
   ) {
     const userId = req.user?.sub || req.user?._id;
     if (!userId) {
-      throw new BadRequestException('User ID not found in token');
+      this.logger.warn('Идентификатор пользователя не найден в токене');
+      throw new BadRequestException(
+        'Идентификатор пользователя не найден в токене',
+      );
     }
+    this.logger.log(`Отправка тестового Telegram пользователю ${userId}`);
     await this.notificationsService.sendTelegram(userId, body.message);
-    return { message: 'Telegram notification sent' };
+    this.logger.log(`Тестовое Telegram отправлено пользователю ${userId}`);
+    return { message: 'Telegram-уведомление отправлено' };
   }
 
   @Post('test-sms')
-  @ApiOperation({ summary: 'Send a test SMS notification' })
+  @ApiOperation({ summary: 'Отправить тестовое SMS-уведомление' })
   @ApiResponse({
     status: 200,
-    description: 'Test SMS sent successfully',
+    description: 'Тестовое SMS успешно отправлено',
   })
-  @ApiResponse({ status: 400, description: 'Bad Request' })
+  @ApiResponse({ status: 400, description: 'Неверный запрос' })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @SetMetadata('roles', [Role.ADMIN]) // Ограничиваем доступ только для администратора
+  @SetMetadata('roles', [Role.ADMIN])
   async testSMS(@Body() body: { userId: string; message: string }) {
     const { userId, message } = body;
+    this.logger.log(`Отправка тестового SMS пользователю ${userId}`);
     await this.notificationsService.sendSMS(userId, message);
-    return { status: 'success', message: 'Test SMS sent successfully' };
+    this.logger.log(`Тестовое SMS отправлено пользователю ${userId}`);
+    return { status: 'success', message: 'Тестовое SMS успешно отправлено' };
   }
 
   @Post('bulk')
-  @ApiOperation({ summary: 'Create a bulk notification' })
+  @ApiOperation({ summary: 'Создать массовое уведомление' })
   @ApiResponse({
     status: 201,
-    description: 'Bulk notification created and sent',
+    description: 'Массовое уведомление создано и отправлено',
   })
-  @ApiResponse({ status: 400, description: 'Bad Request' })
+  @ApiResponse({ status: 400, description: 'Неверный запрос' })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @SetMetadata('roles', [Role.ADMIN, Role.MANAGER])
   @UsePipes(new ValidationPipe())
   async createBulkNotification(
     @Body() createNotificationDto: CreateNotificationDto,
   ) {
+    this.logger.log(
+      `Создание массового уведомления: ${JSON.stringify(createNotificationDto)}`,
+    );
     const notification = await this.notificationsService.createBulkNotification(
       createNotificationDto,
     );
     if (!notification) {
+      this.logger.error('Не удалось создать или обновить массовое уведомление');
       throw new BadRequestException(
-        'Failed to create or update bulk notification',
+        'Не удалось создать или обновить массовое уведомление',
       );
     }
+    this.logger.log(`Массовое уведомление создано: ${notification._id}`);
     return notification;
   }
 
   @Put(':id')
-  @ApiOperation({ summary: 'Update a notification' })
+  @ApiOperation({ summary: 'Обновить уведомление' })
   @ApiParam({
     name: 'id',
-    description: 'Notification ID',
+    description: 'Идентификатор уведомления',
     example: '507f1f77bcf86cd799439011',
   })
-  @ApiResponse({ status: 200, description: 'Notification updated' })
-  @ApiResponse({ status: 404, description: 'Notification not found' })
+  @ApiResponse({ status: 200, description: 'Уведомление обновлено' })
+  @ApiResponse({ status: 404, description: 'Уведомление не найдено' })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @SetMetadata('roles', [Role.ADMIN, Role.MANAGER])
   @UsePipes(new ValidationPipe())
@@ -197,30 +240,35 @@ export class NotificationsController {
     @Param('id') id: string,
     @Body() updateNotificationDto: CreateNotificationDto,
   ) {
+    this.logger.log(
+      `Обновление уведомления ${id}: ${JSON.stringify(updateNotificationDto)}`,
+    );
     const updatedNotification =
       await this.notificationsService.updateNotification(
         id,
         updateNotificationDto,
       );
     if (!updatedNotification) {
-      throw new NotFoundException(`Notification with ID ${id} not found`);
+      this.logger.warn(`Уведомление ${id} не найдено`);
+      throw new NotFoundException(`Уведомление с ID ${id} не найдено`);
     }
+    this.logger.log(`Уведомление обновлено: ${id}`);
     return updatedNotification;
   }
 
   @Get('user/:userId')
-  @ApiOperation({ summary: 'Get notifications by user ID' })
+  @ApiOperation({ summary: 'Получить уведомления по ID пользователя' })
   @ApiParam({
     name: 'userId',
-    description: 'User ID',
+    description: 'Идентификатор пользователя',
     example: '507f1f77bcf86cd799439011',
   })
   @ApiResponse({
     status: 200,
-    description: 'Notifications retrieved successfully',
+    description: 'Уведомления успешно получены',
   })
-  @ApiResponse({ status: 404, description: 'Notifications not found' })
-  @ApiResponse({ status: 403, description: 'Forbidden' })
+  @ApiResponse({ status: 404, description: 'Уведомления не найдены' })
+  @ApiResponse({ status: 403, description: 'Доступ запрещен' })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @SetMetadata('roles', [
     Role.STUDENT,
@@ -230,26 +278,28 @@ export class NotificationsController {
     Role.ASSISTANT,
   ])
   async findByUser(@Param('userId') userId: string) {
+    this.logger.log(`Получение уведомлений для пользователя ${userId}`);
     const notifications =
       await this.notificationsService.findNotificationsByUser(userId);
     if (!notifications.length) {
-      this.logger.log(`No notifications found for userId: ${userId}`);
+      this.logger.log(`Уведомления для пользователя ${userId} не найдены`);
     }
     return notifications;
   }
 
   @Post(':id/send')
   @HttpCode(200)
-  @ApiOperation({ summary: 'Send a notification to a single user' })
+  @ApiOperation({ summary: 'Отправить уведомление одному пользователю' })
   @ApiParam({
     name: 'id',
-    description: 'Notification ID',
+    description: 'Идентификатор уведомления',
     example: '507f1f77bcf86cd799439011',
     required: true,
   })
   @ApiResponse({
     status: 200,
-    description: 'Notification successfully queued for sending to the user',
+    description:
+      'Уведомление успешно поставлено в очередь для отправки пользователю',
     type: CreateNotificationDto,
     content: {
       'application/json': {
@@ -266,9 +316,9 @@ export class NotificationsController {
   })
   @ApiResponse({
     status: 400,
-    description: 'Bad Request - Invalid notification data',
+    description: 'Неверный запрос - некорректные данные уведомления',
   })
-  @ApiResponse({ status: 404, description: 'Notification not found' })
+  @ApiResponse({ status: 404, description: 'Уведомление не найдено' })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @SetMetadata('roles', [Role.ADMIN, Role.MANAGER])
   @UsePipes(new ValidationPipe())
@@ -278,33 +328,41 @@ export class NotificationsController {
   ) {
     const { userId } = body;
     if (!userId) {
-      throw new BadRequestException('userId is required');
+      this.logger.warn('Отсутствует userId в теле запроса');
+      throw new BadRequestException('Требуется userId');
     }
+    this.logger.log(
+      `Отправка уведомления ${notificationId} пользователю ${userId}`,
+    );
     const notification = await this.notificationsService.sendNotificationToUser(
       notificationId,
       userId,
     );
     if (!notification) {
+      this.logger.warn(`Уведомление ${notificationId} не найдено`);
       throw new NotFoundException(
-        `Notification with ID ${notificationId} not found`,
+        `Уведомление с ID ${notificationId} не найдено`,
       );
     }
+    this.logger.log(
+      `Уведомление ${notificationId} отправлено пользователю ${userId}`,
+    );
     return notification;
   }
 
   @Post(':id/send-bulk')
-  @ApiOperation({ summary: 'Send a notification to multiple users' })
+  @ApiOperation({ summary: 'Отправить уведомление нескольким пользователям' })
   @ApiParam({
     name: 'id',
-    description: 'Notification ID',
+    description: 'Идентификатор уведомления',
     example: '507f1f77bcf86cd799439011',
   })
   @ApiResponse({
     status: 200,
-    description: 'Notification sent successfully to all recipients',
+    description: 'Уведомление успешно отправлено всем получателям',
   })
-  @ApiResponse({ status: 400, description: 'Bad Request' })
-  @ApiResponse({ status: 404, description: 'Notification not found' })
+  @ApiResponse({ status: 400, description: 'Неверный запрос' })
+  @ApiResponse({ status: 404, description: 'Уведомление не найдено' })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @SetMetadata('roles', [Role.ADMIN, Role.MANAGER])
   @UsePipes(new ValidationPipe())
@@ -312,16 +370,21 @@ export class NotificationsController {
     @Param('id') notificationId: string,
     @Body() body: { recipientIds?: string[] },
   ) {
-    const { recipientIds } = body; // Опционально, если не указано — используем recipients из уведомления
+    const { recipientIds } = body;
+    this.logger.log(
+      `Отправка массового уведомления ${notificationId} для ${recipientIds?.length || 'всех'} получателей`,
+    );
     const notification = await this.notificationsService.sendNotificationToBulk(
       notificationId,
       recipientIds,
     );
     if (!notification) {
+      this.logger.warn(`Уведомление ${notificationId} не найдено`);
       throw new NotFoundException(
-        `Notification with ID ${notificationId} not found`,
+        `Уведомление с ID ${notificationId} не найдено`,
       );
     }
+    this.logger.log(`Массовое уведомление ${notificationId} отправлено`);
     return notification;
   }
 }

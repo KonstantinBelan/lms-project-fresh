@@ -1,3 +1,4 @@
+// src/notifications/notifications.module.ts
 import { Module, forwardRef } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import {
@@ -14,18 +15,21 @@ import { CoursesModule } from '../courses/courses.module';
 import { HomeworksModule } from '../homeworks/homeworks.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { BullModule } from '@nestjs/bull';
-import { CacheModule } from '@nestjs/cache-manager'; // Добавляем CacheModule
+import { CacheModule } from '@nestjs/cache-manager';
+// import { MailerModule } from '../mailer/mailer.module'; // Добавляем MailerModule
 
 @Module({
   imports: [
+    // Подключение модели Notification для MongoDB
     MongooseModule.forFeature([
       { name: Notification.name, schema: NotificationSchema },
     ]),
     forwardRef(() => EnrollmentsModule),
     UsersModule,
-    forwardRef(() => CoursesModule), // Добавляем forwardRef для CoursesModule
+    forwardRef(() => CoursesModule),
     forwardRef(() => HomeworksModule),
     ConfigModule,
+    // Настройка очереди для обработки уведомлений
     BullModule.registerQueue({
       name: 'notifications',
       redis: {
@@ -34,6 +38,7 @@ import { CacheModule } from '@nestjs/cache-manager'; // Добавляем Cache
       },
     }),
     CacheModule.register(),
+    // MailerModule, // Добавляем поддержку email
   ],
   controllers: [NotificationsController],
   providers: [
@@ -46,12 +51,13 @@ import { CacheModule } from '@nestjs/cache-manager'; // Добавляем Cache
 })
 export class NotificationsModule {
   constructor() {
-    console.log('NotificationsModule initialized, imports:', [
+    console.log('Инициализация NotificationsModule, импорты:', [
       'MongooseModule',
       'EnrollmentsModule',
       'UsersModule',
       'CoursesModule',
       'ConfigModule',
+      'MailerModule',
     ]);
   }
 }
