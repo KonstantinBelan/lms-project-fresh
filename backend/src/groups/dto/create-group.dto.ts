@@ -4,14 +4,14 @@ import { IsString, IsOptional } from 'class-validator';
 export class CreateGroupDto {
   @ApiProperty({
     example: 'Group 1',
-    description: 'The name of the group',
+    description: 'Название группы',
   })
   @IsString()
   name: string;
 
   @ApiProperty({
-    example: 'This is a description of Group 1',
-    description: 'The description of the group',
+    example: 'Это описание группы 1',
+    description: 'Описание группы',
     required: false,
   })
   @IsOptional()

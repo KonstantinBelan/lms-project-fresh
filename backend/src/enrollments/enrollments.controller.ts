@@ -306,6 +306,7 @@ export class EnrollmentsController {
   })
   @ApiResponse({ status: 200, description: 'Индекс успешно получен' })
   @ApiResponse({ status: 404, description: 'Индекс не найден' })
+  @Roles(Role.TEACHER, Role.ADMIN)
   async testIndex(
     @Param('studentId') studentId: string,
     @Param('courseId') courseId: string,
@@ -322,6 +323,7 @@ export class EnrollmentsController {
   @ApiResponse({ status: 200, description: 'Урок успешно завершен' })
   @ApiResponse({ status: 400, description: 'Некорректный запрос' })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(Role.STUDENT)
   @UsePipes(new ValidationPipe())
   async completeLesson(
     @Body('studentId') studentId: string,

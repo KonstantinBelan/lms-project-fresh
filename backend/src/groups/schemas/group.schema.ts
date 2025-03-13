@@ -6,14 +6,14 @@ export type GroupDocument = Group & Document;
 @Schema()
 export class Group {
   @Prop({ required: true })
-  name: string;
+  name: string; // Название группы
 
   @Prop({})
-  description?: string;
+  description?: string; // Описание группы (опционально)
 
   @Prop({ type: [{ type: Types.ObjectId, ref: 'User' }] })
-  students: Types.ObjectId[];
+  students: Types.ObjectId[]; // Список студентов в группе
 }
 
 export const GroupSchema = SchemaFactory.createForClass(Group);
-GroupSchema.index({ name: 1 });
+GroupSchema.index({ name: 1 }); // Индекс для быстрого поиска по названию

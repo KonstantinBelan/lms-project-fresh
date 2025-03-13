@@ -6,120 +6,175 @@ import {
   Param,
   Body,
   UseGuards,
-  SetMetadata,
+  Query,
+  Logger,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { GroupsService } from './groups.service';
 import { Role } from '../auth/roles.enum';
+import { Roles } from '../auth/decorators/roles.decorator';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { CreateGroupDto } from './dto/create-group.dto';
-import { ApiTags, ApiParam, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiParam,
+  ApiOperation,
+  ApiResponse,
+  ApiQuery,
+} from '@nestjs/swagger';
+import { ParseIntPipe, DefaultValuePipe } from '@nestjs/common';
 
 @ApiTags('Groups')
 @Controller('groups')
 @UseGuards(AuthGuard('jwt'), RolesGuard)
 export class GroupsController {
+  private readonly logger = new Logger(GroupsController.name);
+
   constructor(private groupsService: GroupsService) {}
 
   @Post()
-  @ApiOperation({ summary: 'Create a new group' })
+  @ApiOperation({ summary: 'Создать новую группу' })
   @ApiResponse({
     status: 201,
-    description: 'Group created',
+    description: 'Группа создана',
     type: CreateGroupDto,
   })
-  @ApiResponse({ status: 400, description: 'Bad Request' })
-  @SetMetadata('roles', [Role.ADMIN])
-  async create(@Body() body: { name: string; description?: string }) {
-    return this.groupsService.create(body.name, body.description);
+  @ApiResponse({ status: 400, description: 'Неверный запрос' })
+  @Roles(Role.ADMIN)
+  async create(@Body() createGroupDto: CreateGroupDto) {
+    this.logger.log(`Создание группы: ${createGroupDto.name}`);
+    return this.groupsService.create(createGroupDto);
   }
 
   @Get()
-  @ApiOperation({ summary: 'Get all groups' })
+  @ApiOperation({ summary: 'Получить все группы' })
+  @ApiQuery({
+    name: 'skip',
+    required: false,
+    type: Number,
+    description: 'Сколько групп пропустить',
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Максимальное количество групп',
+  })
   @ApiResponse({
     status: 200,
-    description: 'Groups retrieved successfully',
-    type: [CreateGroupDto],
+    description: 'Группы успешно получены',
+    schema: {
+      type: 'object',
+      properties: {
+        groups: {
+          type: 'array',
+          items: { $ref: '#/components/schemas/Group' },
+        },
+        total: { type: 'number' },
+      },
+    },
   })
-  @ApiResponse({ status: 403, description: 'Forbidden' })
-  @SetMetadata('roles', [Role.ADMIN, Role.TEACHER])
-  async findAll() {
-    return this.groupsService.findAll();
+  @ApiResponse({ status: 403, description: 'Доступ запрещен' })
+  @Roles(Role.ADMIN, Role.TEACHER)
+  async findAll(
+    @Query('skip', new DefaultValuePipe(0), ParseIntPipe) skip: number,
+    @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number,
+  ) {
+    this.logger.log(`Получение всех групп: skip=${skip}, limit=${limit}`);
+    return this.groupsService.findAll(skip, limit);
   }
 
   @Get(':id')
-  @ApiOperation({ summary: 'Get group by ID' })
+  @ApiOperation({ summary: 'Получить группу по ID' })
   @ApiParam({
     name: 'id',
-    description: 'Group ID',
+    description: 'ID группы',
     example: '507f1f77bcf86cd799439011',
   })
   @ApiResponse({
     status: 200,
-    description: 'Group found',
+    description: 'Группа найдена',
     type: CreateGroupDto,
   })
-  @ApiResponse({ status: 404, description: 'Group not found' })
-  @ApiResponse({ status: 403, description: 'Forbidden' })
-  @SetMetadata('roles', [Role.ADMIN, Role.TEACHER])
+  @ApiResponse({ status: 404, description: 'Группа не найдена' })
+  @ApiResponse({ status: 403, description: 'Доступ запрещен' })
+  @Roles(Role.ADMIN, Role.TEACHER)
   async findById(@Param('id') id: string) {
+    this.logger.log(`Поиск группы по ID: ${id}`);
     return this.groupsService.findById(id);
   }
 
   @Post(':id/students/:studentId')
-  @ApiOperation({ summary: 'Add student to group' })
-  @ApiParam({ name: 'id', description: 'Group ID', example: '123' })
-  @ApiParam({ name: 'studentId', description: 'Student ID', example: '456' })
-  @ApiResponse({ status: 201, description: 'Student added to group' })
-  @ApiResponse({ status: 404, description: 'Group or student not found' })
-  @ApiResponse({ status: 403, description: 'Forbidden' })
-  @SetMetadata('roles', [Role.ADMIN])
+  @ApiOperation({ summary: 'Добавить студента в группу' })
+  @ApiParam({
+    name: 'id',
+    description: 'ID группы',
+    example: '507f1f77bcf86cd799439011',
+  })
+  @ApiParam({
+    name: 'studentId',
+    description: 'ID студента',
+    example: '507f191e810c19729de860ea',
+  })
+  @ApiResponse({ status: 201, description: 'Студент добавлен в группу' })
+  @ApiResponse({ status: 404, description: 'Группа или студент не найдены' })
+  @ApiResponse({ status: 403, description: 'Доступ запрещен' })
+  @Roles(Role.ADMIN)
   async addStudent(
     @Param('id') id: string,
     @Param('studentId') studentId: string,
   ) {
+    this.logger.log(`Добавление студента ${studentId} в группу ${id}`);
     return this.groupsService.addStudent(id, studentId);
   }
 
   @Delete(':id/students/:studentId')
-  @ApiOperation({ summary: 'Remove student from group' })
-  @ApiParam({ name: 'id', description: 'Group ID', example: '123' })
-  @ApiParam({ name: 'studentId', description: 'Student ID', example: '456' })
+  @ApiOperation({ summary: 'Удалить студента из группы' })
+  @ApiParam({
+    name: 'id',
+    description: 'ID группы',
+    example: '507f1f77bcf86cd799439011',
+  })
+  @ApiParam({
+    name: 'studentId',
+    description: 'ID студента',
+    example: '507f191e810c19729de860ea',
+  })
   @ApiResponse({
     status: 200,
-    description: 'Student removed from group',
-    schema: {
-      example: { message: 'Student removed from group' },
-    },
+    description: 'Студент удален из группы',
+    schema: { example: { message: 'Студент удален из группы' } },
   })
-  @ApiResponse({ status: 404, description: 'Group or student not found' })
-  @ApiResponse({ status: 403, description: 'Forbidden' })
-  @SetMetadata('roles', [Role.ADMIN])
+  @ApiResponse({ status: 404, description: 'Группа или студент не найдены' })
+  @ApiResponse({ status: 403, description: 'Доступ запрещен' })
+  @Roles(Role.ADMIN)
   async removeStudent(
     @Param('id') id: string,
     @Param('studentId') studentId: string,
   ) {
-    return this.groupsService.removeStudent(id, studentId);
+    this.logger.log(`Удаление студента ${studentId} из группы ${id}`);
+    await this.groupsService.removeStudent(id, studentId);
+    return { message: 'Студент удален из группы' };
   }
 
   @Delete(':id')
-  @ApiOperation({ summary: 'Delete group' })
+  @ApiOperation({ summary: 'Удалить группу' })
   @ApiParam({
     name: 'id',
-    description: 'Group ID',
+    description: 'ID группы',
     example: '507f1f77bcf86cd799439011',
   })
   @ApiResponse({
     status: 200,
-    description: 'Group deleted',
-    schema: {
-      example: { message: 'Group deleted' },
-    },
+    description: 'Группа удалена',
+    schema: { example: { message: 'Группа удалена' } },
   })
-  @ApiResponse({ status: 404, description: 'Group not found' })
-  @ApiResponse({ status: 403, description: 'Forbidden' })
-  @SetMetadata('roles', [Role.ADMIN])
+  @ApiResponse({ status: 404, description: 'Группа не найдена' })
+  @ApiResponse({ status: 403, description: 'Доступ запрещен' })
+  @Roles(Role.ADMIN)
   async delete(@Param('id') id: string) {
-    return this.groupsService.delete(id);
+    this.logger.log(`Удаление группы ${id}`);
+    await this.groupsService.delete(id);
+    return { message: 'Группа удалена' };
   }
 }
