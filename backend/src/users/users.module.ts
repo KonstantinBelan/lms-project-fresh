@@ -7,8 +7,8 @@ import { GroupsModule } from '../groups/groups.module';
 
 @Module({
   imports: [
-    MongooseModule.forFeature([{ name: User.name, schema: UserSchema }]),
-    GroupsModule,
+    MongooseModule.forFeature([{ name: User.name, schema: UserSchema }]), // Модель пользователя
+    GroupsModule, // Модуль групп для работы с группами пользователей
   ],
   controllers: [UsersController],
   providers: [UsersService],

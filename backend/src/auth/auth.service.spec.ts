@@ -1,4 +1,3 @@
-// src/auth/auth.service.spec.ts
 import { Test, TestingModule } from '@nestjs/testing';
 import { AuthService } from './auth.service';
 import { UsersService } from '../users/users.service';
@@ -31,7 +30,7 @@ describe('AuthService', () => {
   afterEach(() => jest.clearAllMocks());
 
   describe('validateUser', () => {
-    it('should return user without password if credentials are valid', async () => {
+    it('должен вернуть пользователя без пароля при валидных учетных данных', async () => {
       const user = {
         _id: '1',
         email: 'test@example.com',
@@ -47,7 +46,7 @@ describe('AuthService', () => {
       });
     });
 
-    it('should throw UnauthorizedException if credentials are invalid', async () => {
+    it('должен выбросить UnauthorizedException при неверных учетных данных', async () => {
       mockUsersService.findByEmail.mockResolvedValue(null);
       await expect(
         service.validateUser('test@example.com', 'password'),
@@ -56,7 +55,7 @@ describe('AuthService', () => {
   });
 
   describe('login', () => {
-    it('should return JWT token for valid credentials', async () => {
+    it('должен вернуть JWT-токен при валидных учетных данных', async () => {
       const user = { _id: '1', email: 'test@example.com', roles: ['STUDENT'] };
       mockUsersService.findByEmail.mockResolvedValue({
         ...user,
@@ -67,15 +66,35 @@ describe('AuthService', () => {
       expect(result).toEqual({ access_token: 'jwt_token' });
       expect(mockJwtService.sign).toHaveBeenCalledWith({
         sub: '1',
+        email: 'test@example.com',
         roles: ['STUDENT'],
       });
     });
 
-    it('should throw UnauthorizedException for invalid credentials', async () => {
+    it('должен выбросить UnauthorizedException при неверных учетных данных', async () => {
       mockUsersService.findByEmail.mockResolvedValue(null);
       await expect(
         service.login('test@example.com', 'password'),
       ).rejects.toThrow(UnauthorizedException);
+    });
+  });
+
+  describe('signUp', () => {
+    it('должен создать нового пользователя с хэшированным паролем', async () => {
+      const user = {
+        _id: '1',
+        email: 'test@example.com',
+        password: 'hashed_password',
+        roles: ['STUDENT'],
+      };
+      mockUsersService.create.mockResolvedValue(user);
+      const result = await service.signUp('test@example.com', 'password');
+      expect(result).toEqual(user);
+      expect(mockUsersService.create).toHaveBeenCalledWith({
+        email: 'test@example.com',
+        password: expect.any(String),
+        roles: ['STUDENT'],
+      });
     });
   });
 });

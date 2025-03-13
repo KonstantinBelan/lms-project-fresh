@@ -4,141 +4,130 @@ import {
   Body,
   UsePipes,
   ValidationPipe,
+  Logger,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { Role } from './roles.enum';
-import { CreateUserDto } from '../users/dto/create-user.dto';
 import { LoginDto } from './dto/login.dto';
 import { AuthResponseDto } from './dto/auth-response.dto';
-import { Types } from 'mongoose';
+import { ForgotPasswordDto } from './dto/forgot-password.dto'; // Новый DTO
+import { ResetPasswordDto } from './dto/reset-password.dto'; // Новый DTO
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 
-@ApiTags('auth')
+@ApiTags('Аутентификация')
 @Controller('auth')
 export class AuthController {
+  private readonly logger = new Logger(AuthController.name);
+
   constructor(private authService: AuthService) {}
 
   @Throttle({ default: { limit: 10, ttl: 60 } })
   @Post('login')
   @ApiOperation({
-    summary: 'User login',
-    description: 'Authenticates a user and returns a JWT token.',
+    summary: 'Вход пользователя',
+    description: 'Аутентифицирует пользователя и возвращает JWT-токен.',
   })
   @ApiResponse({
     status: 200,
-    description: 'Login successful, JWT token returned',
+    description: 'Вход успешен, возвращен JWT-токен',
     type: AuthResponseDto,
   })
   @ApiResponse({
     status: 401,
-    description: 'Unauthorized - Invalid credentials',
+    description: 'Доступ запрещен - неверные учетные данные',
   })
-  async login(@Body() loginDto: LoginDto) {
+  @UsePipes(new ValidationPipe())
+  async login(@Body() loginDto: LoginDto): Promise<AuthResponseDto> {
+    this.logger.log(`Попытка входа для email: ${loginDto.email}`);
     return this.authService.login(loginDto.email, loginDto.password);
-  }
-
-  @Post('register')
-  @ApiOperation({
-    summary: 'Register a new user',
-    description: 'Creates a new user account with provided details.',
-  })
-  @ApiResponse({
-    status: 201,
-    description: 'User registered successfully',
-    type: CreateUserDto,
-  })
-  @ApiResponse({ status: 400, description: 'Bad Request - Invalid data' })
-  async register(
-    @Body() createUserDto: CreateUserDto,
-  ): Promise<{ message: string; userId: string }> {
-    const user = await this.authService.register(
-      createUserDto.email,
-      createUserDto.password,
-      createUserDto.name,
-    );
-    return {
-      message: 'User registered',
-      userId: (user._id as Types.ObjectId).toString(),
-    };
-  }
-
-  @Post('forgot-password')
-  @ApiOperation({
-    summary: 'Forgot Password',
-    description: "Generates a reset token and sends it to the user's email.",
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Reset token sent to your email',
-    schema: {
-      example: { message: 'Reset token sent to your email' },
-    },
-  })
-  async forgotPassword(
-    @Body('email') email: string,
-  ): Promise<{ message: string }> {
-    await this.authService.generateResetToken(email);
-    return { message: 'Reset token sent to your email' };
-  }
-
-  @Post('reset-password')
-  @ApiOperation({
-    summary: 'Reset Password',
-    description: "Resets the user's password using the provided token.",
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Password reset successful',
-    schema: {
-      example: { message: 'Password reset successful' },
-    },
-  })
-  @ApiResponse({
-    status: 401,
-    description: 'Unauthorized - Invalid token or email',
-  })
-  async resetPassword(
-    @Body() body: { email: string; token: string; newPassword: string },
-  ): Promise<{ message: string }> {
-    await this.authService.resetPassword(
-      body.email,
-      body.token,
-      body.newPassword,
-    );
-    return { message: 'Password reset successful' };
   }
 
   @Post('signup')
   @ApiOperation({
-    summary: 'Sign Up',
-    description: 'Registers a new user with the given details.',
+    summary: 'Регистрация нового пользователя',
+    description: 'Создает нового пользователя с указанными данными.',
   })
   @ApiResponse({
     status: 201,
-    description: 'User signed up successfully',
-    type: CreateUserDto,
+    description: 'Пользователь успешно зарегистрирован',
+    schema: {
+      example: {
+        message: 'Пользователь зарегистрирован',
+        userId: '507f1f77bcf86cd799439011',
+      },
+    },
   })
-  @ApiResponse({
-    status: 400,
-    description: 'Bad Request - Invalid data',
-  })
+  @ApiResponse({ status: 400, description: 'Неверные данные' })
   @UsePipes(new ValidationPipe())
   async signup(
     @Body()
-    createUserDto: {
+    body: {
       email: string;
       password: string;
       roles?: Role[];
       name?: string;
     },
-  ) {
-    console.log('Signing up user:', createUserDto);
-    return this.authService.signUp(
-      createUserDto.email,
-      createUserDto.password,
-      createUserDto.roles || [Role.STUDENT],
-      createUserDto.name,
+  ): Promise<{ message: string; userId: string }> {
+    this.logger.log(`Регистрация пользователя с email: ${body.email}`);
+    const user = await this.authService.signUp(
+      body.email,
+      body.password,
+      body.roles || [Role.STUDENT],
+      body.name,
     );
+    return {
+      message: 'Пользователь зарегистрирован',
+      userId: user._id.toString(),
+    };
+  }
+
+  @Post('forgot-password')
+  @ApiOperation({
+    summary: 'Забыл пароль',
+    description:
+      'Генерирует токен сброса и отправляет его на email пользователя.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Токен сброса отправлен на email',
+    schema: { example: { message: 'Токен сброса отправлен на ваш email' } },
+  })
+  @UsePipes(new ValidationPipe())
+  async forgotPassword(
+    @Body() forgotPasswordDto: ForgotPasswordDto,
+  ): Promise<{ message: string }> {
+    this.logger.log(
+      `Запрос сброса пароля для email: ${forgotPasswordDto.email}`,
+    );
+    await this.authService.generateResetToken(forgotPasswordDto.email);
+    return { message: 'Токен сброса отправлен на ваш email' };
+  }
+
+  @Post('reset-password')
+  @ApiOperation({
+    summary: 'Сброс пароля',
+    description: 'Сбрасывает пароль пользователя с использованием токена.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Пароль успешно сброшен',
+    schema: { example: { message: 'Пароль успешно сброшен' } },
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Доступ запрещен - неверный токен или email',
+  })
+  @UsePipes(new ValidationPipe())
+  async resetPassword(
+    @Body() resetPasswordDto: ResetPasswordDto,
+  ): Promise<{ message: string }> {
+    this.logger.log(`Сброс пароля для email: ${resetPasswordDto.email}`);
+    await this.authService.resetPassword(
+      resetPasswordDto.email,
+      resetPasswordDto.token,
+      resetPasswordDto.newPassword,
+    );
+    return { message: 'Пароль успешно сброшен' };
   }
 }

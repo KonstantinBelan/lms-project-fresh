@@ -1,36 +1,40 @@
-import { Injectable } from '@nestjs/common';
+import {
+  Injectable,
+  CanActivate,
+  ExecutionContext,
+  Logger,
+} from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { AuthGuard } from '@nestjs/passport';
-import { ExecutionContext } from '@nestjs/common';
 import { Role } from '../roles.enum';
+import { ROLES_KEY } from '../decorators/roles.decorator';
 
 @Injectable()
-export class RolesGuard extends AuthGuard('jwt') {
-  constructor(private reflector: Reflector) {
-    super();
-  }
+export class RolesGuard implements CanActivate {
+  private readonly logger = new Logger(RolesGuard.name);
 
-  canActivate(context: ExecutionContext) {
-    const activate = super.canActivate(context);
+  constructor(private reflector: Reflector) {}
 
-    if (!activate) {
-      return false;
-    }
-
-    const requiredRoles = this.reflector.getAllAndOverride<Role[]>(
-      ['roles'],
-      [context.getHandler(), context.getClass()],
-    );
+  canActivate(context: ExecutionContext): boolean | Promise<boolean> {
+    const requiredRoles = this.reflector.getAllAndOverride<Role[]>(ROLES_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
 
     if (!requiredRoles) {
-      return true;
+      return true; // Если роли не указаны, доступ разрешен
     }
 
     const request = context.switchToHttp().getRequest();
     const user = request.user;
 
-    console.log('Checking roles:', { userRoles: user?.roles, requiredRoles });
+    if (!user || !user.roles) {
+      this.logger.warn('Пользователь не аутентифицирован или роли отсутствуют');
+      return false;
+    }
 
-    return requiredRoles.some((role) => user?.roles?.includes(role));
+    this.logger.debug(
+      `Проверка ролей: требуется ${requiredRoles}, у пользователя ${user.roles}`,
+    );
+    return requiredRoles.some((role) => user.roles.includes(role));
   }
 }

@@ -1,7 +1,7 @@
-import { IsString, IsEmail, IsNotEmpty, MinLength } from 'class-validator';
+import { IsEmail, IsString, IsNotEmpty, MinLength } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
-export class LoginDto {
+export class ResetPasswordDto {
   @ApiProperty({
     description: 'Электронная почта пользователя',
     example: 'student@example.com',
@@ -9,9 +9,14 @@ export class LoginDto {
   @IsEmail()
   email: string;
 
-  @ApiProperty({ description: 'Пароль пользователя', example: 'Password123!' })
+  @ApiProperty({ description: 'Токен сброса пароля', example: 'abc123' })
+  @IsString()
+  @IsNotEmpty()
+  token: string;
+
+  @ApiProperty({ description: 'Новый пароль', example: 'NewPassword123!' })
   @IsString()
   @IsNotEmpty()
   @MinLength(8, { message: 'Пароль должен содержать минимум 8 символов' })
-  password: string;
+  newPassword: string;
 }

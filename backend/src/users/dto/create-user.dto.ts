@@ -13,22 +13,22 @@ import { Role } from '../../auth/roles.enum';
 export class CreateUserDto {
   @ApiProperty({
     example: 'user@example.com',
-    description: 'The email of the user',
+    description: 'Электронная почта пользователя',
   })
   @IsEmail()
   email: string;
 
   @ApiProperty({
     example: 'password123',
-    description: 'The password of the user',
+    description: 'Пароль пользователя (минимум 6 символов)',
   })
   @IsString()
   @MinLength(6)
   password: string;
 
   @ApiProperty({
-    example: 'John Doe',
-    description: 'The name of the user',
+    example: 'Иван Иванов',
+    description: 'Имя пользователя',
     required: false,
   })
   @IsOptional()
@@ -36,13 +36,12 @@ export class CreateUserDto {
   name?: string;
 
   @ApiProperty({
-    description: 'User roles',
+    description: 'Роли пользователя',
     enum: Role,
     isArray: true,
     example: [Role.STUDENT, Role.TEACHER],
     required: false,
     default: [Role.STUDENT],
-    minItems: 1,
   })
   @IsOptional()
   @IsEnum(Role, { each: true })

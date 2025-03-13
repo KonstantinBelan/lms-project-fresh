@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, UnauthorizedException, Logger } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { UsersService } from '../../users/users.service';
@@ -7,6 +7,8 @@ import { Role } from '../roles.enum';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
+  private readonly logger = new Logger(JwtStrategy.name);
+
   constructor(
     private usersService: UsersService,
     private configService: ConfigService,
@@ -19,10 +21,11 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(payload: { email: string; sub: string; roles: Role[] }) {
-    console.log('JWT payload:', payload);
+    this.logger.debug('Валидация JWT-токена:', payload);
     const user = await this.usersService.findById(payload.sub);
     if (!user) {
-      throw new Error('User not found');
+      this.logger.warn(`Пользователь с ID ${payload.sub} не найден`);
+      throw new UnauthorizedException('Пользователь не найден');
     }
     return { _id: payload.sub, email: payload.email, roles: payload.roles };
   }
