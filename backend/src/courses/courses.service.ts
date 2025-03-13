@@ -79,19 +79,32 @@ export class CoursesService implements ICoursesService {
     return courses;
   }
 
-  // Получение всех курсов с кэшированием
-  async findAllCourses(): Promise<Course[]> {
-    const cacheKey = 'courses:all';
-    const cachedCourses = await this.cacheManager.get<Course[]>(cacheKey);
-    if (cachedCourses) {
-      this.logger.debug('Курсы найдены в кэше:', cachedCourses.length);
-      return cachedCourses;
+  // Получение всех курсов с кэшированием и пагинацией
+  async findAllCourses(
+    skip: number = 0,
+    limit: number = 10,
+  ): Promise<{ courses: Course[]; total: number }> {
+    const cacheKey = `courses:all:skip:${skip}:limit:${limit}`;
+    const cachedResult = await this.cacheManager.get<{
+      courses: Course[];
+      total: number;
+    }>(cacheKey);
+    if (cachedResult) {
+      this.logger.debug(
+        `Курсы найдены в кэше: ${cachedResult.courses.length} из ${cachedResult.total}`,
+      );
+      return cachedResult;
     }
 
-    const courses = await this.courseModel.find().lean().exec();
-    this.logger.debug('Курсы найдены в БД:', courses.length);
-    await this.cacheManager.set(cacheKey, courses, CACHE_TTL);
-    return courses;
+    const [courses, total] = await Promise.all([
+      this.courseModel.find().skip(skip).limit(limit).lean().exec(),
+      this.courseModel.countDocuments().exec(),
+    ]);
+
+    this.logger.debug(`Курсы найдены в БД: ${courses.length} из ${total}`);
+    const result = { courses, total };
+    await this.cacheManager.set(cacheKey, result, CACHE_TTL);
+    return result;
   }
 
   // Поиск курса по ID с выбросом исключения, если не найден
@@ -409,7 +422,7 @@ export class CoursesService implements ICoursesService {
   async getTotalLessonsForCourse(courseId: string): Promise<number> {
     const cacheKey = `course:total-lessons:${courseId}`;
     const cachedTotal = await this.cacheManager.get<number>(cacheKey);
-    if (cachedTotal !== undefined) {
+    if (cachedTotal !== undefined && cachedTotal !== null) {
       this.logger.debug('Общее количество уроков найдено в кэше:', cachedTotal);
       return cachedTotal;
     }

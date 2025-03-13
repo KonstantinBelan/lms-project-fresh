@@ -81,17 +81,43 @@ export class CoursesController {
 
   @Get()
   @ApiOperation({ summary: 'Получить все курсы' })
+  @ApiQuery({
+    name: 'skip',
+    required: false,
+    type: Number,
+    description: 'Сколько курсов пропустить',
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Максимальное количество курсов',
+  })
   @ApiResponse({
     status: 200,
     description: 'Курсы успешно получены',
-    type: [Course],
+    schema: {
+      type: 'object',
+      properties: {
+        courses: {
+          type: 'array',
+          items: { $ref: '#/components/schemas/Course' },
+        },
+        total: { type: 'number' },
+      },
+    },
   })
   @ApiResponse({ status: 403, description: 'Доступ запрещен' })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles(Role.ADMIN, Role.TEACHER, Role.MANAGER, Role.STUDENT, Role.ASSISTANT)
-  async findAll(): Promise<Course[]> {
-    this.logger.log('Получение списка всех курсов');
-    return this.coursesService.findAllCourses();
+  async findAll(
+    @Query('skip', new DefaultValuePipe(0), ParseIntPipe) skip: number,
+    @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number,
+  ): Promise<{ courses: Course[]; total: number }> {
+    this.logger.log(
+      `Получение списка всех курсов: skip=${skip}, limit=${limit}`,
+    );
+    return this.coursesService.findAllCourses(skip, limit);
   }
 
   @Get(':id')
