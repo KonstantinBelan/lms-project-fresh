@@ -10,7 +10,7 @@ import { ArrayOrStringValidator } from '../../validators/array-of-arrays.validat
 
 export class SubmitQuizDto {
   @ApiProperty({
-    description: 'Student ID',
+    description: 'Идентификатор студента',
     example: '507f1f77bcf86cd799439011',
   })
   @IsString()
@@ -18,8 +18,8 @@ export class SubmitQuizDto {
   studentId: string;
 
   @ApiProperty({
-    description: 'List of answers',
-    example: [['option1', 'option2'], 'text answer'],
+    description: 'Список ответов (индексы для множественного выбора или текст)',
+    example: [[1], 'Париж'],
   })
   @IsArray()
   @ArrayNotEmpty()

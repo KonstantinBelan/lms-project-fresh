@@ -11,13 +11,16 @@ import {
 import { ApiProperty } from '@nestjs/swagger';
 
 export class QuizQuestionDto {
-  @ApiProperty({ description: 'Question text', example: 'What is 1+1?' })
+  @ApiProperty({
+    description: 'Текст вопроса',
+    example: 'Что такое 1+1?',
+  })
   @IsString()
   @IsNotEmpty()
   question: string;
 
   @ApiProperty({
-    description: 'Answer options',
+    description: 'Варианты ответа (для вопросов с множественным выбором)',
     required: false,
     example: ['1', '2', '3'],
   })
@@ -28,7 +31,7 @@ export class QuizQuestionDto {
   options?: string[];
 
   @ApiProperty({
-    description: 'Correct answer indices',
+    description: 'Индексы правильных ответов (для множественного выбора)',
     required: false,
     example: [1],
   })
@@ -40,7 +43,7 @@ export class QuizQuestionDto {
   correctAnswers?: number[];
 
   @ApiProperty({
-    description: 'Correct text answer',
+    description: 'Правильный текстовый ответ (для открытых вопросов)',
     required: false,
     example: '2',
   })
@@ -48,16 +51,20 @@ export class QuizQuestionDto {
   @IsString()
   correctTextAnswer?: string;
 
-  @ApiProperty({ description: 'Question weight', default: 1, example: 2 })
+  @ApiProperty({
+    description: 'Вес вопроса (влияет на итоговую оценку)',
+    default: 1,
+    example: 2,
+  })
   @IsOptional()
   @IsInt()
   @Min(1)
   weight?: number = 1;
 
   @ApiProperty({
-    description: 'Hint for the question',
+    description: 'Подсказка для вопроса',
     required: false,
-    example: 'Think simple',
+    example: 'Подумай просто',
   })
   @IsOptional()
   @IsString()
@@ -66,25 +73,45 @@ export class QuizQuestionDto {
 
 export class CreateQuizDto {
   @ApiProperty({
-    description: 'Lesson ID',
+    description: 'Идентификатор урока, к которому привязана викторина',
     example: '67c848293c783d942cafb836',
   })
   @IsString()
   @IsNotEmpty()
   lessonId: string;
 
-  @ApiProperty({ description: 'Quiz title', example: 'Math Basics' })
+  @ApiProperty({
+    description: 'Название викторины',
+    example: 'Основы математики',
+  })
   @IsString()
   @IsNotEmpty()
   title: string;
 
-  @ApiProperty({ description: 'List of questions' })
+  @ApiProperty({
+    description: 'Список вопросов викторины',
+    type: [QuizQuestionDto],
+    example: [
+      {
+        question: 'Что такое 1+1?',
+        options: ['1', '2', '3'],
+        correctAnswers: [1],
+        weight: 2,
+        hint: 'Подумай просто',
+      },
+      {
+        question: 'Назови столицу Франции',
+        correctTextAnswer: 'Париж',
+        weight: 1,
+      },
+    ],
+  })
   @IsArray()
   @IsNotEmpty()
   questions: QuizQuestionDto[];
 
   @ApiProperty({
-    description: 'Time limit in minutes',
+    description: 'Ограничение времени в минутах',
     required: false,
     example: 10,
   })
