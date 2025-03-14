@@ -1,18 +1,22 @@
-import { Injectable, UnauthorizedException, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  UnauthorizedException,
+  Logger,
+  Inject,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { UsersService } from '../users/users.service';
 import { User } from '../users/schemas/user.schema';
 import { Role } from './roles.enum';
 import * as bcrypt from 'bcrypt';
 import * as nodemailer from 'nodemailer';
-import { Types } from 'mongoose';
-import { AuthResponseDto } from './dto/auth-response.dto';
 import * as crypto from 'crypto';
+import { AuthResponseDto } from './dto/auth-response.dto';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { Cache } from 'cache-manager';
 
-// Интерфейс для ответа при регистрации
+// Интерфейсы
 interface SignupResponse extends User {}
-
-// Интерфейс для валидированного пользователя
 interface ValidatedUser {
   _id: string;
   email: string;
@@ -30,16 +34,25 @@ export class AuthService {
   constructor(
     private usersService: UsersService,
     private jwtService: JwtService,
+    @Inject(CACHE_MANAGER) private cacheManager: Cache,
   ) {}
 
   async validateUser(email: string, pass: string): Promise<ValidatedUser> {
     this.logger.debug(`Валидация пользователя: ${email}`);
+    const cacheKey = `validate_user_${email}`;
+    const cachedUser = await this.cacheManager.get<ValidatedUser>(cacheKey);
+    if (cachedUser) {
+      this.logger.debug(`Пользователь ${email} найден в кэше`);
+      return cachedUser;
+    }
+
     const user = await this.usersService.findByEmail(email);
     if (!user || !(await bcrypt.compare(pass, user.password))) {
       this.logger.warn(`Неверные учетные данные для ${email}`);
       throw new UnauthorizedException('Неверные учетные данные');
     }
     const { password, ...result } = user;
+    await this.cacheManager.set(cacheKey, result, 3600); // Кэшируем на 1 час
     this.logger.log(`Успешная валидация для ${email}`);
     return result;
   }
@@ -77,13 +90,20 @@ export class AuthService {
 
   async generateResetToken(email: string): Promise<string> {
     this.logger.log(`Генерация токена сброса для ${email}`);
+    const cacheKey = `reset_token_${email}`;
+    const cachedToken = await this.cacheManager.get<string>(cacheKey);
+    if (cachedToken) {
+      this.logger.debug(`Токен для ${email} найден в кэше`);
+      return cachedToken;
+    }
+
     const user = await this.usersService.findByEmail(email);
     if (!user) {
       this.logger.warn(`Пользователь ${email} не найден`);
       throw new UnauthorizedException('Пользователь не найден');
     }
-    const token = crypto.randomBytes(8).toString('hex'); // Более безопасный токен
-    const expiresAt = Date.now() + 3600000; // Токен действителен 1 час
+    const token = crypto.randomBytes(8).toString('hex');
+    const expiresAt = Date.now() + 3600000;
     await this.usersService.updateUser(user._id.toString(), {
       settings: {
         notifications: user.settings?.notifications ?? true,
@@ -97,6 +117,7 @@ export class AuthService {
       subject: 'Сброс пароля',
       text: `Ваш токен сброса: ${token}. Он действителен в течение 1 часа.`,
     });
+    await this.cacheManager.set(cacheKey, token, 3600); // Кэшируем на 1 час
     this.logger.log(`Токен ${token} отправлен на ${email}`);
     return token;
   }
@@ -107,6 +128,13 @@ export class AuthService {
     newPassword: string,
   ): Promise<void> {
     this.logger.log(`Сброс пароля для ${email}`);
+    const cacheKey = `reset_token_${email}`;
+    const cachedToken = await this.cacheManager.get<string>(cacheKey);
+    if (cachedToken && cachedToken !== token) {
+      this.logger.warn(`Неверный токен из кэша для ${email}`);
+      throw new UnauthorizedException('Неверный или просроченный токен');
+    }
+
     const user = await this.usersService.findByEmail(email);
     if (
       !user ||
@@ -127,6 +155,7 @@ export class AuthService {
         resetTokenExpires: undefined,
       },
     });
+    await this.cacheManager.del(cacheKey); // Удаляем токен из кэша после сброса
     this.logger.log(`Пароль успешно сброшен для ${email}`);
   }
 }

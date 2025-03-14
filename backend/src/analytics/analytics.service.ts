@@ -3,6 +3,7 @@ import {
   NotFoundException,
   BadRequestException,
   Logger,
+  Inject,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
@@ -13,8 +14,10 @@ import {
 import { Course, CourseDocument } from '../courses/schemas/course.schema';
 import { CourseAnalyticsDto } from './dto/course-analytics.dto';
 import { OverallAnalyticsDto } from './dto/overall-analytics.dto';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { Cache } from 'cache-manager';
 
-// Интерфейс для аналитики курса
+// Интерфейсы
 interface CourseAnalytics {
   courseId: string;
   courseTitle: string;
@@ -24,7 +27,6 @@ interface CourseAnalytics {
   averageGrade: number;
 }
 
-// Интерфейс для общей аналитики
 interface OverallAnalytics {
   totalStudents: number;
   completedStudents: number;
@@ -41,25 +43,30 @@ export class AnalyticsService {
     @InjectModel(Enrollment.name)
     private enrollmentModel: Model<EnrollmentDocument>,
     @InjectModel(Course.name) private courseModel: Model<CourseDocument>,
+    @Inject(CACHE_MANAGER) private cacheManager: Cache,
   ) {}
 
   async getCourseAnalytics(courseId: string): Promise<CourseAnalyticsDto> {
     this.logger.log(`Получение аналитики для курса с ID: ${courseId}`);
+    const cacheKey = `course_analytics_${courseId}`;
+    const cachedAnalytics =
+      await this.cacheManager.get<CourseAnalytics>(cacheKey);
+    if (cachedAnalytics) {
+      this.logger.debug(`Аналитика для курса ${courseId} найдена в кэше`);
+      return cachedAnalytics;
+    }
 
-    // Проверка валидности courseId
     if (!Types.ObjectId.isValid(courseId)) {
       this.logger.warn(`Некорректный ID курса: ${courseId}`);
       throw new BadRequestException('Некорректный ID курса');
     }
 
-    // Проверяем существование курса
     const course = await this.courseModel.findById(courseId).lean().exec();
     if (!course) {
       this.logger.warn(`Курс с ID ${courseId} не найден`);
       throw new NotFoundException(`Курс с ID ${courseId} не найден`);
     }
 
-    // Агрегация данных по зачислениям
     const [analytics] = await this.enrollmentModel
       .aggregate([
         { $match: { courseId: new Types.ObjectId(courseId) } },
@@ -98,14 +105,21 @@ export class AnalyticsService {
       averageGrade: Number(averageGrade.toFixed(2)),
     };
 
+    await this.cacheManager.set(cacheKey, result, 3600); // Кэшируем на 1 час
     this.logger.log(`Аналитика для курса ${courseId} успешно получена`);
     return result;
   }
 
   async getOverallAnalytics(): Promise<OverallAnalyticsDto> {
     this.logger.log('Получение общей аналитики платформы');
+    const cacheKey = 'overall_analytics';
+    const cachedAnalytics =
+      await this.cacheManager.get<OverallAnalytics>(cacheKey);
+    if (cachedAnalytics) {
+      this.logger.debug('Общая аналитика найдена в кэше');
+      return cachedAnalytics;
+    }
 
-    // Агрегация данных по всем зачислениям
     const [enrollmentStats] = await this.enrollmentModel
       .aggregate([
         {
@@ -144,6 +158,7 @@ export class AnalyticsService {
       totalCourses,
     };
 
+    await this.cacheManager.set(cacheKey, result, 3600); // Кэшируем на 1 час
     this.logger.log('Общая аналитика успешно получена');
     return result;
   }
