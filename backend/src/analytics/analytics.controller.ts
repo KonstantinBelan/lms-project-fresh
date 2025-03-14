@@ -34,8 +34,28 @@ export class AnalyticsController {
     status: 200,
     description: 'Аналитика курса успешно получена',
     type: CourseAnalyticsDto,
+    example: {
+      courseId: '507f1f77bcf86cd799439011',
+      courseTitle: 'Основы программирования',
+      totalStudents: 50,
+      completedStudents: 45,
+      completionRate: 90,
+      averageGrade: 4.5,
+    },
   })
-  @ApiResponse({ status: 404, description: 'Аналитика курса не найдена' })
+  @ApiResponse({
+    status: 400,
+    description: 'Некорректный ID курса',
+    example: { message: 'Некорректный ID курса', statusCode: 400 },
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Курс или аналитика не найдены',
+    example: {
+      message: 'Курс с ID 507f1f77bcf86cd799439011 не найден',
+      statusCode: 404,
+    },
+  })
   @ApiResponse({ status: 403, description: 'Доступ запрещен' })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles(Role.TEACHER, Role.ADMIN, Role.MANAGER)
@@ -43,7 +63,11 @@ export class AnalyticsController {
     @Param() params: GetCourseAnalyticsDto,
   ): Promise<CourseAnalyticsDto> {
     this.logger.log(`Запрос аналитики для курса с ID: ${params.courseId}`);
-    return this.analyticsService.getCourseAnalytics(params.courseId);
+    const result = await this.analyticsService.getCourseAnalytics(
+      params.courseId,
+    );
+    this.logger.log(`Аналитика для курса ${params.courseId} успешно получена`);
+    return result;
   }
 
   @Get('overall')
@@ -52,13 +76,26 @@ export class AnalyticsController {
     status: 200,
     description: 'Общая аналитика успешно получена',
     type: OverallAnalyticsDto,
+    example: {
+      totalStudents: 1000,
+      completedStudents: 800,
+      completionRate: 80,
+      averageGrade: 4.2,
+      totalCourses: 50,
+    },
   })
-  @ApiResponse({ status: 404, description: 'Общая аналитика не найдена' })
+  @ApiResponse({
+    status: 404,
+    description: 'Общая аналитика не найдена',
+    example: { message: 'Общая аналитика не найдена', statusCode: 404 },
+  })
   @ApiResponse({ status: 403, description: 'Доступ запрещен' })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles(Role.ADMIN, Role.MANAGER)
   async getOverallAnalytics(): Promise<OverallAnalyticsDto> {
     this.logger.log('Запрос общей аналитики платформы');
-    return this.analyticsService.getOverallAnalytics();
+    const result = await this.analyticsService.getOverallAnalytics();
+    this.logger.log('Общая аналитика успешно получена');
+    return result;
   }
 }

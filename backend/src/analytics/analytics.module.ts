@@ -11,12 +11,12 @@ import { AnalyticsController } from './analytics.controller';
 @Module({
   imports: [
     MongooseModule.forFeature([
-      { name: Enrollment.name, schema: EnrollmentSchema }, // Схема записей о зачислении
-      { name: Course.name, schema: CourseSchema }, // Схема курсов
+      { name: Enrollment.name, schema: EnrollmentSchema }, // Схема для записей о зачислении студентов
+      { name: Course.name, schema: CourseSchema }, // Схема для курсов
     ]),
   ],
   providers: [AnalyticsService],
-  exports: [AnalyticsService],
+  exports: [AnalyticsService], // Экспорт сервиса для использования в других модулях
   controllers: [AnalyticsController],
 })
 export class AnalyticsModule {}
