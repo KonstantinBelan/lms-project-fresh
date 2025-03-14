@@ -25,7 +25,7 @@ interface IStudentCourseProgress {
   totalModules: number;
   completedLessons: number;
   totalLessons: number;
-  grade: number;
+  grade?: number; // Сделано опциональным
   isCompleted: boolean;
 }
 
