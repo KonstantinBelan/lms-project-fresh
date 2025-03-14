@@ -1,4 +1,3 @@
-// src/users/users.controller.ts
 import {
   Controller,
   Post,
@@ -21,6 +20,7 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { ConnectTelegramDto } from './dto/connect-telegram.dto';
+import { UserResponseDto } from './dto/user-response.dto';
 import { Role } from '../auth/roles.enum';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { GroupsService } from '../groups/groups.service';
@@ -32,7 +32,7 @@ import {
   ApiBearerAuth,
 } from '@nestjs/swagger';
 import { JwtRequest } from '../common/interfaces/jwt-request.interface';
-import { UserResponseDto, mapToUserResponseDto } from './mappers/user.mapper';
+import { mapToUserResponseDto } from './mappers/user.mapper';
 import * as bcrypt from 'bcrypt';
 
 @ApiTags('Пользователи')
