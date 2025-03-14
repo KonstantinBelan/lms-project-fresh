@@ -14,6 +14,21 @@ import { CreateStreamDto } from './dto/create-stream.dto';
 import { AddStudentToStreamDto } from './dto/add-student-to-stream.dto';
 import { StreamResponseDto } from './dto/stream-response.dto';
 import { ApiOperation, ApiResponse, ApiTags, ApiParam } from '@nestjs/swagger';
+import { Stream, StreamDocument } from './schemas/stream.schema';
+
+// Функция для преобразования Stream или StreamDocument в StreamResponseDto
+function mapToStreamResponseDto(
+  stream: Stream | StreamDocument,
+): StreamResponseDto {
+  return {
+    _id: stream._id.toString(), // Преобразуем ObjectId в строку
+    courseId: stream.courseId.toString(),
+    name: stream.name,
+    startDate: stream.startDate.toISOString(),
+    endDate: stream.endDate.toISOString(),
+    students: stream.students.map((id) => id.toString()),
+  };
+}
 
 @ApiTags('Потоки')
 @Controller('streams')
@@ -32,12 +47,13 @@ export class StreamsController {
   async createStream(
     @Body() createStreamDto: CreateStreamDto,
   ): Promise<StreamResponseDto> {
-    return this.streamsService.createStream(
+    const stream = await this.streamsService.createStream(
       createStreamDto.courseId,
       createStreamDto.name,
       new Date(createStreamDto.startDate),
       new Date(createStreamDto.endDate),
     );
+    return mapToStreamResponseDto(stream);
   }
 
   @Get(':streamId')
@@ -60,7 +76,7 @@ export class StreamsController {
     if (!stream) {
       throw new NotFoundException(`Поток с ID ${streamId} не найден`);
     }
-    return stream;
+    return mapToStreamResponseDto(stream);
   }
 
   @Get('course/:courseId')
@@ -85,7 +101,7 @@ export class StreamsController {
         `Потоки для курса с ID ${courseId} не найдены`,
       );
     }
-    return streams;
+    return streams.map(mapToStreamResponseDto);
   }
 
   @Post(':streamId/students')
@@ -117,6 +133,6 @@ export class StreamsController {
     if (!updatedStream) {
       throw new NotFoundException(`Поток с ID ${streamId} не найден`);
     }
-    return updatedStream;
+    return mapToStreamResponseDto(updatedStream);
   }
 }

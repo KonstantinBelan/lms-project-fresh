@@ -1,3 +1,4 @@
+// src/streams/streams.service.ts
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
@@ -31,11 +32,11 @@ export class StreamsService {
     }
 
     const stream = new this.streamModel({
-      courseId: new Types.ObjectId(courseId), // Преобразуем строку в ObjectId
+      courseId: new Types.ObjectId(courseId),
       name,
       startDate,
       endDate,
-      students: [], // Инициализируем пустой массив студентов
+      students: [],
     });
     return stream.save();
   }
@@ -50,22 +51,22 @@ export class StreamsService {
   async addStudentToStream(
     streamId: string,
     studentId: string,
-  ): Promise<Stream> {
+  ): Promise<Stream | null> {
     const studentObjectId = new Types.ObjectId(studentId);
     const updatedStream = await this.streamModel
       .findOneAndUpdate(
         {
           _id: new Types.ObjectId(streamId),
-          students: { $ne: studentObjectId }, // Проверяем, что студента еще нет
+          students: { $ne: studentObjectId },
         },
-        { $addToSet: { students: studentObjectId } }, // Добавляем студента
-        { new: true, lean: true }, // Возвращаем обновленный объект как plain JS
+        { $addToSet: { students: studentObjectId } },
+        { new: true, lean: true },
       )
       .exec();
 
     if (!updatedStream) {
       const stream = await this.streamModel.findById(streamId).lean().exec();
-      if (!stream) return null; // Поток не найден
+      if (!stream) return null;
       throw new BadRequestException(
         `Студент с ID ${studentId} уже записан в поток ${streamId}`,
       );
@@ -79,7 +80,7 @@ export class StreamsService {
    * @param streamId - ID потока
    * @returns Поток или null, если не найден
    */
-  async findStreamById(streamId: string): Promise<Stream> {
+  async findStreamById(streamId: string): Promise<Stream | null> {
     return this.streamModel
       .findById(new Types.ObjectId(streamId))
       .lean()
