@@ -10,6 +10,8 @@ describe('AuthService', () => {
 
   const mockUsersService = {
     findByEmail: jest.fn(),
+    create: jest.fn(),
+    updateUser: jest.fn(),
   };
   const mockJwtService = {
     sign: jest.fn(),
@@ -95,6 +97,67 @@ describe('AuthService', () => {
         password: expect.any(String),
         roles: ['STUDENT'],
       });
+    });
+  });
+
+  describe('generateResetToken', () => {
+    it('должен сгенерировать токен и отправить email', async () => {
+      const user = {
+        _id: '1',
+        email: 'test@example.com',
+        settings: { notifications: true, language: 'en' },
+      };
+      mockUsersService.findByEmail.mockResolvedValue(user);
+      mockUsersService.updateUser.mockResolvedValue(true);
+      const transporterSpy = jest
+        .spyOn((service as any).transporter, 'sendMail')
+        .mockResolvedValue(true);
+      const token = await service.generateResetToken('test@example.com');
+      expect(token).toBeDefined();
+      expect(mockUsersService.updateUser).toHaveBeenCalled();
+      expect(transporterSpy).toHaveBeenCalled();
+    });
+
+    it('должен выбросить исключение, если пользователь не найден', async () => {
+      mockUsersService.findByEmail.mockResolvedValue(null);
+      await expect(
+        service.generateResetToken('test@example.com'),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+  });
+
+  describe('resetPassword', () => {
+    it('должен сбросить пароль при валидном токене', async () => {
+      const user = {
+        _id: '1',
+        email: 'test@example.com',
+        settings: {
+          resetToken: 'abc123',
+          resetTokenExpires: Date.now() + 3600000,
+        },
+      };
+      mockUsersService.findByEmail.mockResolvedValue(user);
+      mockUsersService.updateUser.mockResolvedValue(true);
+      await service.resetPassword('test@example.com', 'abc123', 'newPassword');
+      expect(mockUsersService.updateUser).toHaveBeenCalledWith(
+        '1',
+        expect.objectContaining({ password: expect.any(String) }),
+      );
+    });
+
+    it('должен выбросить исключение при неверном токене', async () => {
+      const user = {
+        _id: '1',
+        email: 'test@example.com',
+        settings: {
+          resetToken: 'xyz789',
+          resetTokenExpires: Date.now() + 3600000,
+        },
+      };
+      mockUsersService.findByEmail.mockResolvedValue(user);
+      await expect(
+        service.resetPassword('test@example.com', 'abc123', 'newPassword'),
+      ).rejects.toThrow(UnauthorizedException);
     });
   });
 });

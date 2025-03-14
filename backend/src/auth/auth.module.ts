@@ -10,16 +10,16 @@ import { RolesGuard } from './guards/roles.guard';
 
 @Module({
   imports: [
-    UsersModule, // Модуль пользователей
-    PassportModule, // Модуль Passport для аутентификации
-    ConfigModule, // Модуль конфигурации
+    UsersModule, // Модуль для работы с пользователями
+    PassportModule, // Модуль для интеграции Passport (аутентификация)
+    ConfigModule, // Модуль для работы с конфигурацией
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({
         secret:
           configService.get<string>('JWT_SECRET') ||
           'HC0aOtYAW4VI6N0gNO0MllUdrDyBUnZMnVM9BwBfwPaypWQBxO7PPCrUL7auhJsP',
-        signOptions: { expiresIn: '1h' }, // Срок действия токена
+        signOptions: { expiresIn: '1h' }, // Настройки срока действия токена
       }),
       inject: [ConfigService],
     }),

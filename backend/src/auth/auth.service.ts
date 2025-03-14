@@ -7,6 +7,17 @@ import * as bcrypt from 'bcrypt';
 import * as nodemailer from 'nodemailer';
 import { Types } from 'mongoose';
 import { AuthResponseDto } from './dto/auth-response.dto';
+import * as crypto from 'crypto';
+
+// Интерфейс для ответа при регистрации
+interface SignupResponse extends User {}
+
+// Интерфейс для валидированного пользователя
+interface ValidatedUser {
+  _id: string;
+  email: string;
+  roles: Role[];
+}
 
 @Injectable()
 export class AuthService {
@@ -21,14 +32,15 @@ export class AuthService {
     private jwtService: JwtService,
   ) {}
 
-  async validateUser(email: string, pass: string): Promise<any> {
+  async validateUser(email: string, pass: string): Promise<ValidatedUser> {
     this.logger.debug(`Валидация пользователя: ${email}`);
     const user = await this.usersService.findByEmail(email);
     if (!user || !(await bcrypt.compare(pass, user.password))) {
       this.logger.warn(`Неверные учетные данные для ${email}`);
       throw new UnauthorizedException('Неверные учетные данные');
     }
-    const { password, ...result } = user; // Убираем .toObject(), так как .lean() уже возвращает объект
+    const { password, ...result } = user;
+    this.logger.log(`Успешная валидация для ${email}`);
     return result;
   }
 
@@ -37,7 +49,7 @@ export class AuthService {
     password: string,
     roles: Role[] = [Role.STUDENT],
     name?: string,
-  ): Promise<User> {
+  ): Promise<SignupResponse> {
     this.logger.log(`Регистрация нового пользователя: ${email}`);
     const hashedPassword = await bcrypt.hash(password, 10);
     const newUser = await this.usersService.create({
@@ -46,6 +58,7 @@ export class AuthService {
       roles,
       name,
     });
+    this.logger.log(`Пользователь ${email} успешно зарегистрирован`);
     return newUser;
   }
 
@@ -57,7 +70,9 @@ export class AuthService {
       email: validatedUser.email,
       roles: validatedUser.roles,
     };
-    return { access_token: this.jwtService.sign(payload) };
+    const token = this.jwtService.sign(payload);
+    this.logger.log(`JWT-токен сгенерирован для ${email}`);
+    return { access_token: token };
   }
 
   async generateResetToken(email: string): Promise<string> {
@@ -67,7 +82,7 @@ export class AuthService {
       this.logger.warn(`Пользователь ${email} не найден`);
       throw new UnauthorizedException('Пользователь не найден');
     }
-    const token = Math.random().toString(36).slice(-8);
+    const token = crypto.randomBytes(8).toString('hex'); // Более безопасный токен
     const expiresAt = Date.now() + 3600000; // Токен действителен 1 час
     await this.usersService.updateUser(user._id.toString(), {
       settings: {
@@ -82,6 +97,7 @@ export class AuthService {
       subject: 'Сброс пароля',
       text: `Ваш токен сброса: ${token}. Он действителен в течение 1 часа.`,
     });
+    this.logger.log(`Токен ${token} отправлен на ${email}`);
     return token;
   }
 
@@ -107,9 +123,10 @@ export class AuthService {
       settings: {
         notifications: user.settings?.notifications ?? true,
         language: user.settings?.language ?? 'en',
-        resetToken: undefined, // Используем undefined вместо null
-        resetTokenExpires: undefined, // Используем undefined вместо null
+        resetToken: undefined,
+        resetTokenExpires: undefined,
       },
     });
+    this.logger.log(`Пароль успешно сброшен для ${email}`);
   }
 }

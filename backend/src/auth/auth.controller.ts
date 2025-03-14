@@ -10,8 +10,8 @@ import { AuthService } from './auth.service';
 import { Role } from './roles.enum';
 import { LoginDto } from './dto/login.dto';
 import { AuthResponseDto } from './dto/auth-response.dto';
-import { ForgotPasswordDto } from './dto/forgot-password.dto'; // Новый DTO
-import { ResetPasswordDto } from './dto/reset-password.dto'; // Новый DTO
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 
@@ -32,15 +32,22 @@ export class AuthController {
     status: 200,
     description: 'Вход успешен, возвращен JWT-токен',
     type: AuthResponseDto,
+    example: { access_token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...' },
   })
   @ApiResponse({
     status: 401,
     description: 'Доступ запрещен - неверные учетные данные',
+    example: { message: 'Неверные учетные данные', statusCode: 401 },
   })
   @UsePipes(new ValidationPipe())
   async login(@Body() loginDto: LoginDto): Promise<AuthResponseDto> {
     this.logger.log(`Попытка входа для email: ${loginDto.email}`);
-    return this.authService.login(loginDto.email, loginDto.password);
+    const result = await this.authService.login(
+      loginDto.email,
+      loginDto.password,
+    );
+    this.logger.log(`Успешный вход для email: ${loginDto.email}`);
+    return result;
   }
 
   @Post('signup')
@@ -51,14 +58,16 @@ export class AuthController {
   @ApiResponse({
     status: 201,
     description: 'Пользователь успешно зарегистрирован',
-    schema: {
-      example: {
-        message: 'Пользователь зарегистрирован',
-        userId: '507f1f77bcf86cd799439011',
-      },
+    example: {
+      message: 'Пользователь зарегистрирован',
+      userId: '507f1f77bcf86cd799439011',
     },
   })
-  @ApiResponse({ status: 400, description: 'Неверные данные' })
+  @ApiResponse({
+    status: 400,
+    description: 'Неверные данные',
+    example: { message: 'Некорректный формат email', statusCode: 400 },
+  })
   @UsePipes(new ValidationPipe())
   async signup(
     @Body()
@@ -76,6 +85,7 @@ export class AuthController {
       body.roles || [Role.STUDENT],
       body.name,
     );
+    this.logger.log(`Пользователь ${body.email} успешно зарегистрирован`);
     return {
       message: 'Пользователь зарегистрирован',
       userId: user._id.toString(),
@@ -91,7 +101,12 @@ export class AuthController {
   @ApiResponse({
     status: 200,
     description: 'Токен сброса отправлен на email',
-    schema: { example: { message: 'Токен сброса отправлен на ваш email' } },
+    example: { message: 'Токен сброса отправлен на ваш email' },
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Пользователь не найден',
+    example: { message: 'Пользователь не найден', statusCode: 401 },
   })
   @UsePipes(new ValidationPipe())
   async forgotPassword(
@@ -101,6 +116,9 @@ export class AuthController {
       `Запрос сброса пароля для email: ${forgotPasswordDto.email}`,
     );
     await this.authService.generateResetToken(forgotPasswordDto.email);
+    this.logger.log(
+      `Токен сброса отправлен для email: ${forgotPasswordDto.email}`,
+    );
     return { message: 'Токен сброса отправлен на ваш email' };
   }
 
@@ -112,11 +130,12 @@ export class AuthController {
   @ApiResponse({
     status: 200,
     description: 'Пароль успешно сброшен',
-    schema: { example: { message: 'Пароль успешно сброшен' } },
+    example: { message: 'Пароль успешно сброшен' },
   })
   @ApiResponse({
     status: 401,
     description: 'Доступ запрещен - неверный токен или email',
+    example: { message: 'Неверный или просроченный токен', statusCode: 401 },
   })
   @UsePipes(new ValidationPipe())
   async resetPassword(
@@ -127,6 +146,9 @@ export class AuthController {
       resetPasswordDto.email,
       resetPasswordDto.token,
       resetPasswordDto.newPassword,
+    );
+    this.logger.log(
+      `Пароль успешно сброшен для email: ${resetPasswordDto.email}`,
     );
     return { message: 'Пароль успешно сброшен' };
   }
