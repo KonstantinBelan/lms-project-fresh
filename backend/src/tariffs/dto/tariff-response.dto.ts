@@ -1,46 +1,45 @@
-// src/tariffs/dto/tariff-response.dto.ts
 import { ApiProperty } from '@nestjs/swagger';
 
 export class TariffResponseDto {
   @ApiProperty({
-    description: 'Unique identifier of the tariff',
+    description: 'Уникальный идентификатор тарифа',
     example: '507f1f77bcf86cd799439011',
   })
   _id: string;
 
   @ApiProperty({
-    description: 'ID of the course this tariff applies to',
+    description: 'ID курса, к которому применяется тариф',
     example: '67c848283c783d942cafb829',
   })
   courseId: string;
 
   @ApiProperty({
-    description: 'Name of the tariff',
+    description: 'Название тарифа',
     example: 'Только посмотреть',
   })
   name: string;
 
   @ApiProperty({
-    description: 'Price of the tariff in the specified currency',
+    description: 'Цена тарифа в указанной валюте',
     example: 1000,
   })
   price: number;
 
   @ApiProperty({
-    description: 'Array of module IDs accessible under this tariff',
+    description: 'Массив ID модулей, доступных по этому тарифу',
     example: ['67c848283c783d942cafb82c'],
     type: [String],
   })
   accessibleModules: string[];
 
   @ApiProperty({
-    description: 'Whether this tariff includes homework access',
+    description: 'Включает ли тариф доступ к домашним заданиям',
     example: false,
   })
   includesHomeworks: boolean;
 
   @ApiProperty({
-    description: 'Whether this tariff includes points accumulation',
+    description: 'Включает ли тариф накопление баллов',
     example: false,
   })
   includesPoints: boolean;
