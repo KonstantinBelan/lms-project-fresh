@@ -42,35 +42,61 @@ export class AdminController {
   })
   @ApiQuery({
     name: 'roles',
-    description: 'Фильтр по ролям (через запятую)',
+    description: 'Фильтр по ролям пользователей (перечисление через запятую)',
     required: false,
+    type: String,
     example: 'STUDENT,TEACHER',
   })
   @ApiQuery({
     name: 'email',
-    description: 'Фильтр по email (частичное совпадение)',
+    description:
+      'Фильтр по email (поддерживает частичное совпадение, нечувствителен к регистру)',
     required: false,
+    type: String,
     example: 'user@example.com',
   })
   @ApiQuery({
     name: 'groups',
-    description: 'Фильтр по ID групп (через запятую)',
+    description:
+      'Фильтр по ID групп (перечисление через запятую, ожидается MongoDB ObjectId)',
     required: false,
+    type: String,
     example: '507f1f77bcf86cd799439011,507f1f77bcf86cd799439012',
   })
   @ApiQuery({
     name: 'page',
-    description: 'Номер страницы (начиная с 1)',
+    description: 'Номер страницы для пагинации (начинается с 1)',
     required: false,
+    type: Number,
     example: 1,
   })
   @ApiQuery({
     name: 'limit',
     description: 'Количество записей на странице (максимум 100)',
     required: false,
+    type: Number,
     example: 10,
   })
-  @ApiResponse({ status: 200, description: 'Пользователи успешно получены' })
+  @ApiResponse({
+    status: 200,
+    description: 'Список пользователей успешно получен',
+    schema: {
+      example: {
+        data: [
+          {
+            id: '507f1f77bcf86cd799439012',
+            email: 'user@example.com',
+            roles: ['STUDENT'],
+            groups: ['507f1f77bcf86cd799439011'],
+          },
+        ],
+        total: 50,
+        page: 1,
+        limit: 10,
+        totalPages: 5,
+      },
+    },
+  })
   @ApiResponse({ status: 403, description: 'Доступ запрещён' })
   async getUsers(
     @Query('roles') roles?: string,
@@ -116,36 +142,59 @@ export class AdminController {
   @ApiOperation({ summary: 'Получить список курсов с фильтрами и пагинацией' })
   @ApiQuery({
     name: 'title',
-    description: 'Название курса (частичное совпадение)',
+    description:
+      'Название курса для фильтрации (поддерживает частичное совпадение)',
     required: false,
+    type: String,
     example: 'Математика',
   })
   @ApiQuery({
     name: 'teacherId',
-    description: 'ID преподавателя',
+    description: 'ID преподавателя для фильтрации курсов (MongoDB ObjectId)',
     required: false,
+    type: String,
     example: '507f1f77bcf86cd799439012',
   })
   @ApiQuery({
     name: 'page',
-    description: 'Номер страницы (начиная с 1)',
+    description: 'Номер страницы для пагинации (начинается с 1)',
     required: false,
+    type: Number,
     example: 1,
   })
   @ApiQuery({
     name: 'limit',
     description: 'Количество записей на странице (максимум 100)',
     required: false,
+    type: Number,
     example: 10,
   })
-  @ApiResponse({ status: 200, description: 'Курсы успешно получены' })
+  @ApiResponse({
+    status: 200,
+    description: 'Список курсов успешно получен',
+    schema: {
+      example: {
+        data: [
+          {
+            title: 'Математика для начинающих',
+            description: 'Основы математики',
+            teacherId: '507f1f77bcf86cd799439012',
+          },
+        ],
+        total: 20,
+        page: 1,
+        limit: 10,
+        totalPages: 2,
+      },
+    },
+  })
   @ApiResponse({ status: 403, description: 'Доступ запрещён' })
   async getCourses(@Query() query: GetCoursesDto): Promise<ICourseResponse> {
     this.logger.log(
       `Запрос курсов: страница ${query.page}, лимит ${query.limit}`,
     );
     const result = await this.adminService.getCourses(query);
-    return result; // Уже содержит data, total, page, limit, totalPages
+    return result;
   }
 
   // Получение записей о зачислении с фильтрами и пагинацией
@@ -156,31 +205,50 @@ export class AdminController {
   })
   @ApiQuery({
     name: 'courseId',
-    description: 'ID курса для фильтрации',
+    description: 'ID курса для фильтрации записей (MongoDB ObjectId)',
     required: false,
+    type: String,
     example: '507f1f77bcf86cd799439011',
   })
   @ApiQuery({
     name: 'userId',
-    description: 'ID пользователя для фильтрации',
+    description: 'ID пользователя для фильтрации записей (MongoDB ObjectId)',
     required: false,
+    type: String,
     example: '507f1f77bcf86cd799439012',
   })
   @ApiQuery({
     name: 'page',
-    description: 'Номер страницы (начиная с 1)',
+    description: 'Номер страницы для пагинации (начинается с 1)',
     required: false,
+    type: Number,
     example: 1,
   })
   @ApiQuery({
     name: 'limit',
     description: 'Количество записей на странице (максимум 100)',
     required: false,
+    type: Number,
     example: 10,
   })
   @ApiResponse({
     status: 200,
     description: 'Записи о зачислении успешно получены',
+    schema: {
+      example: {
+        data: [
+          {
+            userId: '507f1f77bcf86cd799439012',
+            courseId: '507f1f77bcf86cd799439011',
+            createdAt: '2025-03-14T10:00:00Z',
+          },
+        ],
+        total: 50,
+        page: 1,
+        limit: 10,
+        totalPages: 5,
+      },
+    },
   })
   @ApiResponse({ status: 403, description: 'Доступ запрещён' })
   async getEnrollments(@Query() query: GetEnrollmentsDto): Promise<{
@@ -217,29 +285,54 @@ export class AdminController {
   @ApiOperation({ summary: 'Получить уведомления с фильтрами и пагинацией' })
   @ApiQuery({
     name: 'userId',
-    description: 'ID пользователя для фильтрации',
+    description:
+      'ID пользователя для фильтрации уведомлений (MongoDB ObjectId)',
     required: false,
+    type: String,
     example: '507f1f77bcf86cd799439012',
   })
   @ApiQuery({
     name: 'courseId',
-    description: 'ID курса для фильтрации (если применимо)',
+    description:
+      'ID курса для фильтрации уведомлений (MongoDB ObjectId, если применимо)',
     required: false,
+    type: String,
     example: '507f1f77bcf86cd799439011',
   })
   @ApiQuery({
     name: 'page',
-    description: 'Номер страницы (начиная с 1)',
+    description: 'Номер страницы для пагинации (начинается с 1)',
     required: false,
+    type: Number,
     example: 1,
   })
   @ApiQuery({
     name: 'limit',
     description: 'Количество записей на странице (максимум 100)',
     required: false,
+    type: Number,
     example: 10,
   })
-  @ApiResponse({ status: 200, description: 'Уведомления успешно получены' })
+  @ApiResponse({
+    status: 200,
+    description: 'Уведомления успешно получены',
+    schema: {
+      example: {
+        data: [
+          {
+            message: 'Вы записаны на курс "Математика"',
+            userId: '507f1f77bcf86cd799439012',
+            courseId: '507f1f77bcf86cd799439011',
+            createdAt: '2025-03-14T10:00:00Z',
+          },
+        ],
+        total: 50,
+        page: 1,
+        limit: 10,
+        totalPages: 5,
+      },
+    },
+  })
   @ApiResponse({ status: 403, description: 'Доступ запрещён' })
   async getNotifications(
     @Query() query: GetNotificationsDto,
@@ -248,7 +341,7 @@ export class AdminController {
       `Запрос уведомлений: страница ${query.page}, лимит ${query.limit}`,
     );
     const result = await this.adminService.getNotifications(query);
-    return result; // Уже содержит data, total, page, limit, totalPages
+    return result;
   }
 
   // Получение сводки по активности платформы
@@ -259,19 +352,44 @@ export class AdminController {
   })
   @ApiQuery({
     name: 'startDate',
-    description: 'Начальная дата (ISO 8601)',
+    description: 'Начальная дата для фильтрации активности (формат ISO 8601)',
     required: false,
+    type: String,
     example: '2025-01-01T00:00:00Z',
   })
   @ApiQuery({
     name: 'endDate',
-    description: 'Конечная дата (ISO 8601)',
+    description: 'Конечная дата для фильтрации активности (формат ISO 8601)',
     required: false,
+    type: String,
     example: '2025-12-31T23:59:59Z',
   })
   @ApiResponse({
     status: 200,
     description: 'Сводка по активности успешно получена',
+    schema: {
+      example: {
+        totalUsers: 100,
+        totalCourses: 20,
+        totalEnrollments: 50,
+        totalNotifications: 200,
+        recentEnrollments: [
+          {
+            userId: '507f1f77bcf86cd799439012',
+            courseId: '507f1f77bcf86cd799439011',
+            createdAt: '2025-03-14T10:00:00Z',
+          },
+        ],
+        recentNotifications: [
+          {
+            message: 'Курс "Математика" обновлён',
+            userId: '507f1f77bcf86cd799439012',
+            courseId: '507f1f77bcf86cd799439011',
+            createdAt: '2025-03-14T12:00:00Z',
+          },
+        ],
+      },
+    },
   })
   @ApiResponse({ status: 403, description: 'Доступ запрещён' })
   async getActivity(
