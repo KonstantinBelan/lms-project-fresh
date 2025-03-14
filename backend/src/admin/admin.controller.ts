@@ -169,7 +169,6 @@ export class AdminController {
   @ApiResponse({
     status: 200,
     description: 'Список курсов успешно получен',
-    type: ICourseResponse,
     schema: {
       type: 'object',
       properties: {
@@ -310,7 +309,6 @@ export class AdminController {
   @ApiResponse({
     status: 200,
     description: 'Уведомления успешно получены',
-    type: INotificationResponse,
     schema: {
       type: 'object',
       properties: {
@@ -359,7 +357,6 @@ export class AdminController {
   @ApiResponse({
     status: 200,
     description: 'Сводка по активности успешно получена',
-    type: IActivityResponse,
     schema: {
       type: 'object',
       properties: {
