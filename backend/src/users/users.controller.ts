@@ -14,6 +14,7 @@ import {
   Logger,
   BadRequestException,
   NotFoundException,
+  Query,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -30,6 +31,7 @@ import {
   ApiOperation,
   ApiResponse,
   ApiBearerAuth,
+  ApiQuery,
 } from '@nestjs/swagger';
 import { JwtRequest } from '../common/interfaces/jwt-request.interface';
 import { mapToUserResponseDto } from './mappers/user.mapper';
@@ -92,6 +94,24 @@ export class UsersController {
 
   @Get('all')
   @ApiOperation({ summary: 'Получить всех пользователей' })
+  @ApiQuery({
+    name: 'roles',
+    description: 'Фильтр по ролям (через запятую)',
+    required: false,
+    example: 'STUDENT,TEACHER',
+  })
+  @ApiQuery({
+    name: 'email',
+    description: 'Фильтр по email (частичное совпадение)',
+    required: false,
+    example: 'user@example.com',
+  })
+  @ApiQuery({
+    name: 'groups',
+    description: 'Фильтр по ID групп (через запятую)',
+    required: false,
+    example: '507f1f77bcf86cd799439011,507f1f77bcf86cd799439012',
+  })
   @ApiResponse({
     status: 200,
     description: 'Все пользователи получены',
@@ -100,33 +120,19 @@ export class UsersController {
   @ApiResponse({ status: 403, description: 'Доступ запрещён' })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles(Role.ADMIN)
-  async findAll(): Promise<UserResponseDto[]> {
-    this.logger.log('Получение списка всех пользователей');
-    const users = await this.usersService.findAll();
-    return users.map(mapToUserResponseDto);
-  }
+  async findAll(
+    @Query('roles') roles?: string,
+    @Query('email') email?: string,
+    @Query('groups') groups?: string,
+  ): Promise<UserResponseDto[]> {
+    this.logger.log('Получение списка всех пользователей с фильтрами');
+    const filters: { roles?: string[]; email?: string; groups?: string[] } = {};
+    if (roles) filters.roles = roles.split(',').map((role) => role.trim());
+    if (email) filters.email = email;
+    if (groups) filters.groups = groups.split(',').map((group) => group.trim());
 
-  @Get(':id')
-  @ApiOperation({ summary: 'Получить пользователя по ID' })
-  @ApiParam({
-    name: 'id',
-    description: 'ID пользователя',
-    example: '507f1f77bcf86cd799439011',
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Пользователь найден',
-    type: UserResponseDto,
-  })
-  @ApiResponse({ status: 404, description: 'Пользователь не найден' })
-  @ApiResponse({ status: 403, description: 'Доступ запрещён' })
-  @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @Roles(Role.ADMIN, Role.TEACHER)
-  async findById(@Param('id') id: string): Promise<UserResponseDto> {
-    this.logger.log(`Поиск пользователя с ID: ${id}`);
-    const user = await this.usersService.findById(id);
-    if (!user) throw new NotFoundException(`Пользователь с ID ${id} не найден`);
-    return mapToUserResponseDto(user);
+    const users = await this.usersService.findAll(filters);
+    return users.map(mapToUserResponseDto);
   }
 
   @Get('email/:email')

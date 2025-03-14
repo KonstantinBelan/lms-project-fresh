@@ -30,9 +30,13 @@ export interface IUsersService {
   findById(id: string): Promise<User | null>;
 
   /**
-   * Получает всех пользователей.
+   * Получает всех пользователей с опциональными фильтрами.
    */
-  findAll(): Promise<User[]>;
+  findAll(filters?: {
+    roles?: string[];
+    email?: string;
+    groups?: string[];
+  }): Promise<User[]>;
 
   /**
    * Обновляет данные пользователя.

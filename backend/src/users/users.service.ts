@@ -137,19 +137,39 @@ export class UsersService {
   }
 
   /**
-   * Получает всех пользователей.
-   * @returns Список всех пользователей
+   * Получает всех пользователей с опциональными фильтрами.
+   * @param filters - Фильтры по ролям, email и группам
+   * @returns Список пользователей
    */
-  async findAll(): Promise<User[]> {
-    this.logger.debug('Получение всех пользователей');
-    const cacheKey = 'users:all';
+  async findAll(
+    filters: { roles?: string[]; email?: string; groups?: string[] } = {},
+  ): Promise<User[]> {
+    this.logger.debug('Получение всех пользователей с фильтрами');
+    const cacheKey = `users:all:${JSON.stringify(filters)}`; // Уникальный ключ кэша для фильтров
     const cachedUsers = await this.cacheManager.get<User[]>(cacheKey);
     if (cachedUsers) {
       this.logger.debug('Пользователи найдены в кэше');
       return cachedUsers;
     }
 
-    const users = await this.userModel.find().lean().exec();
+    const query: any = {};
+    if (filters.roles && filters.roles.length > 0) {
+      query.roles = { $in: filters.roles };
+    }
+    if (filters.email) {
+      query.email = { $regex: filters.email, $options: 'i' }; // Частичное совпадение, регистронезависимо
+    }
+    if (filters.groups && filters.groups.length > 0) {
+      const groupObjectIds = filters.groups.map((id) => {
+        if (!Types.ObjectId.isValid(id)) {
+          throw new BadRequestException(`Некорректный ID группы: ${id}`);
+        }
+        return new Types.ObjectId(id);
+      });
+      query.groups = { $in: groupObjectIds };
+    }
+
+    const users = await this.userModel.find(query).lean().exec();
     await this.cacheManager.set(cacheKey, users, this.CACHE_TTL);
     this.logger.debug(`Найдено ${users.length} пользователей в базе`);
     return users;
