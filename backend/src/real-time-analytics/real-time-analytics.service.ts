@@ -16,27 +16,28 @@ import {
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 import { Inject } from '@nestjs/common';
+import { AnalyticsMapper } from './mappers/analytics.mapper'; // Импорт маппера
 
 // Интерфейс для прогресса студента по курсу
-interface IStudentCourseProgress {
+export interface IStudentCourseProgress {
   courseId: string;
   courseTitle: string;
   completedModules: number;
   totalModules: number;
   completedLessons: number;
   totalLessons: number;
-  grade?: number; // Сделано опциональным
+  grade?: number; // Опциональное поле
   isCompleted: boolean;
 }
 
 // Интерфейс для результата прогресса студента
-interface IStudentProgress {
+export interface IStudentProgress {
   studentId: string;
   progress: IStudentCourseProgress[];
 }
 
 // Интерфейс для активности курса
-interface ICourseActivity {
+export interface ICourseActivity {
   courseId: string;
   totalEnrollments: number;
   activeHomeworks: number;
@@ -61,7 +62,6 @@ export class RealTimeAnalyticsService {
     this.logger.log('Инициализация сервиса аналитики в реальном времени');
   }
 
-  // Получение прогресса студента
   async getStudentProgress(studentId: string): Promise<IStudentProgress> {
     this.logger.log(`Получение прогресса для студента: ${studentId}`);
     try {
@@ -86,7 +86,7 @@ export class RealTimeAnalyticsService {
             courseId,
             courseTitle: course?.title || 'Неизвестно',
             completedModules: enrollment.completedModules.length,
-            totalModules: course?.modules.length || 0,
+            totalModules: course?.modules?.length || 0,
             completedLessons: enrollment.completedLessons.length,
             totalLessons: await this.getTotalLessons(courseId),
             grade: enrollment.grade,
@@ -95,9 +95,9 @@ export class RealTimeAnalyticsService {
         }),
       );
 
-      const result = { studentId, progress };
+      const result: IStudentProgress = { studentId, progress };
       this.logger.log(`Прогресс студента ${studentId} успешно получен`);
-      return result;
+      return AnalyticsMapper.toStudentProgressResponse(result); // Используем маппер
     } catch (error) {
       this.logger.error(
         `Ошибка при получении прогресса студента ${studentId}: ${error.message}`,
@@ -106,7 +106,6 @@ export class RealTimeAnalyticsService {
     }
   }
 
-  // Получение активности курса
   async getCourseActivity(courseId: string): Promise<ICourseActivity> {
     this.logger.log(`Получение активности курса: ${courseId}`);
     try {
@@ -148,7 +147,7 @@ export class RealTimeAnalyticsService {
       };
 
       this.logger.log(`Активность курса ${courseId} успешно получена`);
-      return result;
+      return AnalyticsMapper.toCourseActivityResponse(result); // Используем маппер
     } catch (error) {
       this.logger.error(
         `Ошибка при получении активности курса ${courseId}: ${error.message}`,
@@ -157,7 +156,6 @@ export class RealTimeAnalyticsService {
     }
   }
 
-  // Приватный метод для получения деталей курса с кэшированием
   private async getCourseDetails(courseId: string): Promise<any> {
     const cacheKey = `course:details:${courseId}`;
     const cachedCourse = await this.cacheManager.get<any>(cacheKey);
@@ -178,7 +176,6 @@ export class RealTimeAnalyticsService {
     return course;
   }
 
-  // Приватный метод для подсчета общего количества уроков
   private async getTotalLessons(courseId: string): Promise<number> {
     this.logger.log(`Подсчет уроков для курса: ${courseId}`);
     const course = await this.getCourseDetails(courseId);
@@ -197,7 +194,6 @@ export class RealTimeAnalyticsService {
     );
   }
 
-  // Приватный метод для получения списка уроков курса
   private async getLessonsForCourse(courseId: string): Promise<string[]> {
     this.logger.log(`Получение списка уроков для курса: ${courseId}`);
     const course = await this.getCourseDetails(courseId);
@@ -216,7 +212,6 @@ export class RealTimeAnalyticsService {
     );
   }
 
-  // Вспомогательный метод для валидации ObjectId
   private validateObjectId(id: string, fieldName: string): Types.ObjectId {
     try {
       return new Types.ObjectId(id);

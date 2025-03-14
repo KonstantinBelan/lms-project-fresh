@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { RealTimeAnalyticsGateway } from './real-time-analytics.gateway';
 import { RealTimeAnalyticsService } from './real-time-analytics.service';
+import { RealTimeAnalyticsController } from './real-time-analytics.controller'; // Новый импорт
 import { MongooseModule } from '@nestjs/mongoose';
 import {
   Enrollment,
@@ -21,8 +22,9 @@ import { CacheModule } from '@nestjs/cache-manager';
       { name: Homework.name, schema: HomeworkSchema },
       { name: Submission.name, schema: SubmissionSchema },
     ]),
-    CacheModule.register(), // Подключение кеширования
+    CacheModule.register(),
   ],
+  controllers: [RealTimeAnalyticsController], // Добавлен контроллер
   providers: [RealTimeAnalyticsGateway, RealTimeAnalyticsService],
   exports: [RealTimeAnalyticsGateway, RealTimeAnalyticsService],
 })

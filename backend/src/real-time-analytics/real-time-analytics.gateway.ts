@@ -10,19 +10,11 @@ import {
 } from '@nestjs/websockets';
 import { Namespace, Socket } from 'socket.io';
 import { RealTimeAnalyticsService } from './real-time-analytics.service';
-import { Injectable, Logger } from '@nestjs/common';
-
-// Интерфейс для данных подписки на прогресс
-interface ISubscribeProgressData {
-  userId: string;
-  headers?: Record<string, string>;
-}
-
-// Интерфейс для данных подписки на активность
-interface ISubscribeActivityData {
-  courseId: string;
-  headers?: Record<string, string>;
-}
+import { Injectable, Logger, UsePipes, ValidationPipe } from '@nestjs/common';
+import {
+  SubscribeProgressDto,
+  SubscribeActivityDto,
+} from './dto/analytics.dto';
 
 @WebSocketGateway({
   cors: {
@@ -81,8 +73,9 @@ export class RealTimeAnalyticsGateway
   }
 
   @SubscribeMessage('subscribe-progress')
+  @UsePipes(new ValidationPipe({ transform: true }))
   async handleSubscribeProgress(
-    @MessageBody() data: ISubscribeProgressData,
+    @MessageBody() data: SubscribeProgressDto,
     @ConnectedSocket() client: Socket,
   ) {
     this.logger.log(`Подписка на прогресс: ${data.userId}`);
@@ -103,8 +96,9 @@ export class RealTimeAnalyticsGateway
   }
 
   @SubscribeMessage('subscribe-activity')
+  @UsePipes(new ValidationPipe({ transform: true }))
   async handleSubscribeActivity(
-    @MessageBody() data: ISubscribeActivityData,
+    @MessageBody() data: SubscribeActivityDto,
     @ConnectedSocket() client: Socket,
   ) {
     this.logger.log(`Подписка на активность: ${data.courseId}`);
@@ -125,6 +119,7 @@ export class RealTimeAnalyticsGateway
   }
 
   @SubscribeMessage('subscribe-notifications')
+  @UsePipes(new ValidationPipe({ transform: true }))
   async handleSubscribeNotifications(
     @MessageBody() data: { userId: string },
     @ConnectedSocket() client: Socket,
