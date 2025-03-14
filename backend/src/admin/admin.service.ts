@@ -27,10 +27,51 @@ export class AdminService {
     private notificationModel: Model<NotificationDocument>,
   ) {}
 
-  async getUsers(role?: Role): Promise<User[]> {
-    this.logger.log(`Получение пользователей с ролью: ${role || 'все'}`);
-    const query = role ? { roles: role } : {}; // Ищем роль в массиве roles
-    return this.userModel.find(query).select('-password').lean().exec(); // Исключаем пароль
+  /**
+   * Получает пользователей с опциональными фильтрами и пагинацией.
+   * @param filters - Фильтры по ролям, email и группам
+   * @param page - Номер страницы (начиная с 1)
+   * @param limit - Количество записей на странице
+   * @returns Объект с пользователями и общим количеством
+   */
+  async getUsers(
+    filters: { roles?: string[]; email?: string; groups?: string[] } = {},
+    page: number = 1,
+    limit: number = 10,
+  ): Promise<{ users: User[]; total: number }> {
+    this.logger.log('Получение пользователей с фильтрами и пагинацией');
+
+    const query: any = {};
+    if (filters.roles && filters.roles.length > 0) {
+      query.roles = { $in: filters.roles };
+    }
+    if (filters.email) {
+      query.email = { $regex: filters.email, $options: 'i' }; // Частичное совпадение
+    }
+    if (filters.groups && filters.groups.length > 0) {
+      const groupObjectIds = filters.groups.map((id) => {
+        if (!Types.ObjectId.isValid(id)) {
+          throw new BadRequestException(`Некорректный ID группы: ${id}`);
+        }
+        return new Types.ObjectId(id);
+      });
+      query.groups = { $in: groupObjectIds };
+    }
+
+    const skip = (page - 1) * limit;
+    const [users, total] = await Promise.all([
+      this.userModel
+        .find(query)
+        .skip(skip)
+        .limit(limit)
+        .select('-password')
+        .lean()
+        .exec(),
+      this.userModel.countDocuments(query).exec(),
+    ]);
+
+    this.logger.debug(`Найдено ${users.length} пользователей из ${total}`);
+    return { users, total };
   }
 
   async getCourses(): Promise<Course[]> {

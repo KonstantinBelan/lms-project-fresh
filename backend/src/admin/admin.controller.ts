@@ -17,6 +17,8 @@ import { Enrollment } from '../enrollments/schemas/enrollment.schema';
 import { Notification } from '../notifications/schemas/notification.schema';
 import { GetEnrollmentsDto } from './dto/get-enrollments.dto'; // Новый DTO
 import { GetNotificationsDto } from './dto/get-notifications.dto'; // Новый DTO
+import { UserResponseDto } from '../users/dto/user-response.dto';
+import { mapToUserResponseDto } from '../users/mappers/user.mapper';
 
 @ApiTags('Админ')
 @Controller('admin')
@@ -29,25 +31,96 @@ export class AdminController {
 
   @Get('users')
   @Roles(Role.ADMIN)
-  @ApiOperation({ summary: 'Получить список пользователей с фильтром по роли' })
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @ApiOperation({
+    summary: 'Получить список пользователей с фильтрами и пагинацией',
+  })
+  @ApiQuery({
+    name: 'roles',
+    description: 'Фильтр по ролям (через запятую)',
+    required: false,
+    example: 'STUDENT,TEACHER',
+  })
+  @ApiQuery({
+    name: 'email',
+    description: 'Фильтр по email (частичное совпадение)',
+    required: false,
+    example: 'user@example.com',
+  })
+  @ApiQuery({
+    name: 'groups',
+    description: 'Фильтр по ID групп (через запятую)',
+    required: false,
+    example: '507f1f77bcf86cd799439011,507f1f77bcf86cd799439012',
+  })
+  @ApiQuery({
+    name: 'page',
+    description: 'Номер страницы (начиная с 1)',
+    required: false,
+    example: 1,
+  })
+  @ApiQuery({
+    name: 'limit',
+    description: 'Количество записей на странице (максимум 100)',
+    required: false,
+    example: 10,
+  })
   @ApiResponse({
     status: 200,
     description: 'Пользователи успешно получены',
-    type: [User],
+    schema: {
+      type: 'object',
+      properties: {
+        data: {
+          type: 'array',
+          items: { $ref: '#/components/schemas/UserResponseDto' },
+        },
+        total: { type: 'number', example: 50 },
+        page: { type: 'number', example: 1 },
+        limit: { type: 'number', example: 10 },
+        totalPages: { type: 'number', example: 5 },
+      },
+    },
   })
-  @ApiResponse({ status: 403, description: 'Доступ запрещен' })
-  @ApiQuery({
-    name: 'role',
-    required: false,
-    description:
-      'Роль для фильтрации пользователей (ищет совпадение в массиве ролей)',
-    enum: Role,
-  })
-  async getUsers(@Query('role') role?: Role): Promise<User[]> {
+  @ApiResponse({ status: 403, description: 'Доступ запрещён' })
+  async getUsers(
+    @Query('roles') roles?: string,
+    @Query('email') email?: string,
+    @Query('groups') groups?: string,
+    @Query('page') page: string = '1',
+    @Query('limit') limit: string = '10',
+  ): Promise<{
+    data: UserResponseDto[];
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  }> {
     this.logger.log(
-      `Запрос на получение пользователей с ролью: ${role || 'все'}`,
+      'Запрос на получение пользователей с фильтрами и пагинацией',
     );
-    return this.adminService.getUsers(role);
+    const filters: { roles?: string[]; email?: string; groups?: string[] } = {};
+    if (roles) filters.roles = roles.split(',').map((role) => role.trim());
+    if (email) filters.email = email;
+    if (groups) filters.groups = groups.split(',').map((group) => group.trim());
+
+    const pageNum = parseInt(page, 10) || 1;
+    const limitNum = Math.min(parseInt(limit, 10) || 10, 100); // Ограничим до 100
+
+    const { users, total } = await this.adminService.getUsers(
+      filters,
+      pageNum,
+      limitNum,
+    );
+    const totalPages = Math.ceil(total / limitNum);
+
+    return {
+      data: users.map(mapToUserResponseDto),
+      total,
+      page: pageNum,
+      limit: limitNum,
+      totalPages,
+    };
   }
 
   @Get('courses')
