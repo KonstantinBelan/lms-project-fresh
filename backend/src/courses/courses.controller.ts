@@ -130,6 +130,11 @@ export class CoursesController {
       },
     },
   })
+  @ApiResponse({
+    status: 404,
+    description: 'Курсы не найдены',
+    schema: { example: { message: 'Курсы не найдены' } },
+  })
   @ApiResponse({ status: 403, description: 'Доступ запрещен' })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles(Role.ADMIN, Role.TEACHER, Role.MANAGER, Role.STUDENT, Role.ASSISTANT)

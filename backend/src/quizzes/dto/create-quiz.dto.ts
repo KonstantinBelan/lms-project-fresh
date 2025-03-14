@@ -10,6 +10,7 @@ import {
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
+// DTO для вопроса викторины
 export class QuizQuestionDto {
   @ApiProperty({
     description: 'Текст вопроса',
@@ -53,13 +54,12 @@ export class QuizQuestionDto {
 
   @ApiProperty({
     description: 'Вес вопроса (влияет на итоговую оценку)',
-    default: 1,
     example: 2,
+    default: 1,
   })
-  @IsOptional()
   @IsInt()
   @Min(1)
-  weight?: number = 1;
+  weight: number = 1; // Убрано @IsOptional, так как есть дефолтное значение
 
   @ApiProperty({
     description: 'Подсказка для вопроса',
@@ -71,6 +71,7 @@ export class QuizQuestionDto {
   hint?: string;
 }
 
+// DTO для создания викторины
 export class CreateQuizDto {
   @ApiProperty({
     description: 'Идентификатор урока, к которому привязана викторина',
