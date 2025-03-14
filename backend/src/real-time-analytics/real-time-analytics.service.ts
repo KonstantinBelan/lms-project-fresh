@@ -141,17 +141,26 @@ export class RealTimeAnalyticsService {
           .exec(),
       ]);
 
+      // Преобразуем submissions в IRecentActivity[]
+      const recentActivity: IRecentActivity[] = submissions
+        .sort(
+          (a, b) =>
+            (b.createdAt as Date).getTime() - (a.createdAt as Date).getTime(),
+        )
+        .slice(0, 5)
+        .map((submission) => ({
+          _id: submission._id.toString(),
+          homeworkId: submission.homeworkId.toString(),
+          studentId: submission.studentId.toString(),
+          createdAt: submission.createdAt,
+        }));
+
       const result: ICourseActivity = {
         courseId,
         totalEnrollments: enrollments.length,
         activeHomeworks: homeworks.filter((h) => h.isActive).length,
         totalSubmissions: submissions.length,
-        recentActivity: submissions
-          .sort(
-            (a, b) =>
-              (b.createdAt as Date).getTime() - (a.createdAt as Date).getTime(),
-          )
-          .slice(0, 5),
+        recentActivity,
       };
 
       this.logger.log(`Активность курса ${courseId} успешно получена`);
