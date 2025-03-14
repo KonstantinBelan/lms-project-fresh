@@ -14,6 +14,7 @@ import {
 import { GetEnrollmentsDto } from './dto/get-enrollments.dto';
 import { GetNotificationsDto } from './dto/get-notifications.dto';
 import { GetActivityDto } from './dto/get-activity.dto';
+import { GetCoursesDto } from './dto/get-courses.dto';
 
 @Injectable()
 export class AdminService {
@@ -62,9 +63,34 @@ export class AdminService {
     return { users, total };
   }
 
-  async getCourses(): Promise<Course[]> {
-    this.logger.log('Получение всех курсов');
-    return this.courseModel.find().select('title description').lean().exec();
+  async getCourses(
+    filters: GetCoursesDto = {},
+  ): Promise<{ courses: Course[]; total: number }> {
+    this.logger.log('Получение курсов с фильтрами и пагинацией');
+    const query: any = {};
+    if (filters.title) query.title = { $regex: filters.title, $options: 'i' };
+    if (filters.teacherId) {
+      if (!Types.ObjectId.isValid(filters.teacherId))
+        throw new BadRequestException('Некорректный ID преподавателя');
+      query.teacherId = new Types.ObjectId(filters.teacherId); // Предполагаем, что в схеме Course есть поле teacherId
+    }
+
+    const page = filters.page ?? 1;
+    const limit = Math.min(filters.limit ?? 10, 100);
+    const skip = (page - 1) * limit;
+    const [courses, total] = await Promise.all([
+      this.courseModel
+        .find(query)
+        .skip(skip)
+        .limit(limit)
+        .select('title description teacherId')
+        .lean()
+        .exec(),
+      this.courseModel.countDocuments(query).exec(),
+    ]);
+
+    this.logger.debug(`Найдено ${courses.length} курсов из ${total}`);
+    return { courses, total };
   }
 
   async getEnrollments(

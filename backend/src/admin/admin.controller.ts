@@ -17,6 +17,7 @@ import { Enrollment } from '../enrollments/schemas/enrollment.schema';
 import { Notification } from '../notifications/schemas/notification.schema';
 import { GetEnrollmentsDto } from './dto/get-enrollments.dto';
 import { GetNotificationsDto } from './dto/get-notifications.dto';
+import { GetCoursesDto } from './dto/get-courses.dto';
 import { GetActivityDto } from './dto/get-activity.dto';
 import { UserResponseDto } from '../users/dto/user-response.dto';
 import { mapToUserResponseDto } from '../users/mappers/user.mapper';
@@ -125,16 +126,60 @@ export class AdminController {
 
   @Get('courses')
   @Roles(Role.ADMIN)
-  @ApiOperation({ summary: 'Получить список всех курсов' })
+  @ApiOperation({ summary: 'Получить список курсов с фильтрами и пагинацией' })
+  @ApiQuery({
+    name: 'title',
+    description: 'Название курса (частичное совпадение)',
+    required: false,
+    example: 'Математика',
+  })
+  @ApiQuery({
+    name: 'teacherId',
+    description: 'ID преподавателя',
+    required: false,
+    example: '507f1f77bcf86cd799439012',
+  })
+  @ApiQuery({
+    name: 'page',
+    description: 'Номер страницы (начиная с 1)',
+    required: false,
+    example: 1,
+  })
+  @ApiQuery({
+    name: 'limit',
+    description: 'Количество записей на странице (максимум 100)',
+    required: false,
+    example: 10,
+  })
   @ApiResponse({
     status: 200,
     description: 'Курсы успешно получены',
-    type: [Course],
+    schema: {
+      type: 'object',
+      properties: {
+        data: { type: 'array', items: { $ref: '#/components/schemas/Course' } },
+        total: { type: 'number', example: 20 },
+        page: { type: 'number', example: 1 },
+        limit: { type: 'number', example: 10 },
+        totalPages: { type: 'number', example: 2 },
+      },
+    },
   })
   @ApiResponse({ status: 403, description: 'Доступ запрещён' })
-  async getCourses(): Promise<Course[]> {
-    this.logger.log('Запрос на получение всех курсов');
-    return this.adminService.getCourses();
+  async getCourses(@Query() query: GetCoursesDto): Promise<{
+    data: Course[];
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  }> {
+    this.logger.log('Запрос на получение курсов с фильтрами и пагинацией');
+    const pageNum = query.page ?? 1;
+    const limitNum = Math.min(query.limit ?? 10, 100);
+    const { courses, total } = await this.adminService.getCourses(query);
+    const totalPages = Math.ceil(total / limitNum);
+
+    return { data: courses, total, page: pageNum, limit: limitNum, totalPages };
   }
 
   @Get('enrollments')
