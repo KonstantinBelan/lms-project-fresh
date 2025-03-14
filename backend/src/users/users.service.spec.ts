@@ -40,7 +40,7 @@ describe('UsersService', () => {
 
   afterEach(() => jest.clearAllMocks());
 
-  it('должен быть определен', () => {
+  it('должен быть определён', () => {
     expect(service).toBeDefined();
   });
 

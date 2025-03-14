@@ -1,3 +1,4 @@
+// src/users/users.controller.ts
 import {
   Controller,
   Post,
@@ -32,6 +33,8 @@ import {
 } from '@nestjs/swagger';
 import { User } from './schemas/user.schema';
 import { JwtRequest } from '../common/interfaces/jwt-request.interface';
+import { mapToUserResponseDto } from './mappers/user.mapper';
+import * as bcrypt from 'bcrypt';
 
 @ApiTags('Пользователи')
 @Controller('users')
@@ -53,11 +56,14 @@ export class UsersController {
   @UsePipes(new ValidationPipe())
   async create(@Body() createUserDto: CreateUserDto): Promise<User> {
     this.logger.log(`Создание пользователя с email: ${createUserDto.email}`);
-    return this.usersService.create({
+    const hashedPassword = await bcrypt.hash(createUserDto.password, 10);
+    const user = await this.usersService.create({
       email: createUserDto.email,
-      password: createUserDto.password,
+      password: hashedPassword,
       roles: createUserDto.roles || [Role.STUDENT],
+      name: createUserDto.name,
     });
+    return mapToUserResponseDto(user);
   }
 
   @Get('me')
@@ -78,7 +84,7 @@ export class UsersController {
     this.logger.log(`Получение данных пользователя с ID: ${userId}`);
     const user = await this.usersService.findById(userId);
     if (!user) throw new NotFoundException('Пользователь не найден');
-    return user;
+    return mapToUserResponseDto(user);
   }
 
   @Get('all')
@@ -88,12 +94,13 @@ export class UsersController {
     description: 'Все пользователи получены',
     type: [User],
   })
-  @ApiResponse({ status: 403, description: 'Доступ запрещен' })
+  @ApiResponse({ status: 403, description: 'Доступ запрещён' })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles(Role.ADMIN)
   async findAll(): Promise<User[]> {
     this.logger.log('Получение списка всех пользователей');
-    return this.usersService.findAll();
+    const users = await this.usersService.findAll();
+    return users.map(mapToUserResponseDto);
   }
 
   @Get(':id')
@@ -105,14 +112,14 @@ export class UsersController {
   })
   @ApiResponse({ status: 200, description: 'Пользователь найден', type: User })
   @ApiResponse({ status: 404, description: 'Пользователь не найден' })
-  @ApiResponse({ status: 403, description: 'Доступ запрещен' })
+  @ApiResponse({ status: 403, description: 'Доступ запрещён' })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles(Role.ADMIN, Role.TEACHER)
   async findById(@Param('id') id: string): Promise<User> {
     this.logger.log(`Поиск пользователя с ID: ${id}`);
     const user = await this.usersService.findById(id);
     if (!user) throw new NotFoundException(`Пользователь с ID ${id} не найден`);
-    return user;
+    return mapToUserResponseDto(user);
   }
 
   @Get('email/:email')
@@ -131,7 +138,7 @@ export class UsersController {
     const user = await this.usersService.findByEmail(email);
     if (!user)
       throw new NotFoundException(`Пользователь с email ${email} не найден`);
-    return user;
+    return mapToUserResponseDto(user);
   }
 
   @Put(':id')
@@ -143,7 +150,7 @@ export class UsersController {
   })
   @ApiResponse({
     status: 200,
-    description: 'Пользователь обновлен',
+    description: 'Пользователь обновлён',
     type: User,
   })
   @ApiResponse({ status: 404, description: 'Пользователь не найден' })
@@ -157,7 +164,7 @@ export class UsersController {
     const updatedUser = await this.usersService.updateUser(id, body);
     if (!updatedUser)
       throw new NotFoundException(`Пользователь с ID ${id} не найден`);
-    return updatedUser;
+    return mapToUserResponseDto(updatedUser);
   }
 
   @Delete(':id')
@@ -169,8 +176,8 @@ export class UsersController {
   })
   @ApiResponse({
     status: 200,
-    description: 'Пользователь удален',
-    schema: { example: { message: 'Пользователь удален' } },
+    description: 'Пользователь удалён',
+    schema: { example: { message: 'Пользователь удалён' } },
   })
   @ApiResponse({ status: 404, description: 'Пользователь не найден' })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
@@ -178,7 +185,7 @@ export class UsersController {
   async delete(@Param('id') id: string): Promise<{ message: string }> {
     this.logger.log(`Удаление пользователя с ID: ${id}`);
     await this.usersService.deleteUser(id);
-    return { message: 'Пользователь удален' };
+    return { message: 'Пользователь удалён' };
   }
 
   @Post(':id/groups/:groupId')
@@ -215,7 +222,7 @@ export class UsersController {
     });
     if (!updatedUser)
       throw new NotFoundException(`Пользователь с ID ${id} не найден`);
-    return updatedUser;
+    return mapToUserResponseDto(updatedUser);
   }
 
   @Delete(':id/groups/:groupId')
@@ -232,8 +239,8 @@ export class UsersController {
   })
   @ApiResponse({
     status: 200,
-    description: 'Пользователь удален из группы',
-    schema: { example: { message: 'Пользователь удален из группы' } },
+    description: 'Пользователь удалён из группы',
+    schema: { example: { message: 'Пользователь удалён из группы' } },
   })
   @ApiResponse({
     status: 404,
@@ -248,7 +255,7 @@ export class UsersController {
     this.logger.log(`Удаление пользователя ${id} из группы ${groupId}`);
     await this.groupsService.removeStudent(groupId, id);
     await this.usersService.updateUser(id, { groups: { $pull: groupId } });
-    return { message: 'Пользователь удален из группы' };
+    return { message: 'Пользователь удалён из группы' };
   }
 
   @Patch('me/telegram')
@@ -267,7 +274,7 @@ export class UsersController {
       Пример: { "telegramId": "123456789" }
     `,
   })
-  @ApiResponse({ status: 200, description: 'Telegram подключен', type: User })
+  @ApiResponse({ status: 200, description: 'Telegram подключён', type: User })
   @ApiResponse({ status: 401, description: 'Не авторизован' })
   @UseGuards(AuthGuard('jwt'))
   @UsePipes(new ValidationPipe())
@@ -284,7 +291,7 @@ export class UsersController {
     const updatedUser = await this.usersService.updateUser(userId, {
       telegramId: connectDto.telegramId,
     });
-    if (!updatedUser) throw new BadRequestException('Пользователь не найден');
-    return updatedUser;
+    if (!updatedUser) throw new NotFoundException('Пользователь не найден');
+    return mapToUserResponseDto(updatedUser);
   }
 }

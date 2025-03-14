@@ -15,24 +15,27 @@ export class CreateUserDto {
     example: 'user@example.com',
     description: 'Электронная почта пользователя',
   })
-  @IsEmail()
+  @IsEmail(
+    {},
+    { message: 'email должен быть валидным адресом электронной почты' },
+  )
   email: string;
 
   @ApiProperty({
     example: 'password123',
     description: 'Пароль пользователя (минимум 6 символов)',
   })
-  @IsString()
-  @MinLength(6)
+  @IsString({ message: 'password должен быть строкой' })
+  @MinLength(6, { message: 'Пароль должен содержать минимум 6 символов' })
   password: string;
 
   @ApiProperty({
     example: 'Иван Иванов',
-    description: 'Имя пользователя',
+    description: 'Имя пользователя (необязательно)',
     required: false,
   })
   @IsOptional()
-  @IsString()
+  @IsString({ message: 'name должен быть строкой' })
   name?: string;
 
   @ApiProperty({
@@ -44,8 +47,8 @@ export class CreateUserDto {
     default: [Role.STUDENT],
   })
   @IsOptional()
-  @IsEnum(Role, { each: true })
-  @ArrayMinSize(1)
-  @ArrayUnique()
+  @IsEnum(Role, { each: true, message: 'Каждая роль должна быть валидной' })
+  @ArrayMinSize(1, { message: 'Должен быть хотя бы одна роль' })
+  @ArrayUnique({ message: 'Роли не должны повторяться' })
   roles?: Role[];
 }
