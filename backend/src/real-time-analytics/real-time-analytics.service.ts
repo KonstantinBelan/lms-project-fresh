@@ -16,7 +16,7 @@ import {
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 import { Inject } from '@nestjs/common';
-import { AnalyticsMapper } from './mappers/analytics.mapper'; // Импорт маппера
+import { AnalyticsMapper } from './mappers/analytics.mapper';
 
 // Интерфейс для прогресса студента по курсу
 export interface IStudentCourseProgress {
@@ -26,7 +26,7 @@ export interface IStudentCourseProgress {
   totalModules: number;
   completedLessons: number;
   totalLessons: number;
-  grade?: number; // Опциональное поле
+  grade?: number;
   isCompleted: boolean;
 }
 
@@ -36,16 +36,24 @@ export interface IStudentProgress {
   progress: IStudentCourseProgress[];
 }
 
+// Интерфейс для элемента активности курса
+export interface IRecentActivity {
+  _id: string;
+  homeworkId: string;
+  studentId: string;
+  createdAt: Date;
+}
+
 // Интерфейс для активности курса
 export interface ICourseActivity {
   courseId: string;
   totalEnrollments: number;
   activeHomeworks: number;
   totalSubmissions: number;
-  recentActivity: Submission[];
+  recentActivity: IRecentActivity[];
 }
 
-const CACHE_TTL = parseInt(process.env.CACHE_TTL ?? '3600', 10); // 1 час
+const CACHE_TTL = parseInt(process.env.CACHE_TTL ?? '3600', 10);
 
 @Injectable()
 export class RealTimeAnalyticsService {
@@ -97,7 +105,7 @@ export class RealTimeAnalyticsService {
 
       const result: IStudentProgress = { studentId, progress };
       this.logger.log(`Прогресс студента ${studentId} успешно получен`);
-      return AnalyticsMapper.toStudentProgressResponse(result); // Используем маппер
+      return AnalyticsMapper.toStudentProgressResponse(result);
     } catch (error) {
       this.logger.error(
         `Ошибка при получении прогресса студента ${studentId}: ${error.message}`,
@@ -147,7 +155,7 @@ export class RealTimeAnalyticsService {
       };
 
       this.logger.log(`Активность курса ${courseId} успешно получена`);
-      return AnalyticsMapper.toCourseActivityResponse(result); // Используем маппер
+      return AnalyticsMapper.toCourseActivityResponse(result);
     } catch (error) {
       this.logger.error(
         `Ошибка при получении активности курса ${courseId}: ${error.message}`,

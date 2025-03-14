@@ -10,7 +10,7 @@ import {
 import {
   IStudentProgress,
   ICourseActivity,
-} from './real-time-analytics.service'; // Импорт типов
+} from './real-time-analytics.service';
 
 @ApiTags('Аналитика в реальном времени')
 @Controller('analytics')
@@ -20,7 +20,7 @@ export class RealTimeAnalyticsController {
 
   @Get('student/:studentId')
   @ApiOperation({ summary: 'Получить прогресс студента' })
-  @ApiResponse({ status: 200, description: 'Прогресс студента', type: Object }) // Используем Object как временный тип для Swagger
+  @ApiResponse({ status: 200, description: 'Прогресс студента', type: Object })
   @ApiSecurity('JWT-auth')
   async getStudentProgress(
     @Param('studentId') studentId: string,
@@ -30,7 +30,7 @@ export class RealTimeAnalyticsController {
 
   @Get('course/:courseId')
   @ApiOperation({ summary: 'Получить активность курса' })
-  @ApiResponse({ status: 200, description: 'Активность курса', type: Object }) // Используем Object как временный тип для Swagger
+  @ApiResponse({ status: 200, description: 'Активность курса', type: Object })
   @ApiSecurity('JWT-auth')
   async getCourseActivity(
     @Param('courseId') courseId: string,
