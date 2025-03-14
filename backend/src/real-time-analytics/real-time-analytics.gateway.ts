@@ -8,72 +8,66 @@ import {
   ConnectedSocket,
   OnGatewayInit,
 } from '@nestjs/websockets';
-import { Server, Socket, Namespace } from 'socket.io'; // Импортируем Namespace
+import { Namespace, Socket } from 'socket.io';
 import { RealTimeAnalyticsService } from './real-time-analytics.service';
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
+
+// Интерфейс для данных подписки на прогресс
+interface ISubscribeProgressData {
+  userId: string;
+  headers?: Record<string, string>;
+}
+
+// Интерфейс для данных подписки на активность
+interface ISubscribeActivityData {
+  courseId: string;
+  headers?: Record<string, string>;
+}
 
 @WebSocketGateway({
   cors: {
-    origin: '*', // Разрешить все источники для тестов, в продакшене уточни домены
+    origin: '*',
     methods: ['GET', 'POST'],
-    allowedHeaders: ['*'], // Разрешить все заголовки для тестов
-    credentials: false, // Отключить credentials, чтобы избежать конфликтов
+    allowedHeaders: ['*'],
+    credentials: false,
   },
   namespace: 'analytics',
-}) // Убрали порт, чтобы использовать порт приложения (3000 по умолчанию)
+})
 @Injectable()
 export class RealTimeAnalyticsGateway
   implements OnGatewayConnection, OnGatewayDisconnect, OnGatewayInit
 {
   @WebSocketServer()
-  server: Namespace; // Изменяем тип на Namespace, чтобы использовать nsp
+  server: Namespace;
+
+  private readonly logger = new Logger(RealTimeAnalyticsGateway.name);
 
   constructor(private readonly analyticsService: RealTimeAnalyticsService) {}
 
   afterInit(server: Namespace) {
-    console.log('WebSocket gateway initialized with server:', server.name); // Используем server.name вместо server.nsp.name
-    // Логирование и настройка событий на уровне сервера
+    this.logger.log(`Инициализация WebSocket шлюза: ${server.name}`);
     server.on('connection', (client: Socket) => {
-      console.log('Server-level WebSocket connection:', {
-        clientId: client.id,
-        namespace: server.name, // Используем server.name
-        handshake: client.handshake,
-        headers: client.handshake.headers,
-        query: client.handshake.query,
-      });
+      this.logger.log(`Подключение на уровне сервера: ${client.id}`);
     });
-
     server.on('error', (error) => {
-      console.error('Server-level WebSocket error:', error);
-    });
-
-    server.on('disconnection', (client: Socket) => {
-      console.log('Server-level WebSocket disconnection:', {
-        clientId: client.id,
-        namespace: server.name, // Используем server.name
-        reason: client.disconnected,
-      });
+      this.logger.error(`Ошибка WebSocket сервера: ${error.message}`);
     });
   }
 
   handleConnection(client: Socket) {
-    console.log('Gateway-level WebSocket connection attempt:', {
-      clientId: client.id,
-      namespace: (this.server as Namespace).name, // Явно приводим тип для совместимости
-      handshake: client.handshake,
-      headers: client.handshake.headers,
-      query: client.handshake.query,
-    });
+    this.logger.log(
+      `Подключение клиента: ${client.id}, namespace: ${this.server.name}`,
+    );
     try {
-      client.join(client.handshake.query.room || client.id);
-      console.log(
-        'Client successfully joined room:',
-        client.handshake.query.room || client.id,
-      );
+      const room = client.handshake.query.room || client.id;
+      client.join(room);
+      this.logger.log(`Клиент ${client.id} подключен к комнате: ${room}`);
     } catch (error) {
-      console.error('Error in WebSocket connection:', error);
+      this.logger.error(
+        `Ошибка подключения клиента ${client.id}: ${error.message}`,
+      );
       client.emit('error', {
-        message: 'Connection error',
+        message: 'Ошибка подключения',
         error: error.message,
       });
       client.disconnect(true);
@@ -81,39 +75,28 @@ export class RealTimeAnalyticsGateway
   }
 
   handleDisconnect(client: Socket) {
-    console.log('Gateway-level WebSocket disconnection:', {
-      clientId: client.id,
-      namespace: (this.server as Namespace).name, // Явно приводим тип для совместимости
-      reason: client.disconnected,
-      time: new Date().toISOString(),
-    });
+    this.logger.log(
+      `Отключение клиента: ${client.id}, namespace: ${this.server.name}`,
+    );
   }
 
   @SubscribeMessage('subscribe-progress')
   async handleSubscribeProgress(
-    @MessageBody() data: { userId: string; headers?: Record<string, string> },
+    @MessageBody() data: ISubscribeProgressData,
     @ConnectedSocket() client: Socket,
   ) {
-    console.log('Received subscribe-progress event:', {
-      clientId: data.userId,
-      data,
-      clientHeaders: data.headers || client.handshake.headers || 'No headers',
-      clientIp: client.handshake.address,
-      clientQuery: client.handshake.query,
-    });
+    this.logger.log(`Подписка на прогресс: ${data.userId}`);
     try {
       const progress = await this.analyticsService.getStudentProgress(
         data.userId,
       );
-      console.log('Emitting progress-update:', {
-        userId: data.userId,
-        progress,
-      });
       this.server.to(data.userId).emit('progress-update', progress);
     } catch (error) {
-      console.error('Error in subscribe-progress:', error);
+      this.logger.error(
+        `Ошибка подписки на прогресс ${data.userId}: ${error.message}`,
+      );
       this.server.to(data.userId).emit('error', {
-        message: 'Failed to get progress',
+        message: 'Ошибка получения прогресса',
         error: error.message,
       });
     }
@@ -121,29 +104,21 @@ export class RealTimeAnalyticsGateway
 
   @SubscribeMessage('subscribe-activity')
   async handleSubscribeActivity(
-    @MessageBody() data: { courseId: string; headers?: Record<string, string> },
+    @MessageBody() data: ISubscribeActivityData,
     @ConnectedSocket() client: Socket,
   ) {
-    console.log('Received subscribe-activity event:', {
-      clientId: data.courseId,
-      data,
-      clientHeaders: data.headers || client.handshake.headers || 'No headers',
-      clientIp: client.handshake.address,
-      clientQuery: client.handshake.query,
-    });
+    this.logger.log(`Подписка на активность: ${data.courseId}`);
     try {
       const activity = await this.analyticsService.getCourseActivity(
         data.courseId,
       );
-      console.log('Emitting activity-update:', {
-        courseId: data.courseId,
-        activity,
-      });
       this.server.to(data.courseId).emit('activity-update', activity);
     } catch (error) {
-      console.error('Error in subscribe-activity:', error);
+      this.logger.error(
+        `Ошибка подписки на активность ${data.courseId}: ${error.message}`,
+      );
       this.server.to(data.courseId).emit('error', {
-        message: 'Failed to get activity',
+        message: 'Ошибка получения активности',
         error: error.message,
       });
     }
@@ -154,16 +129,9 @@ export class RealTimeAnalyticsGateway
     @MessageBody() data: { userId: string },
     @ConnectedSocket() client: Socket,
   ) {
-    console.log('Received subscribe-notifications event:', {
-      clientId: data.userId,
-      data,
-      clientHeaders: client.handshake.headers || 'No headers',
-      clientIp: client.handshake.address,
-      clientQuery: client.handshake.query,
-    });
-    // Здесь можно добавить логику получения уведомлений через NotificationsService
+    this.logger.log(`Подписка на уведомления: ${data.userId}`);
     this.server.to(data.userId).emit('notification', {
-      message: 'New notification received',
+      message: 'Получено новое уведомление',
       userId: data.userId,
     });
   }

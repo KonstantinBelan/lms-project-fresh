@@ -1,6 +1,6 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import {
   Enrollment,
   EnrollmentDocument,
@@ -13,52 +13,78 @@ import {
   Submission,
   SubmissionDocument,
 } from '../homeworks/schemas/submission.schema';
-import { Types } from 'mongoose';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { Cache } from 'cache-manager';
+import { Inject } from '@nestjs/common';
+
+// Интерфейс для прогресса студента по курсу
+interface IStudentCourseProgress {
+  courseId: string;
+  courseTitle: string;
+  completedModules: number;
+  totalModules: number;
+  completedLessons: number;
+  totalLessons: number;
+  grade: number;
+  isCompleted: boolean;
+}
+
+// Интерфейс для результата прогресса студента
+interface IStudentProgress {
+  studentId: string;
+  progress: IStudentCourseProgress[];
+}
+
+// Интерфейс для активности курса
+interface ICourseActivity {
+  courseId: string;
+  totalEnrollments: number;
+  activeHomeworks: number;
+  totalSubmissions: number;
+  recentActivity: Submission[];
+}
+
+const CACHE_TTL = parseInt(process.env.CACHE_TTL ?? '3600', 10); // 1 час
 
 @Injectable()
 export class RealTimeAnalyticsService {
+  private readonly logger = new Logger(RealTimeAnalyticsService.name);
+
   constructor(
     @InjectModel(Enrollment.name)
     private enrollmentModel: Model<EnrollmentDocument>,
     @InjectModel(Homework.name) private homeworkModel: Model<HomeworkDocument>,
     @InjectModel(Submission.name)
     private submissionModel: Model<SubmissionDocument>,
-  ) {}
+    @Inject(CACHE_MANAGER) private cacheManager: Cache,
+  ) {
+    this.logger.log('Инициализация сервиса аналитики в реальном времени');
+  }
 
-  async getStudentProgress(studentId: string): Promise<any> {
-    console.log('Starting getStudentProgress for userId:', studentId);
+  // Получение прогресса студента
+  async getStudentProgress(studentId: string): Promise<IStudentProgress> {
+    this.logger.log(`Получение прогресса для студента: ${studentId}`);
     try {
-      let objectId: Types.ObjectId;
-      try {
-        objectId = new Types.ObjectId(studentId);
-      } catch (error) {
-        console.error('Invalid ObjectId for userId:', studentId, error);
-        throw new Error('Invalid user ID format');
-      }
-
-      console.log('Searching enrollments for studentId:', objectId);
+      const objectId = this.validateObjectId(studentId, 'studentId');
       const enrollments = await this.enrollmentModel
         .find({ studentId: objectId })
         .lean()
         .exec();
 
-      console.log('Found enrollments:', enrollments.length);
       if (!enrollments.length) {
-        console.warn('No enrollments found for userId:', studentId);
+        this.logger.warn(
+          `Записи о курсах для студента ${studentId} не найдены`,
+        );
         return { studentId, progress: [] };
       }
 
       const progress = await Promise.all(
         enrollments.map(async (enrollment) => {
-          console.log(
-            'Processing enrollment for courseId:',
-            enrollment.courseId.toString(),
-          );
           const courseId = enrollment.courseId.toString();
           const course = await this.getCourseDetails(courseId);
           return {
             courseId,
-            courseTitle: course?.title || 'Unknown',
+            courseTitle: course?.title || 'Неизвестно',
             completedModules: enrollment.completedModules.length,
             totalModules: course?.modules.length || 0,
             completedLessons: enrollment.completedLessons.length,
@@ -70,50 +96,45 @@ export class RealTimeAnalyticsService {
       );
 
       const result = { studentId, progress };
-      console.log('Completed getStudentProgress:', result);
+      this.logger.log(`Прогресс студента ${studentId} успешно получен`);
       return result;
     } catch (error) {
-      console.error('Failed to get student progress:', error);
+      this.logger.error(
+        `Ошибка при получении прогресса студента ${studentId}: ${error.message}`,
+      );
       throw error;
     }
   }
 
-  async getCourseActivity(courseId: string): Promise<any> {
-    console.log('Starting getCourseActivity for courseId:', courseId);
+  // Получение активности курса
+  async getCourseActivity(courseId: string): Promise<ICourseActivity> {
+    this.logger.log(`Получение активности курса: ${courseId}`);
     try {
-      let objectId: Types.ObjectId;
-      try {
-        objectId = new Types.ObjectId(courseId);
-      } catch (error) {
-        console.error('Invalid ObjectId for courseId:', courseId, error);
-        throw new Error('Invalid course ID format');
-      }
+      const objectId = this.validateObjectId(courseId, 'courseId');
+      const [enrollments, homeworks, submissions] = await Promise.all([
+        this.enrollmentModel.find({ courseId: objectId }).lean().exec(),
+        this.homeworkModel
+          .find({ lessonId: { $in: await this.getLessonsForCourse(courseId) } })
+          .lean()
+          .exec(),
+        this.submissionModel
+          .find({
+            homeworkId: {
+              $in: (
+                await this.homeworkModel
+                  .find({
+                    lessonId: { $in: await this.getLessonsForCourse(courseId) },
+                  })
+                  .lean()
+                  .exec()
+              ).map((h) => h._id),
+            },
+          })
+          .lean()
+          .exec(),
+      ]);
 
-      console.log('Searching enrollments for courseId:', objectId);
-      const enrollments = await this.enrollmentModel
-        .find({ courseId: objectId })
-        .lean()
-        .exec();
-      console.log('Found enrollments:', enrollments.length);
-
-      console.log('Searching homeworks for courseId:', courseId);
-      const homeworks = await this.homeworkModel
-        .find({ lessonId: { $in: await this.getLessonsForCourse(courseId) } })
-        .lean()
-        .exec();
-      console.log('Found homeworks:', homeworks.length);
-
-      console.log(
-        'Searching submissions for homeworks:',
-        homeworks.map((h) => h._id),
-      );
-      const submissions = await this.submissionModel
-        .find({ homeworkId: { $in: homeworks.map((h) => h._id) } })
-        .lean()
-        .exec();
-      console.log('Found submissions:', submissions.length);
-
-      const result = {
+      const result: ICourseActivity = {
         courseId,
         totalEnrollments: enrollments.length,
         activeHomeworks: homeworks.filter((h) => h.isActive).length,
@@ -125,25 +146,44 @@ export class RealTimeAnalyticsService {
           )
           .slice(0, 5),
       };
-      console.log('Completed getCourseActivity:', result);
+
+      this.logger.log(`Активность курса ${courseId} успешно получена`);
       return result;
     } catch (error) {
-      console.error('Failed to get course activity:', error);
+      this.logger.error(
+        `Ошибка при получении активности курса ${courseId}: ${error.message}`,
+      );
       throw error;
     }
   }
 
+  // Приватный метод для получения деталей курса с кэшированием
   private async getCourseDetails(courseId: string): Promise<any> {
-    console.log('Getting course details for courseId:', courseId);
-    return this.enrollmentModel.db
+    const cacheKey = `course:details:${courseId}`;
+    const cachedCourse = await this.cacheManager.get<any>(cacheKey);
+    if (cachedCourse) {
+      this.logger.debug(`Детали курса ${courseId} найдены в кэше`);
+      return cachedCourse;
+    }
+
+    this.logger.log(`Получение деталей курса: ${courseId}`);
+    const course = await this.enrollmentModel.db
       .collection('courses')
       .findOne({ _id: new Types.ObjectId(courseId) });
+
+    if (course) {
+      await this.cacheManager.set(cacheKey, course, CACHE_TTL);
+      this.logger.debug(`Детали курса ${courseId} сохранены в кэш`);
+    }
+    return course;
   }
 
+  // Приватный метод для подсчета общего количества уроков
   private async getTotalLessons(courseId: string): Promise<number> {
-    console.log('Calculating total lessons for courseId:', courseId);
+    this.logger.log(`Подсчет уроков для курса: ${courseId}`);
     const course = await this.getCourseDetails(courseId);
     if (!course || !course.modules) return 0;
+
     const lessons = await Promise.all(
       course.modules.map((moduleId: string) =>
         this.enrollmentModel.db
@@ -157,10 +197,12 @@ export class RealTimeAnalyticsService {
     );
   }
 
+  // Приватный метод для получения списка уроков курса
   private async getLessonsForCourse(courseId: string): Promise<string[]> {
-    console.log('Getting lessons for courseId:', courseId);
+    this.logger.log(`Получение списка уроков для курса: ${courseId}`);
     const course = await this.getCourseDetails(courseId);
     if (!course || !course.modules) return [];
+
     const modules = await Promise.all(
       course.modules.map((moduleId: string) =>
         this.enrollmentModel.db
@@ -172,5 +214,15 @@ export class RealTimeAnalyticsService {
       (acc, module) => [...acc, ...(module?.lessons || [])],
       [],
     );
+  }
+
+  // Вспомогательный метод для валидации ObjectId
+  private validateObjectId(id: string, fieldName: string): Types.ObjectId {
+    try {
+      return new Types.ObjectId(id);
+    } catch (error) {
+      this.logger.error(`Неверный формат ${fieldName}: ${id}`);
+      throw new Error(`Неверный формат ${fieldName}`);
+    }
   }
 }

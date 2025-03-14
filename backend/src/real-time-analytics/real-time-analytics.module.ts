@@ -11,7 +11,9 @@ import {
   Submission,
   SubmissionSchema,
 } from '../homeworks/schemas/submission.schema';
+import { CacheModule } from '@nestjs/cache-manager';
 
+// Модуль аналитики в реальном времени
 @Module({
   imports: [
     MongooseModule.forFeature([
@@ -19,6 +21,7 @@ import {
       { name: Homework.name, schema: HomeworkSchema },
       { name: Submission.name, schema: SubmissionSchema },
     ]),
+    CacheModule.register(), // Подключение кеширования
   ],
   providers: [RealTimeAnalyticsGateway, RealTimeAnalyticsService],
   exports: [RealTimeAnalyticsGateway, RealTimeAnalyticsService],
