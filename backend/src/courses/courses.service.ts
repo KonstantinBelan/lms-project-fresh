@@ -46,11 +46,42 @@ export class CoursesService implements ICoursesService {
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
   ) {}
 
+  // Маппер для преобразования CreateCourseDto в объект курса
+  private mapCreateCourseDtoToCourse(dto: CreateCourseDto): Partial<Course> {
+    return {
+      title: dto.title,
+      description: dto.description,
+      modules: [],
+      pointsConfig: { lessons: 10, modules: 50, quizzes: 20 },
+    };
+  }
+
+  // Маппер для преобразования CreateModuleDto в объект модуля
+  private mapCreateModuleDtoToModule(dto: CreateModuleDto): Partial<Module> {
+    return {
+      title: dto.title,
+      lessons: [],
+    };
+  }
+
+  // Маппер для преобразования CreateLessonDto в объект урока
+  private mapCreateLessonDtoToLesson(dto: CreateLessonDto): Partial<Lesson> {
+    return {
+      title: dto.title,
+      content: dto.content,
+      media: dto.media,
+      points: 1,
+    };
+  }
+
   // Создание нового курса
   async createCourse(createCourseDto: CreateCourseDto): Promise<Course> {
     this.logger.log(`Создание курса: ${createCourseDto.title}`);
-    const newCourse = new this.courseModel(createCourseDto);
-    return newCourse.save();
+    const courseData = this.mapCreateCourseDtoToCourse(createCourseDto);
+    const newCourse = new this.courseModel(courseData);
+    const savedCourse = await newCourse.save();
+    await this.cacheManager.del('courses:all'); // Очистка кэша списка курсов
+    return savedCourse;
   }
 
   // Пакетное создание курсов с обработкой ошибок
@@ -111,6 +142,9 @@ export class CoursesService implements ICoursesService {
 
   // Поиск курса по ID с выбросом исключения, если не найден
   async findCourseById(id: string): Promise<Course> {
+    if (!Types.ObjectId.isValid(id)) {
+      throw new BadRequestException('Неверный ID курса');
+    }
     const cacheKey = `course:${id}`;
     const cachedCourse = await this.cacheManager.get<Course>(cacheKey);
     if (cachedCourse) {
@@ -132,8 +166,12 @@ export class CoursesService implements ICoursesService {
     courseId: string,
     updateCourseDto: UpdateCourseDto,
   ): Promise<Course> {
+    if (!Types.ObjectId.isValid(courseId)) {
+      throw new BadRequestException('Неверный ID курса');
+    }
     const updatedCourse = await this.courseModel
       .findByIdAndUpdate(courseId, updateCourseDto, { new: true })
+      .lean()
       .exec();
     if (!updatedCourse) {
       throw new NotFoundException(`Курс с ID ${courseId} не найден`);
@@ -145,7 +183,10 @@ export class CoursesService implements ICoursesService {
   }
 
   // Удаление курса
-  async deleteCourse(courseId: string): Promise<void> {
+  async deleteCourse(courseId: string): Promise<null> {
+    if (!Types.ObjectId.isValid(courseId)) {
+      throw new BadRequestException('Неверный ID курса');
+    }
     const result = await this.courseModel.findByIdAndDelete(courseId).exec();
     if (!result) {
       throw new NotFoundException(`Курс с ID ${courseId} не найден`);
@@ -153,6 +194,7 @@ export class CoursesService implements ICoursesService {
     await this.cacheManager.del(`course:${courseId}`);
     await this.cacheManager.del('courses:all');
     this.logger.log(`Курс ${courseId} удален`);
+    return null;
   }
 
   // Создание модуля для курса
@@ -160,15 +202,16 @@ export class CoursesService implements ICoursesService {
     courseId: string,
     createModuleDto: CreateModuleDto,
   ): Promise<Module> {
+    if (!Types.ObjectId.isValid(courseId)) {
+      throw new BadRequestException('Неверный ID курса');
+    }
     const course = await this.courseModel.findById(courseId).exec();
     if (!course) {
       throw new NotFoundException(`Курс с ID ${courseId} не найден`);
     }
 
-    const newModule = new this.moduleModel({
-      ...createModuleDto,
-      courseId: course._id,
-    });
+    const moduleData = this.mapCreateModuleDtoToModule(createModuleDto);
+    const newModule = new this.moduleModel(moduleData);
     const savedModule = await newModule.save();
 
     course.modules.push(savedModule._id);
@@ -181,11 +224,23 @@ export class CoursesService implements ICoursesService {
   }
 
   // Поиск модуля по ID
-  async findModuleById(moduleId: string): Promise<Module> {
+  async findModuleById(moduleId: string): Promise<Module | null> {
+    if (!Types.ObjectId.isValid(moduleId)) {
+      throw new BadRequestException('Неверный ID модуля');
+    }
+    const cacheKey = `module:${moduleId}`;
+    const cachedModule = await this.cacheManager.get<Module>(cacheKey);
+    if (cachedModule) {
+      this.logger.debug('Модуль найден в кэше:', cachedModule.title);
+      return cachedModule;
+    }
+
     const module = await this.moduleModel.findById(moduleId).lean().exec();
     if (!module) {
-      throw new NotFoundException(`Модуль с ID ${moduleId} не найден`);
+      this.logger.warn(`Модуль с ID ${moduleId} не найден`);
+      return null;
     }
+    await this.cacheManager.set(cacheKey, module, CACHE_TTL);
     return module;
   }
 
@@ -194,6 +249,9 @@ export class CoursesService implements ICoursesService {
     courseId: string,
     title: string,
   ): Promise<Module | null> {
+    if (!Types.ObjectId.isValid(courseId)) {
+      throw new BadRequestException('Неверный ID курса');
+    }
     const cacheKey = `module:course:${courseId}:title:${title}`;
     const cachedModule = await this.cacheManager.get<Module>(cacheKey);
     if (cachedModule) {
@@ -218,15 +276,19 @@ export class CoursesService implements ICoursesService {
     moduleId: string,
     createLessonDto: CreateLessonDto,
   ): Promise<Lesson> {
+    if (
+      !Types.ObjectId.isValid(courseId) ||
+      !Types.ObjectId.isValid(moduleId)
+    ) {
+      throw new BadRequestException('Неверный ID курса или модуля');
+    }
     const module = await this.moduleModel.findById(moduleId).exec();
     if (!module) {
       throw new NotFoundException(`Модуль с ID ${moduleId} не найден`);
     }
 
-    const newLesson = new this.lessonModel({
-      ...createLessonDto,
-      moduleId: module._id,
-    });
+    const lessonData = this.mapCreateLessonDtoToLesson(createLessonDto);
+    const newLesson = new this.lessonModel(lessonData);
     const savedLesson = await newLesson.save();
 
     module.lessons.push(savedLesson._id);
@@ -234,21 +296,37 @@ export class CoursesService implements ICoursesService {
 
     await this.cacheManager.del(`module:${moduleId}`);
     await this.cacheManager.del(`course:${courseId}`);
+    await this.cacheManager.del('courses:all');
     this.logger.log(`Урок ${savedLesson.title} добавлен в модуль ${moduleId}`);
     return savedLesson;
   }
 
   // Поиск урока по ID
-  async findLessonById(lessonId: string): Promise<Lesson> {
+  async findLessonById(lessonId: string): Promise<Lesson | null> {
+    if (!Types.ObjectId.isValid(lessonId)) {
+      throw new BadRequestException('Неверный ID урока');
+    }
+    const cacheKey = `lesson:${lessonId}`;
+    const cachedLesson = await this.cacheManager.get<Lesson>(cacheKey);
+    if (cachedLesson) {
+      this.logger.debug('Урок найден в кэше:', cachedLesson.title);
+      return cachedLesson;
+    }
+
     const lesson = await this.lessonModel.findById(lessonId).lean().exec();
     if (!lesson) {
-      throw new NotFoundException(`Урок с ID ${lessonId} не найден`);
+      this.logger.warn(`Урок с ID ${lessonId} не найден`);
+      return null;
     }
+    await this.cacheManager.set(cacheKey, lesson, CACHE_TTL);
     return lesson;
   }
 
   // Поиск курса по уроку
   async findCourseByLesson(lessonId: string): Promise<Course | null> {
+    if (!Types.ObjectId.isValid(lessonId)) {
+      throw new BadRequestException('Неверный ID урока');
+    }
     const cacheKey = `course:lesson:${lessonId}`;
     const cachedCourse = await this.cacheManager.get<Course>(cacheKey);
     if (cachedCourse) {
@@ -281,6 +359,9 @@ export class CoursesService implements ICoursesService {
 
   // Получение статистики курса
   async getCourseStatistics(courseId: string): Promise<any> {
+    if (!Types.ObjectId.isValid(courseId)) {
+      throw new BadRequestException('Неверный ID курса');
+    }
     const cacheKey = `course:stats:${courseId}`;
     const cachedStats = await this.cacheManager.get<any>(cacheKey);
     if (cachedStats) {
@@ -315,6 +396,9 @@ export class CoursesService implements ICoursesService {
 
   // Получение структуры курса
   async getCourseStructure(courseId: string): Promise<any> {
+    if (!Types.ObjectId.isValid(courseId)) {
+      throw new BadRequestException('Неверный ID курса');
+    }
     const cacheKey = `course:structure:${courseId}`;
     const cachedStructure = await this.cacheManager.get<any>(cacheKey);
     if (cachedStructure) {
@@ -322,33 +406,29 @@ export class CoursesService implements ICoursesService {
       return cachedStructure;
     }
 
-    const course = await this.courseModel.findById(courseId).lean().exec();
+    const course = await this.courseModel
+      .findById(courseId)
+      .populate({
+        path: 'modules',
+        populate: { path: 'lessons' },
+      })
+      .lean()
+      .exec();
     if (!course) {
       throw new NotFoundException(`Курс с ID ${courseId} не найден`);
     }
 
-    const modules = await this.moduleModel
-      .find({ _id: { $in: course.modules } })
-      .lean()
-      .exec();
-    const lessons = await this.lessonModel
-      .find({ _id: { $in: modules.flatMap((m) => m.lessons) } })
-      .lean()
-      .exec();
-
     const structure = {
       courseId: course._id,
       title: course.title,
-      modules: modules.map((module) => ({
+      modules: course.modules.map((module: any) => ({
         moduleId: module._id,
         title: module.title,
-        lessons: lessons
-          .filter((lesson) => module.lessons.some((l) => l.equals(lesson._id)))
-          .map((lesson) => ({
-            lessonId: lesson._id,
-            title: lesson.title,
-            content: lesson.content,
-          })),
+        lessons: module.lessons.map((lesson: any) => ({
+          lessonId: lesson._id,
+          title: lesson.title,
+          content: lesson.content,
+        })),
       })),
     };
 
@@ -362,6 +442,12 @@ export class CoursesService implements ICoursesService {
     studentId: string,
     courseId: string,
   ): Promise<any> {
+    if (
+      !Types.ObjectId.isValid(courseId) ||
+      !Types.ObjectId.isValid(studentId)
+    ) {
+      throw new BadRequestException('Неверный ID курса или студента');
+    }
     const cacheKey = `course:student-structure:${courseId}:student:${studentId}`;
     const cachedStructure = await this.cacheManager.get<any>(cacheKey);
     if (cachedStructure) {
@@ -385,10 +471,7 @@ export class CoursesService implements ICoursesService {
     const tariff = enrollment.tariffId as TariffDocument | undefined;
     const modules = await this.moduleModel
       .find({ _id: { $in: course.modules } })
-      .lean()
-      .exec();
-    const lessons = await this.lessonModel
-      .find({ _id: { $in: modules.flatMap((m) => m.lessons) } })
+      .populate('lessons')
       .lean()
       .exec();
 
@@ -402,16 +485,14 @@ export class CoursesService implements ICoursesService {
     const structure = {
       courseId: course._id,
       title: course.title,
-      modules: accessibleModules.map((module) => ({
+      modules: accessibleModules.map((module: any) => ({
         moduleId: module._id,
         title: module.title,
-        lessons: lessons
-          .filter((lesson) => module.lessons.some((l) => l.equals(lesson._id)))
-          .map((lesson) => ({
-            lessonId: lesson._id,
-            title: lesson.title,
-            content: lesson.content,
-          })),
+        lessons: module.lessons.map((lesson: any) => ({
+          lessonId: lesson._id,
+          title: lesson.title,
+          content: lesson.content,
+        })),
       })),
     };
 
@@ -422,6 +503,9 @@ export class CoursesService implements ICoursesService {
 
   // Получение общего количества уроков в курсе
   async getTotalLessonsForCourse(courseId: string): Promise<number> {
+    if (!Types.ObjectId.isValid(courseId)) {
+      throw new BadRequestException('Неверный ID курса');
+    }
     const cacheKey = `course:total-lessons:${courseId}`;
     const cachedTotal = await this.cacheManager.get<number>(cacheKey);
     if (cachedTotal !== undefined && cachedTotal !== null) {
@@ -454,7 +538,14 @@ export class CoursesService implements ICoursesService {
     moduleId: string,
     lessonId: string,
     updateLessonDto: CreateLessonDto,
-  ): Promise<Lesson> {
+  ): Promise<Lesson | null> {
+    if (
+      !Types.ObjectId.isValid(courseId) ||
+      !Types.ObjectId.isValid(moduleId) ||
+      !Types.ObjectId.isValid(lessonId)
+    ) {
+      throw new BadRequestException('Неверный ID курса, модуля или урока');
+    }
     const lesson = await this.lessonModel
       .findByIdAndUpdate(lessonId, updateLessonDto, { new: true })
       .lean()
@@ -462,9 +553,10 @@ export class CoursesService implements ICoursesService {
     if (!lesson) {
       throw new NotFoundException(`Урок с ID ${lessonId} не найден`);
     }
+    await this.cacheManager.del(`lesson:${lessonId}`);
     await this.cacheManager.del(`module:${moduleId}`);
     await this.cacheManager.del(`course:${courseId}`);
-    await this.cacheManager.del('courses:all'); // Добавлено для консистентности
+    await this.cacheManager.del('courses:all');
     this.logger.log(`Урок ${lessonId} обновлен`);
     return lesson;
   }
@@ -474,19 +566,37 @@ export class CoursesService implements ICoursesService {
     courseId: string,
     moduleId: string,
     lessonId: string,
-  ): Promise<void> {
+  ): Promise<null> {
+    if (
+      !Types.ObjectId.isValid(courseId) ||
+      !Types.ObjectId.isValid(moduleId) ||
+      !Types.ObjectId.isValid(lessonId)
+    ) {
+      throw new BadRequestException('Неверный ID курса, модуля или урока');
+    }
+    const module = await this.moduleModel.findById(moduleId).exec();
+    if (!module) {
+      throw new NotFoundException(`Модуль с ID ${moduleId} не найден`);
+    }
     const result = await this.lessonModel.findByIdAndDelete(lessonId).exec();
     if (!result) {
       throw new NotFoundException(`Урок с ID ${lessonId} не найден`);
     }
+    module.lessons = module.lessons.filter((id) => !id.equals(lessonId));
+    await module.save();
+    await this.cacheManager.del(`lesson:${lessonId}`);
     await this.cacheManager.del(`module:${moduleId}`);
     await this.cacheManager.del(`course:${courseId}`);
     await this.cacheManager.del('courses:all');
     this.logger.log(`Урок ${lessonId} удален`);
+    return null;
   }
 
   // Получение аналитики курса
   async getCourseAnalytics(courseId: string): Promise<CourseAnalytics> {
+    if (!Types.ObjectId.isValid(courseId)) {
+      throw new BadRequestException('Неверный ID курса');
+    }
     const cacheKey = `course:analytics:${courseId}`;
     const cachedAnalytics =
       await this.cacheManager.get<CourseAnalytics>(cacheKey);
@@ -601,6 +711,9 @@ export class CoursesService implements ICoursesService {
 
   // Экспорт аналитики в CSV
   async exportCourseAnalyticsToCSV(courseId: string): Promise<string> {
+    if (!Types.ObjectId.isValid(courseId)) {
+      throw new BadRequestException('Неверный ID курса');
+    }
     const analytics = await this.getCourseAnalytics(courseId);
     const dirPath = `analytics/course_${courseId}`;
     const filePath = `${dirPath}/course_${courseId}_analytics_${Date.now()}.csv`;
@@ -682,16 +795,15 @@ export class CoursesService implements ICoursesService {
     courseId: string,
     limit: number = 10,
   ): Promise<LeaderboardEntry[]> {
+    if (!Types.ObjectId.isValid(courseId)) {
+      throw new BadRequestException('Неверный ID курса');
+    }
     const cacheKey = `leaderboard:${courseId}:limit:${limit}`;
     const cachedLeaderboard =
       await this.cacheManager.get<LeaderboardEntry[]>(cacheKey);
     if (cachedLeaderboard) {
       this.logger.debug(`Лидерборд из кэша для курса ${courseId}`);
       return cachedLeaderboard;
-    }
-
-    if (!Types.ObjectId.isValid(courseId)) {
-      throw new BadRequestException('Неверный ID курса');
     }
 
     const course = await this.courseModel.findById(courseId).lean().exec();
@@ -735,17 +847,30 @@ export class CoursesService implements ICoursesService {
 
   // Получение списка уроков для курса
   async getLessonsForCourse(courseId: string): Promise<string[]> {
+    if (!Types.ObjectId.isValid(courseId)) {
+      throw new BadRequestException('Неверный ID курса');
+    }
+    const cacheKey = `course:lessons:${courseId}`;
+    const cachedLessons = await this.cacheManager.get<string[]>(cacheKey);
+    if (cachedLessons) {
+      this.logger.debug('Список уроков найден в кэше:', cachedLessons.length);
+      return cachedLessons;
+    }
+
     const course = await this.findCourseById(courseId);
     if (!course.modules.length) return [];
 
-    const modules = await Promise.all(
-      course.modules.map((moduleId) =>
-        this.moduleModel.findById(moduleId).lean().exec(),
-      ),
-    );
-    return modules.reduce((acc, mod) => {
-      const lessonIds = (mod?.lessons || []).map((id) => id.toString());
-      return [...acc, ...lessonIds];
-    }, []);
+    const modules = await this.moduleModel
+      .find({ _id: { $in: course.modules } })
+      .lean()
+      .exec();
+    const lessonIds = modules.reduce((acc, mod) => {
+      const ids = (mod?.lessons || []).map((id) => id.toString());
+      return [...acc, ...ids];
+    }, [] as string[]);
+
+    await this.cacheManager.set(cacheKey, lessonIds, CACHE_TTL);
+    this.logger.debug('Список уроков рассчитан:', lessonIds.length);
+    return lessonIds;
   }
 }

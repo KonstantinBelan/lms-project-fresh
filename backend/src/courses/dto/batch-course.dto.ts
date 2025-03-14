@@ -4,24 +4,37 @@ import {
   ArrayNotEmpty,
   ValidateNested,
 } from 'class-validator';
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiResponse } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 
 class CourseDto {
   @ApiProperty({
     example: 'Курс 1',
     description: 'Название курса',
+    examples: {
+      basic: { value: 'Курс 1' },
+      detailed: { value: 'Курс 2: Основы Nest.js' },
+    },
   })
-  @IsString()
+  @IsString({ message: 'Название курса должно быть строкой' })
   @IsNotEmpty({ message: 'Название курса не может быть пустым' })
   title: string;
 
   @ApiProperty({
     example: 'Это описание курса 1',
     description: 'Описание курса',
+    examples: {
+      short: { value: 'Краткое описание.' },
+      long: { value: 'Подробное описание курса с целями.' },
+    },
   })
-  @IsString()
+  @IsString({ message: 'Описание курса должно быть строкой' })
   @IsNotEmpty({ message: 'Описание курса не может быть пустым' })
+  description: string;
+}
+
+export interface ICourseDto {
+  title: string;
   description: string;
 }
 
