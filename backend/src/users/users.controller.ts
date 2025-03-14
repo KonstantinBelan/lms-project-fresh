@@ -1,4 +1,3 @@
-// src/users/users.controller.ts
 import {
   Controller,
   Post,
@@ -31,9 +30,8 @@ import {
   ApiResponse,
   ApiBearerAuth,
 } from '@nestjs/swagger';
-import { User } from './schemas/user.schema';
 import { JwtRequest } from '../common/interfaces/jwt-request.interface';
-import { mapToUserResponseDto } from './mappers/user.mapper';
+import { UserResponseDto, mapToUserResponseDto } from './mappers/user.mapper';
 import * as bcrypt from 'bcrypt';
 
 @ApiTags('Пользователи')
@@ -49,12 +47,16 @@ export class UsersController {
 
   @Post()
   @ApiOperation({ summary: 'Создать нового пользователя' })
-  @ApiResponse({ status: 201, description: 'Пользователь создан', type: User })
+  @ApiResponse({
+    status: 201,
+    description: 'Пользователь создан',
+    type: UserResponseDto,
+  })
   @ApiResponse({ status: 400, description: 'Неверные данные' })
   @Roles(Role.ADMIN)
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @UsePipes(new ValidationPipe())
-  async create(@Body() createUserDto: CreateUserDto): Promise<User> {
+  async create(@Body() createUserDto: CreateUserDto): Promise<UserResponseDto> {
     this.logger.log(`Создание пользователя с email: ${createUserDto.email}`);
     const hashedPassword = await bcrypt.hash(createUserDto.password, 10);
     const user = await this.usersService.create({
@@ -71,11 +73,11 @@ export class UsersController {
   @ApiResponse({
     status: 200,
     description: 'Текущий пользователь получен',
-    type: User,
+    type: UserResponseDto,
   })
   @ApiResponse({ status: 401, description: 'Не авторизован' })
   @UseGuards(AuthGuard('jwt'))
-  async getMe(@Req() req: JwtRequest): Promise<User> {
+  async getMe(@Req() req: JwtRequest): Promise<UserResponseDto> {
     const userId = req.user?.sub || req.user?._id;
     if (!userId) {
       this.logger.error('Отсутствует ID пользователя в токене', req.user);
@@ -92,12 +94,12 @@ export class UsersController {
   @ApiResponse({
     status: 200,
     description: 'Все пользователи получены',
-    type: [User],
+    type: [UserResponseDto],
   })
   @ApiResponse({ status: 403, description: 'Доступ запрещён' })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles(Role.ADMIN)
-  async findAll(): Promise<User[]> {
+  async findAll(): Promise<UserResponseDto[]> {
     this.logger.log('Получение списка всех пользователей');
     const users = await this.usersService.findAll();
     return users.map(mapToUserResponseDto);
@@ -110,12 +112,16 @@ export class UsersController {
     description: 'ID пользователя',
     example: '507f1f77bcf86cd799439011',
   })
-  @ApiResponse({ status: 200, description: 'Пользователь найден', type: User })
+  @ApiResponse({
+    status: 200,
+    description: 'Пользователь найден',
+    type: UserResponseDto,
+  })
   @ApiResponse({ status: 404, description: 'Пользователь не найден' })
   @ApiResponse({ status: 403, description: 'Доступ запрещён' })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles(Role.ADMIN, Role.TEACHER)
-  async findById(@Param('id') id: string): Promise<User> {
+  async findById(@Param('id') id: string): Promise<UserResponseDto> {
     this.logger.log(`Поиск пользователя с ID: ${id}`);
     const user = await this.usersService.findById(id);
     if (!user) throw new NotFoundException(`Пользователь с ID ${id} не найден`);
@@ -129,11 +135,17 @@ export class UsersController {
     description: 'Email пользователя',
     example: 'user@example.com',
   })
-  @ApiResponse({ status: 200, description: 'Пользователь найден', type: User })
+  @ApiResponse({
+    status: 200,
+    description: 'Пользователь найден',
+    type: UserResponseDto,
+  })
   @ApiResponse({ status: 404, description: 'Пользователь не найден' })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles(Role.ADMIN)
-  async findUserByEmail(@Param('email') email: string): Promise<User> {
+  async findUserByEmail(
+    @Param('email') email: string,
+  ): Promise<UserResponseDto> {
     this.logger.log(`Поиск пользователя по email: ${email}`);
     const user = await this.usersService.findByEmail(email);
     if (!user)
@@ -151,7 +163,7 @@ export class UsersController {
   @ApiResponse({
     status: 200,
     description: 'Пользователь обновлён',
-    type: User,
+    type: UserResponseDto,
   })
   @ApiResponse({ status: 404, description: 'Пользователь не найден' })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
@@ -159,7 +171,7 @@ export class UsersController {
   async update(
     @Param('id') id: string,
     @Body() body: { name?: string; phone?: string; roles?: Role[] },
-  ): Promise<User> {
+  ): Promise<UserResponseDto> {
     this.logger.log(`Обновление пользователя с ID: ${id}`);
     const updatedUser = await this.usersService.updateUser(id, body);
     if (!updatedUser)
@@ -203,7 +215,7 @@ export class UsersController {
   @ApiResponse({
     status: 201,
     description: 'Пользователь добавлен в группу',
-    type: User,
+    type: UserResponseDto,
   })
   @ApiResponse({
     status: 404,
@@ -214,7 +226,7 @@ export class UsersController {
   async addToGroup(
     @Param('id') id: string,
     @Param('groupId') groupId: string,
-  ): Promise<User> {
+  ): Promise<UserResponseDto> {
     this.logger.log(`Добавление пользователя ${id} в группу ${groupId}`);
     await this.groupsService.addStudent(groupId, id);
     const updatedUser = await this.usersService.updateUser(id, {
@@ -274,14 +286,18 @@ export class UsersController {
       Пример: { "telegramId": "123456789" }
     `,
   })
-  @ApiResponse({ status: 200, description: 'Telegram подключён', type: User })
+  @ApiResponse({
+    status: 200,
+    description: 'Telegram подключён',
+    type: UserResponseDto,
+  })
   @ApiResponse({ status: 401, description: 'Не авторизован' })
   @UseGuards(AuthGuard('jwt'))
   @UsePipes(new ValidationPipe())
   async connectTelegram(
     @Req() req: JwtRequest,
     @Body() connectDto: ConnectTelegramDto,
-  ): Promise<User> {
+  ): Promise<UserResponseDto> {
     const userId = req.user?.sub || req.user?._id;
     if (!userId) {
       this.logger.error('Отсутствует ID пользователя в токене', req.user);
