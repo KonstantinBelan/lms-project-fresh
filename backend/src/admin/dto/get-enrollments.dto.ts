@@ -1,6 +1,7 @@
 import { IsOptional, IsMongoId, IsInt, Min, Max } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
-
+import { Enrollment } from '../../enrollments/schemas/enrollment.schema';
+// DTO для фильтрации записей о зачислении с пагинацией
 export class GetEnrollmentsDto {
   @ApiProperty({
     description: 'ID курса для фильтрации записей',
@@ -40,4 +41,13 @@ export class GetEnrollmentsDto {
   @Min(1)
   @Max(100)
   limit?: number = 10;
+}
+
+// Интерфейс для типизации ответа с записями о зачислении
+export interface IEnrollmentResponse {
+  data: Enrollment[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
 }

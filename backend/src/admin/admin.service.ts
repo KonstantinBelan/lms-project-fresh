@@ -12,9 +12,24 @@ import {
   NotificationDocument,
 } from '../notifications/schemas/notification.schema';
 import { GetEnrollmentsDto } from './dto/get-enrollments.dto';
-import { GetNotificationsDto } from './dto/get-notifications.dto';
-import { GetActivityDto } from './dto/get-activity.dto';
-import { GetCoursesDto } from './dto/get-courses.dto';
+import {
+  GetNotificationsDto,
+  INotificationResponse,
+} from './dto/get-notifications.dto';
+import { GetActivityDto, IActivityResponse } from './dto/get-activity.dto';
+import { GetCoursesDto, ICourseResponse } from './dto/get-courses.dto';
+
+// Интерфейс для ответа метода getUsers
+interface IUserResponse {
+  users: User[];
+  total: number;
+}
+
+// Интерфейс для ответа метода getEnrollments
+interface IEnrollmentResponse {
+  enrollments: Enrollment[];
+  total: number;
+}
 
 @Injectable()
 export class AdminService {
@@ -29,19 +44,23 @@ export class AdminService {
     private notificationModel: Model<NotificationDocument>,
   ) {}
 
+  // Получение списка пользователей с фильтрами и пагинацией
   async getUsers(
     filters: { roles?: string[]; email?: string; groups?: string[] } = {},
     page: number = 1,
     limit: number = 10,
-  ): Promise<{ users: User[]; total: number }> {
-    this.logger.log('Получение пользователей с фильтрами и пагинацией');
+  ): Promise<IUserResponse> {
+    this.logger.log(
+      `Получение пользователей: страница ${page}, лимит ${limit}`,
+    );
     const query: any = {};
     if (filters.roles?.length) query.roles = { $in: filters.roles };
     if (filters.email) query.email = { $regex: filters.email, $options: 'i' };
     if (filters.groups?.length) {
       const groupObjectIds = filters.groups.map((id) => {
-        if (!Types.ObjectId.isValid(id))
+        if (!Types.ObjectId.isValid(id)) {
           throw new BadRequestException(`Некорректный ID группы: ${id}`);
+        }
         return new Types.ObjectId(id);
       });
       query.groups = { $in: groupObjectIds };
@@ -63,16 +82,18 @@ export class AdminService {
     return { users, total };
   }
 
-  async getCourses(
-    filters: GetCoursesDto = {},
-  ): Promise<{ courses: Course[]; total: number }> {
-    this.logger.log('Получение курсов с фильтрами и пагинацией');
+  // Получение списка курсов с фильтрами и пагинацией
+  async getCourses(filters: GetCoursesDto = {}): Promise<ICourseResponse> {
+    this.logger.log(
+      `Получение курсов: страница ${filters.page}, лимит ${filters.limit}`,
+    );
     const query: any = {};
     if (filters.title) query.title = { $regex: filters.title, $options: 'i' };
     if (filters.teacherId) {
-      if (!Types.ObjectId.isValid(filters.teacherId))
+      if (!Types.ObjectId.isValid(filters.teacherId)) {
         throw new BadRequestException('Некорректный ID преподавателя');
-      query.teacherId = new Types.ObjectId(filters.teacherId); // Предполагаем, что в схеме Course есть поле teacherId
+      }
+      query.teacherId = new Types.ObjectId(filters.teacherId);
     }
 
     const page = filters.page ?? 1;
@@ -89,30 +110,36 @@ export class AdminService {
       this.courseModel.countDocuments(query).exec(),
     ]);
 
+    const totalPages = Math.ceil(total / limit);
     this.logger.debug(`Найдено ${courses.length} курсов из ${total}`);
-    return { courses, total };
+    return { data: courses, total, page, limit, totalPages };
   }
 
+  // Получение записей о зачислении с фильтрами и пагинацией
   async getEnrollments(
     filters: GetEnrollmentsDto,
-  ): Promise<{ users: Enrollment[]; total: number }> {
-    this.logger.log('Получение записей о зачислении с фильтрами и пагинацией');
+  ): Promise<IEnrollmentResponse> {
+    this.logger.log(
+      `Получение записей о зачислении: страница ${filters.page}, лимит ${filters.limit}`,
+    );
     const query: any = {};
     if (filters.courseId) {
-      if (!Types.ObjectId.isValid(filters.courseId))
+      if (!Types.ObjectId.isValid(filters.courseId)) {
         throw new BadRequestException('Некорректный ID курса');
+      }
       query.courseId = new Types.ObjectId(filters.courseId);
     }
     if (filters.userId) {
-      if (!Types.ObjectId.isValid(filters.userId))
+      if (!Types.ObjectId.isValid(filters.userId)) {
         throw new BadRequestException('Некорректный ID пользователя');
+      }
       query.userId = new Types.ObjectId(filters.userId);
     }
 
-    const page = filters.page ?? 1; // Значение по умолчанию
-    const limit = Math.min(filters.limit ?? 10, 100); // Значение по умолчанию и максимум
+    const page = filters.page ?? 1;
+    const limit = Math.min(filters.limit ?? 10, 100);
     const skip = (page - 1) * limit;
-    const [users, total] = await Promise.all([
+    const [enrollments, total] = await Promise.all([
       this.enrollmentModel
         .find(query)
         .skip(skip)
@@ -124,29 +151,34 @@ export class AdminService {
     ]);
 
     this.logger.debug(
-      `Найдено ${users.length} записей о зачислении из ${total}`,
+      `Найдено ${enrollments.length} записей о зачислении из ${total}`,
     );
-    return { users, total };
+    return { enrollments, total };
   }
 
+  // Получение уведомлений с фильтрами и пагинацией
   async getNotifications(
     filters: GetNotificationsDto,
-  ): Promise<{ notifications: Notification[]; total: number }> {
-    this.logger.log('Получение уведомлений с фильтрами и пагинацией');
+  ): Promise<INotificationResponse> {
+    this.logger.log(
+      `Получение уведомлений: страница ${filters.page}, лимит ${filters.limit}`,
+    );
     const query: any = {};
     if (filters.userId) {
-      if (!Types.ObjectId.isValid(filters.userId))
+      if (!Types.ObjectId.isValid(filters.userId)) {
         throw new BadRequestException('Некорректный ID пользователя');
+      }
       query.userId = new Types.ObjectId(filters.userId);
     }
     if (filters.courseId) {
-      if (!Types.ObjectId.isValid(filters.courseId))
+      if (!Types.ObjectId.isValid(filters.courseId)) {
         throw new BadRequestException('Некорректный ID курса');
+      }
       query.courseId = new Types.ObjectId(filters.courseId);
     }
 
-    const page = filters.page ?? 1; // Значение по умолчанию
-    const limit = Math.min(filters.limit ?? 10, 100); // Значение по умолчанию и максимум
+    const page = filters.page ?? 1;
+    const limit = Math.min(filters.limit ?? 10, 100);
     const skip = (page - 1) * limit;
     const [notifications, total] = await Promise.all([
       this.notificationModel
@@ -160,13 +192,15 @@ export class AdminService {
       this.notificationModel.countDocuments(query).exec(),
     ]);
 
+    const totalPages = Math.ceil(total / limit);
     this.logger.debug(
       `Найдено ${notifications.length} уведомлений из ${total}`,
     );
-    return { notifications, total };
+    return { data: notifications, total, page, limit, totalPages };
   }
 
-  async getActivity(filters: GetActivityDto): Promise<any> {
+  // Получение сводки по активности платформы
+  async getActivity(filters: GetActivityDto): Promise<IActivityResponse> {
     this.logger.log('Получение сводки по активности');
     try {
       const dateQuery: any = {};

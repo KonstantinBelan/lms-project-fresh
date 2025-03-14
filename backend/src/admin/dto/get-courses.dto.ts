@@ -7,7 +7,9 @@ import {
   Max,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import { Course } from '../../courses/schemas/course.schema';
 
+// DTO для фильтрации курсов с пагинацией
 export class GetCoursesDto {
   @ApiProperty({
     description: 'Название курса для фильтрации (частичное совпадение)',
@@ -47,4 +49,13 @@ export class GetCoursesDto {
   @Min(1)
   @Max(100)
   limit?: number = 10;
+}
+
+// Интерфейс для типизации ответа с курсами
+export interface ICourseResponse {
+  data: Course[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
 }

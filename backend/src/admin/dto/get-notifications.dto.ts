@@ -1,6 +1,8 @@
 import { IsOptional, IsMongoId, IsInt, Min, Max } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import { Notification } from '../../notifications/schemas/notification.schema';
 
+// DTO для фильтрации уведомлений с пагинацией
 export class GetNotificationsDto {
   @ApiProperty({
     description: 'ID пользователя для фильтрации уведомлений',
@@ -40,4 +42,13 @@ export class GetNotificationsDto {
   @Min(1)
   @Max(100)
   limit?: number = 10;
+}
+
+// Интерфейс для типизации ответа с уведомлениями
+export interface INotificationResponse {
+  data: Notification[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
 }
