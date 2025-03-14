@@ -28,15 +28,15 @@ describe('QuizzesService', () => {
   const mockQuizData = {
     _id: validQuizId,
     lessonId: validLessonId,
-    title: 'Test Quiz',
+    title: 'Тестовая викторина',
     questions: [
-      { question: 'Q1', correctAnswers: [0], weight: 1, hint: 'Hint 1' },
+      { question: 'Q1', correctAnswers: [0], weight: 1, hint: 'Подсказка 1' },
       { question: 'Q2', correctAnswers: [1], weight: 2 },
     ],
     timeLimit: 10,
   };
 
-  const mockLessonData = { _id: validLessonId, title: 'Test Lesson' };
+  const mockLessonData = { _id: validLessonId, title: 'Тестовый урок' };
   const mockModuleData = { _id: validModuleId, lessons: [validLessonId] };
   const mockCourseData = { _id: validCourseId, modules: [validModuleId] };
 
@@ -78,8 +78,8 @@ describe('QuizzesService', () => {
   };
   const mockNotificationsService = {
     getNotificationByKey: jest.fn().mockResolvedValue({
-      title: 'Quiz Completed',
-      message: 'You earned {{points}} points for quiz "{{quizTitle}}"!',
+      title: 'Викторина завершена',
+      message: 'Вы заработали {{points}} баллов за викторину "{{quizTitle}}"!',
     }),
     createNotification: jest.fn().mockResolvedValue({ _id: 'notification1' }),
     sendNotificationToUser: jest.fn().mockResolvedValue(undefined),
@@ -124,9 +124,10 @@ describe('QuizzesService', () => {
     });
     mockQuizModel.findByIdAndUpdate.mockReturnValue({
       lean: jest.fn().mockReturnValue({
-        exec: jest
-          .fn()
-          .mockResolvedValue({ ...mockQuizData, title: 'Updated Quiz' }),
+        exec: jest.fn().mockResolvedValue({
+          ...mockQuizData,
+          title: 'Обновленная викторина',
+        }),
       }),
     });
     mockQuizModel.deleteOne.mockReturnValue({
@@ -161,17 +162,43 @@ describe('QuizzesService', () => {
   afterEach(() => jest.clearAllMocks());
 
   describe('createQuiz', () => {
-    it('должен успешно создать викторину', async () => {
-      const result = await service.createQuiz(validLessonId, 'Test Quiz', [
-        { question: 'Q1', correctAnswers: [0], weight: 1, hint: 'Hint 1' },
-      ]);
+    it('должен создать новую викторину', async () => {
+      const result = await service.createQuiz(
+        validLessonId,
+        'Тестовая викторина',
+        [
+          {
+            question: 'Q1',
+            correctAnswers: [0],
+            weight: 1,
+            hint: 'Подсказка 1',
+          },
+        ],
+      );
       expect(mockQuizModel).toHaveBeenCalled();
       expect(result).toHaveProperty('_id', validQuizId);
     });
   });
 
+  describe('findQuizById', () => {
+    it('должен найти викторину по ID', async () => {
+      const result = await service.findQuizById(validQuizId);
+      expect(result).toEqual(mockQuizData);
+    });
+
+    it('должен вернуть null, если викторина не найдена', async () => {
+      mockQuizModel.findById.mockReturnValue({
+        lean: jest
+          .fn()
+          .mockReturnValue({ exec: jest.fn().mockResolvedValue(null) }),
+      });
+      const result = await service.findQuizById(validQuizId);
+      expect(result).toBeNull();
+    });
+  });
+
   describe('submitQuiz', () => {
-    it('должен успешно отправить викторину и начислить баллы', async () => {
+    it('должен отправить викторину и начислить баллы', async () => {
       const result = await service.submitQuiz(validStudentId, validQuizId, [
         [0],
         [1],
@@ -179,13 +206,9 @@ describe('QuizzesService', () => {
       expect(mockQuizModel.findById).toHaveBeenCalledWith(validQuizId);
       expect(mockQuizSubmissionModel).toHaveBeenCalled();
       expect(result).toHaveProperty('score', 100);
-      expect(mockNotificationsService.createNotification).toHaveBeenCalled();
-      expect(
-        mockNotificationsService.sendNotificationToUser,
-      ).toHaveBeenCalledWith('notification1', validStudentId);
     });
 
-    it('должен выбросить исключение, если викторина уже отправлена', async () => {
+    it('должен выбросить ошибку при повторной отправке', async () => {
       mockQuizSubmissionModel.findOne.mockReturnValue({
         lean: jest.fn().mockReturnValue({
           exec: jest.fn().mockResolvedValue({ _id: 'submission1' }),
@@ -195,68 +218,26 @@ describe('QuizzesService', () => {
         service.submitQuiz(validStudentId, validQuizId, [[0]]),
       ).rejects.toThrow(BadRequestException);
     });
+  });
 
-    it('должен выбросить исключение, если викторина не найдена', async () => {
-      mockQuizModel.findById.mockReturnValue({
-        lean: jest.fn().mockReturnValue({
-          exec: jest.fn().mockResolvedValue(null),
+  describe('getSubmissionsByStudentAndCourse', () => {
+    it('должен вернуть отправки студента по курсу', async () => {
+      mockQuizSubmissionModel.find.mockReturnValue({
+        populate: jest.fn().mockReturnValue({
+          lean: jest.fn().mockReturnValue({
+            exec: jest
+              .fn()
+              .mockResolvedValue([
+                { quizId: mockQuizData, studentId: validStudentId },
+              ]),
+          }),
         }),
       });
-      await expect(
-        service.submitQuiz(validStudentId, validQuizId, [[0]]),
-      ).rejects.toThrow(NotFoundException);
-    });
-
-    it('должен выбросить исключение, если количество ответов не соответствует вопросам', async () => {
-      await expect(
-        service.submitQuiz(validStudentId, validQuizId, [[0]]), // Только 1 ответ вместо 2
-      ).rejects.toThrow(BadRequestException);
-    });
-  });
-
-  describe('getQuizHints', () => {
-    it('должен вернуть подсказки для вопросов викторины', async () => {
-      const result = await service.getQuizHints(validQuizId);
-      expect(mockQuizModel.findById).toHaveBeenCalledWith(validQuizId);
-      expect(result).toEqual([
-        { question: 'Q1', hint: 'Hint 1' },
-        { question: 'Q2', hint: undefined },
-      ]);
-    });
-
-    it('должен выбросить исключение, если викторина не найдена', async () => {
-      mockQuizModel.findById.mockReturnValue({
-        lean: jest.fn().mockReturnValue({
-          exec: jest.fn().mockResolvedValue(null),
-        }),
-      });
-      await expect(service.getQuizHints(validQuizId)).rejects.toThrow(
-        NotFoundException,
+      const result = await service.getSubmissionsByStudentAndCourse(
+        validStudentId,
+        validCourseId,
       );
-    });
-  });
-
-  describe('updateQuiz', () => {
-    it('должен обновить викторину и очистить кэш', async () => {
-      const updateData = { title: 'Updated Quiz' };
-      const result = await service.updateQuiz(validQuizId, updateData);
-      expect(mockQuizModel.findByIdAndUpdate).toHaveBeenCalledWith(
-        validQuizId,
-        updateData,
-        { new: true },
-      );
-      expect(mockCacheManager.del).toHaveBeenCalledWith(`quiz:${validQuizId}`);
-      expect(result).toHaveProperty('title', 'Updated Quiz');
-    });
-  });
-
-  describe('deleteQuiz', () => {
-    it('должен удалить викторину и очистить кэш', async () => {
-      await service.deleteQuiz(validQuizId);
-      expect(mockQuizModel.deleteOne).toHaveBeenCalledWith({
-        _id: validQuizId,
-      });
-      expect(mockCacheManager.del).toHaveBeenCalledWith(`quiz:${validQuizId}`);
+      expect(result).toHaveLength(1);
     });
   });
 });

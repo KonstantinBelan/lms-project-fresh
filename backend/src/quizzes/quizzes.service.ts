@@ -6,10 +6,11 @@ import {
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import { Quiz, QuizDocument } from './schemas/quiz.schema';
+import { Quiz, QuizDocument, IQuiz } from './schemas/quiz.schema';
 import {
   QuizSubmission,
   QuizSubmissionDocument,
+  IQuizSubmission,
 } from './schemas/quiz-submission.schema';
 import { Lesson, LessonDocument } from '../courses/schemas/lesson.schema';
 import { Course, CourseDocument } from '../courses/schemas/course.schema';
@@ -20,7 +21,24 @@ import { EnrollmentsService } from '../enrollments/enrollments.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { Inject, forwardRef } from '@nestjs/common';
 
-const CACHE_TTL = parseInt(process.env.CACHE_TTL ?? '3600', 10); // 1 час
+// Интерфейс для вопроса при создании/обновлении
+interface IQuizQuestionInput {
+  question: string;
+  options?: string[];
+  correctAnswers?: number[];
+  correctTextAnswer?: string;
+  weight?: number;
+  hint?: string;
+}
+
+// Интерфейс для входных данных обновления викторины
+interface IUpdateQuizInput {
+  title?: string;
+  questions?: IQuizQuestionInput[];
+  timeLimit?: number;
+}
+
+const CACHE_TTL = parseInt(process.env.CACHE_TTL ?? '3600', 10); // 1 час по умолчанию
 
 @Injectable()
 export class QuizzesService {
@@ -39,25 +57,17 @@ export class QuizzesService {
     @Inject(forwardRef(() => NotificationsService))
     private notificationsService: NotificationsService,
   ) {
-    this.logger.log('Инициализация QuizzesService');
+    this.logger.log('Инициализация сервиса викторин');
   }
 
+  // Создание новой викторины
   async createQuiz(
     lessonId: string,
     title: string,
-    questions: {
-      question: string;
-      options?: string[];
-      correctAnswers?: number[];
-      correctTextAnswer?: string;
-      weight?: number;
-      hint?: string;
-    }[],
+    questions: IQuizQuestionInput[],
     timeLimit?: number,
-  ): Promise<Quiz> {
-    this.logger.log(
-      `Создание викторины для урока ${lessonId} с названием "${title}"`,
-    );
+  ): Promise<IQuiz> {
+    this.logger.log(`Создание викторины для урока ${lessonId}: "${title}"`);
     const quiz = new this.quizModel({
       lessonId: new Types.ObjectId(lessonId),
       title,
@@ -65,13 +75,14 @@ export class QuizzesService {
       timeLimit,
     });
     const savedQuiz = await quiz.save();
-    this.logger.log(`Викторина успешно создана: ${savedQuiz._id}`);
+    this.logger.log(`Викторина создана с ID: ${savedQuiz._id}`);
     return savedQuiz.toObject();
   }
 
-  async findQuizById(quizId: string): Promise<Quiz | null> {
+  // Поиск викторины по ID с кэшированием
+  async findQuizById(quizId: string): Promise<IQuiz | null> {
     const cacheKey = `quiz:${quizId}`;
-    const cachedQuiz = await this.cacheManager.get<Quiz>(cacheKey);
+    const cachedQuiz = await this.cacheManager.get<IQuiz>(cacheKey);
     if (cachedQuiz) {
       this.logger.debug(`Викторина ${quizId} найдена в кэше`);
       return cachedQuiz;
@@ -83,15 +94,16 @@ export class QuizzesService {
       return null;
     }
     await this.cacheManager.set(cacheKey, quiz, CACHE_TTL);
-    this.logger.log(`Викторина ${quizId} найдена и сохранена в кэш`);
+    this.logger.log(`Викторина ${quizId} сохранена в кэш`);
     return quiz;
   }
 
-  async findQuizzesByLesson(lessonId: string): Promise<Quiz[]> {
+  // Поиск всех викторин по уроку
+  async findQuizzesByLesson(lessonId: string): Promise<IQuiz[]> {
     const cacheKey = `quizzes:lesson:${lessonId}`;
-    const cachedQuizzes = await this.cacheManager.get<Quiz[]>(cacheKey);
+    const cachedQuizzes = await this.cacheManager.get<IQuiz[]>(cacheKey);
     if (cachedQuizzes) {
-      this.logger.debug(`Викторины для урока ${lessonId} найдены в кэше`);
+      this.logger.debug(`Викторины урока ${lessonId} найдены в кэше`);
       return cachedQuizzes;
     }
 
@@ -100,63 +112,57 @@ export class QuizzesService {
       .lean()
       .exec();
     await this.cacheManager.set(cacheKey, quizzes, CACHE_TTL);
-    this.logger.log(
-      `Найдено ${quizzes.length} викторин для урока ${lessonId}, сохранено в кэш`,
-    );
+    this.logger.log(`Найдено ${quizzes.length} викторин для урока ${lessonId}`);
     return quizzes;
   }
 
+  // Обновление викторины
   async updateQuiz(
     quizId: string,
-    updateData: {
-      title?: string;
-      questions?: {
-        question: string;
-        options?: string[];
-        correctAnswers?: number[];
-        correctTextAnswer?: string;
-        weight?: number;
-        hint?: string;
-      }[];
-      timeLimit?: number;
-    },
-  ): Promise<Quiz | null> {
+    updateData: IUpdateQuizInput,
+  ): Promise<IQuiz | null> {
     this.logger.log(
-      `Обновление викторины ${quizId} с данными: ${JSON.stringify(updateData)}`,
+      `Обновление викторины ${quizId}: ${JSON.stringify(updateData)}`,
     );
     const quiz = await this.quizModel
       .findByIdAndUpdate(quizId, updateData, { new: true })
       .lean()
       .exec();
     if (!quiz) {
-      this.logger.warn(`Викторина ${quizId} не найдена для обновления`);
+      this.logger.warn(`Викторина ${quizId} не найдена`);
       return null;
     }
-    await this.cacheManager.del(`quiz:${quizId}`);
-    await this.cacheManager.del(`quizzes:lesson:${quiz.lessonId}`);
+    await Promise.all([
+      this.cacheManager.del(`quiz:${quizId}`),
+      this.cacheManager.del(`quizzes:lesson:${quiz.lessonId}`),
+    ]);
     this.logger.log(`Викторина ${quizId} обновлена, кэш очищен`);
     return quiz;
   }
 
+  // Удаление викторины
   async deleteQuiz(quizId: string): Promise<void> {
     this.logger.log(`Удаление викторины ${quizId}`);
     const quiz = await this.quizModel.findById(quizId).lean().exec();
     if (!quiz) {
-      this.logger.warn(`Викторина ${quizId} не найдена для удаления`);
+      this.logger.warn(`Викторина ${quizId} не найдена`);
       return;
     }
     await this.quizModel.deleteOne({ _id: quizId }).exec();
-    await this.cacheManager.del(`quiz:${quizId}`);
-    await this.cacheManager.del(`quizzes:lesson:${quiz.lessonId}`);
+    await Promise.all([
+      this.cacheManager.del(`quiz:${quizId}`),
+      this.cacheManager.del(`quizzes:lesson:${quiz.lessonId}`),
+    ]);
     this.logger.log(`Викторина ${quizId} удалена, кэш очищен`);
   }
 
+  // Отправка ответов на викторину
   async submitQuiz(
     studentId: string,
     quizId: string,
     answers: (number[] | string)[],
-  ): Promise<QuizSubmission> {
-    this.logger.log(`Отправка викторины ${quizId} от студента ${studentId}`);
+  ): Promise<IQuizSubmission> {
+    this.logger.log(`Отправка викторины ${quizId} студентом ${studentId}`);
 
     const existingSubmission = await this.quizSubmissionModel
       .findOne({
@@ -178,33 +184,24 @@ export class QuizzesService {
 
     if (answers.length !== quiz.questions.length) {
       this.logger.warn(
-        `Количество ответов (${answers.length}) не соответствует количеству вопросов (${quiz.questions.length}) для викторины ${quizId}`,
+        `Ответов: ${answers.length}, вопросов: ${quiz.questions.length}`,
       );
       throw new BadRequestException(
-        'Количество ответов должно соответствовать количеству вопросов',
+        'Количество ответов не соответствует количеству вопросов',
       );
     }
 
     if (quiz.timeLimit) {
-      const quizStartTime = await this.cacheManager.get<number>(
-        `quiz:start:${quizId}:${studentId}`,
-      );
+      const cacheKey = `quiz:start:${quizId}:${studentId}`;
+      const quizStartTime = await this.cacheManager.get<number>(cacheKey);
       const now = Date.now();
       if (!quizStartTime) {
-        await this.cacheManager.set(
-          `quiz:start:${quizId}:${studentId}`,
-          now,
-          quiz.timeLimit * 60 * 1000,
-        );
-        this.logger.debug(
-          `Установлено время начала викторины ${quizId} для ${studentId}`,
-        );
+        await this.cacheManager.set(cacheKey, now, quiz.timeLimit * 60 * 1000);
+        this.logger.debug(`Время начала викторины ${quizId} установлено`);
       } else {
         const elapsedTime = (now - quizStartTime) / (1000 * 60);
         if (elapsedTime > quiz.timeLimit) {
-          this.logger.warn(
-            `Превышено время (${elapsedTime} мин) для викторины ${quizId}, лимит: ${quiz.timeLimit} мин`,
-          );
+          this.logger.warn(`Превышен лимит времени: ${quiz.timeLimit} мин`);
           throw new BadRequestException('Превышен лимит времени');
         }
       }
@@ -238,38 +235,20 @@ export class QuizzesService {
       score,
     });
     const savedSubmission = await submission.save();
-    this.logger.log(
-      `Викторина ${quizId} отправлена, оценка: ${score}% (totalScore: ${totalScore}, maxScore: ${maxScore})`,
-    );
+    this.logger.log(`Викторина ${quizId} отправлена, оценка: ${score}%`);
 
-    const lesson = await this.lessonModel.findById(quiz.lessonId).lean().exec();
-    if (!lesson) {
-      this.logger.error(
-        `Урок ${quiz.lessonId} не найден для викторины ${quizId}`,
-      );
-      throw new BadRequestException('Урок не найден');
-    }
+    const [lesson, module, course] = await Promise.all([
+      this.lessonModel.findById(quiz.lessonId).lean().exec(),
+      this.moduleModel.findOne({ lessons: quiz.lessonId }).lean().exec(),
+      this.courseModel
+        .findOne({ modules: { $in: [quiz.lessonId] } })
+        .lean()
+        .exec(),
+    ]);
 
-    const module = await this.moduleModel
-      .findOne({ lessons: quiz.lessonId })
-      .lean()
-      .exec();
-    if (!module) {
-      this.logger.error(
-        `Модуль не найден для урока ${quiz.lessonId} в викторине ${quizId}`,
-      );
-      throw new BadRequestException('Модуль не найден');
-    }
-
-    const course = await this.courseModel
-      .findOne({ modules: module._id })
-      .lean()
-      .exec();
-    if (!course) {
-      this.logger.error(
-        `Курс не найден для модуля ${module._id} в викторине ${quizId}`,
-      );
-      throw new BadRequestException('Курс не найден');
+    if (!lesson || !module || !course) {
+      this.logger.error(`Не найдены связанные данные для викторины ${quizId}`);
+      throw new BadRequestException('Ошибка в связанных данных');
     }
 
     const moduleId = module._id.toString();
@@ -281,9 +260,6 @@ export class QuizzesService {
       moduleId,
       quiz.lessonId.toString(),
     );
-    this.logger.debug(
-      `Прогресс студента ${studentId} обновлен для курса ${courseId}`,
-    );
 
     const updatedEnrollment = await this.enrollmentsService.awardPoints(
       studentId,
@@ -291,9 +267,6 @@ export class QuizzesService {
       totalScore,
     );
     if (updatedEnrollment) {
-      this.logger.debug(
-        `Начислено ${totalScore} баллов за викторину ${quizId}`,
-      );
       const template =
         await this.notificationsService.getNotificationByKey('quiz_submission');
       const message = this.notificationsService.replacePlaceholders(
@@ -309,12 +282,6 @@ export class QuizzesService {
         message,
         title: template.title,
       });
-      if (!notification._id) {
-        this.logger.error(
-          'Не удалось создать уведомление для студента ${studentId}',
-        );
-        throw new Error('Notification ID is missing');
-      }
       await this.notificationsService.sendNotificationToUser(
         notification._id.toString(),
         studentId,
@@ -324,19 +291,17 @@ export class QuizzesService {
 
     if (quiz.timeLimit) {
       await this.cacheManager.del(`quiz:start:${quizId}:${studentId}`);
-      this.logger.debug(`Время начала викторины ${quizId} очищено из кэша`);
     }
 
     return savedSubmission.toObject();
   }
 
+  // Получение отправки викторины
   async getQuizSubmission(
     quizId: string,
     studentId: string,
-  ): Promise<QuizSubmission | null> {
-    this.logger.log(
-      `Получение отправки викторины ${quizId} для студента ${studentId}`,
-    );
+  ): Promise<IQuizSubmission | null> {
+    this.logger.log(`Поиск отправки ${quizId} для студента ${studentId}`);
     const submission = await this.quizSubmissionModel
       .findOne({
         quizId: new Types.ObjectId(quizId),
@@ -344,39 +309,29 @@ export class QuizzesService {
       })
       .lean()
       .exec();
-    if (!submission) {
-      this.logger.warn(
-        `Отправка викторины ${quizId} для студента ${studentId} не найдена`,
-      );
-    }
-    return submission;
+    return submission || null;
   }
 
+  // Получение подсказок для викторины
   async getQuizHints(
     quizId: string,
   ): Promise<{ question: string; hint?: string }[]> {
     this.logger.log(`Получение подсказок для викторины ${quizId}`);
     const quiz = await this.findQuizById(quizId);
     if (!quiz) {
-      this.logger.warn(
-        `Викторина ${quizId} не найдена для получения подсказок`,
-      );
+      this.logger.warn(`Викторина ${quizId} не найдена`);
       throw new NotFoundException('Викторина не найдена');
     }
-    const hints = quiz.questions.map((q) => ({
-      question: q.question,
-      hint: q.hint,
-    }));
-    this.logger.log(`Подсказки для викторины ${quizId} успешно получены`);
-    return hints;
+    return quiz.questions.map((q) => ({ question: q.question, hint: q.hint }));
   }
 
+  // Получение отправок по студенту и курсу
   async getSubmissionsByStudentAndCourse(
     studentId: string,
     courseId: string,
-  ): Promise<QuizSubmission[]> {
+  ): Promise<IQuizSubmission[]> {
     this.logger.log(
-      `Получение отправок викторин для студента ${studentId} в курсе ${courseId}`,
+      `Поиск отправок для студента ${studentId} в курсе ${courseId}`,
     );
     const submissions = await this.quizSubmissionModel
       .find({ studentId })
@@ -386,10 +341,6 @@ export class QuizzesService {
       })
       .lean()
       .exec();
-    const filteredSubmissions = submissions.filter((s) => s.quizId); // Убираем null из-за match
-    this.logger.log(
-      `Найдено ${filteredSubmissions.length} отправок для студента ${studentId} в курсе ${courseId}`,
-    );
-    return filteredSubmissions;
+    return submissions.filter((s) => s.quizId);
   }
 }
