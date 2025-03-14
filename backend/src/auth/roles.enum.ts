@@ -1,7 +1,7 @@
 export enum Role {
-  STUDENT = 'student',
-  TEACHER = 'teacher',
-  ADMIN = 'admin',
-  MANAGER = 'manager', // Новая роль для менеджеров курсов
-  ASSISTANT = 'assistant', // Новая роль для помощников преподавателей
+  STUDENT = 'student', // Роль для студентов
+  TEACHER = 'teacher', // Роль для преподавателей
+  ADMIN = 'admin', // Роль для администраторов системы
+  MANAGER = 'manager', // Роль для менеджеров курсов
+  ASSISTANT = 'assistant', // Роль для помощников преподавателей
 }
