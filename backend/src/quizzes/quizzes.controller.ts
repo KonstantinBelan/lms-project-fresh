@@ -239,7 +239,7 @@ export class QuizzesController {
   }
 
   @Post(':quizId/submit')
-  @SetMetadata('roles', [Role.STUDENT])
+  @SetMetadata('roles', [Role.ADMIN, Role.STUDENT])
   @UsePipes(new ValidationPipe({ transform: true }))
   @ApiOperation({ summary: 'Отправить ответы на викторину' })
   @ApiParam({

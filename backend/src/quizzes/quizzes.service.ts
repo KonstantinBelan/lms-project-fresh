@@ -301,6 +301,7 @@ export class QuizzesService {
         {
           points: totalScore,
           quizTitle: quiz.title,
+          lessonTitle: lesson.title,
         },
       );
       const notification = await this.notificationsService.createNotification({

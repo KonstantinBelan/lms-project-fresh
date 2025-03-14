@@ -1,4 +1,3 @@
-// src/streams/streams.service.ts
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
@@ -10,64 +9,89 @@ export class StreamsService {
     @InjectModel(Stream.name) private streamModel: Model<StreamDocument>,
   ) {}
 
+  /**
+   * Создает новый поток для курса.
+   * @param courseId - ID курса
+   * @param name - Название потока
+   * @param startDate - Дата начала потока
+   * @param endDate - Дата окончания потока
+   * @returns Созданный поток
+   * @throws BadRequestException если startDate позже endDate
+   */
   async createStream(
     courseId: string,
     name: string,
     startDate: Date,
     endDate: Date,
   ): Promise<StreamDocument> {
+    if (startDate >= endDate) {
+      throw new BadRequestException(
+        'Дата начала должна быть раньше даты окончания',
+      );
+    }
+
     const stream = new this.streamModel({
-      courseId: new Types.ObjectId(courseId), // Преобразуем в ObjectId
+      courseId: new Types.ObjectId(courseId), // Преобразуем строку в ObjectId
       name,
       startDate,
       endDate,
-      students: [], // Явно инициализируем пустой массив
+      students: [], // Инициализируем пустой массив студентов
     });
     return stream.save();
   }
 
+  /**
+   * Добавляет студента в поток.
+   * @param streamId - ID потока
+   * @param studentId - ID студента
+   * @returns Обновленный поток или null, если поток не найден
+   * @throws BadRequestException если студент уже записан в поток
+   */
   async addStudentToStream(
     streamId: string,
     studentId: string,
-  ): Promise<StreamDocument | null> {
-    // Сначала проверяем, существует ли поток и студент уже в нём
-    const stream = await this.streamModel
-      .findById(new Types.ObjectId(streamId))
-      .lean()
+  ): Promise<Stream> {
+    const studentObjectId = new Types.ObjectId(studentId);
+    const updatedStream = await this.streamModel
+      .findOneAndUpdate(
+        {
+          _id: new Types.ObjectId(streamId),
+          students: { $ne: studentObjectId }, // Проверяем, что студента еще нет
+        },
+        { $addToSet: { students: studentObjectId } }, // Добавляем студента
+        { new: true, lean: true }, // Возвращаем обновленный объект как plain JS
+      )
       .exec();
 
-    if (!stream) {
-      return null; // Поток не найден, вернём null (обработка в контроллере)
-    }
-
-    const studentObjectId = new Types.ObjectId(studentId);
-    if (stream.students.some((id) => id.equals(studentObjectId))) {
+    if (!updatedStream) {
+      const stream = await this.streamModel.findById(streamId).lean().exec();
+      if (!stream) return null; // Поток не найден
       throw new BadRequestException(
-        `Student with ID ${studentId} is already enrolled in stream ${streamId}`,
+        `Студент с ID ${studentId} уже записан в поток ${streamId}`,
       );
     }
-
-    // Если студента нет, добавляем его
-    const updatedStream = await this.streamModel
-      .findByIdAndUpdate(
-        new Types.ObjectId(streamId),
-        { $addToSet: { students: studentObjectId } },
-        { new: true },
-      )
-      .lean()
-      .exec();
 
     return updatedStream;
   }
 
-  async findStreamById(streamId: string): Promise<StreamDocument | null> {
+  /**
+   * Находит поток по ID.
+   * @param streamId - ID потока
+   * @returns Поток или null, если не найден
+   */
+  async findStreamById(streamId: string): Promise<Stream> {
     return this.streamModel
       .findById(new Types.ObjectId(streamId))
       .lean()
       .exec();
   }
 
-  async getStreamsByCourse(courseId: string): Promise<StreamDocument[]> {
+  /**
+   * Получает все потоки для курса.
+   * @param courseId - ID курса
+   * @returns Список потоков
+   */
+  async getStreamsByCourse(courseId: string): Promise<Stream[]> {
     return this.streamModel
       .find({ courseId: new Types.ObjectId(courseId) })
       .lean()

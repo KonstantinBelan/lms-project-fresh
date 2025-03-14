@@ -1,33 +1,38 @@
-// src/streams/dto/create-stream.dto.ts
 import { IsString, IsDateString, IsMongoId } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class CreateStreamDto {
   @ApiProperty({
-    description: 'ID of the course this stream belongs to',
+    description: 'ID курса, к которому относится поток',
     example: '507f1f77bcf86cd799439011',
   })
-  @IsMongoId({ message: 'courseId must be a valid MongoDB ObjectId' })
+  @IsMongoId({ message: 'courseId должен быть валидным MongoDB ObjectId' })
   courseId: string;
 
   @ApiProperty({
-    description: 'Name of the stream',
+    description: 'Название потока',
     example: 'Поток 1 - Март 2025',
   })
-  @IsString({ message: 'name must be a string' })
+  @IsString({ message: 'name должен быть строкой' })
   name: string;
 
   @ApiProperty({
-    description: 'Start date of the stream in ISO format',
+    description: 'Дата начала потока в формате ISO',
     example: '2025-03-01T00:00:00.000Z',
   })
-  @IsDateString({}, { message: 'startDate must be a valid ISO date string' })
-  startDate: string; // Используем string для ISO даты
+  @IsDateString(
+    {},
+    { message: 'startDate должен быть валидной ISO строкой даты' },
+  )
+  startDate: string;
 
   @ApiProperty({
-    description: 'End date of the stream in ISO format',
+    description: 'Дата окончания потока в формате ISO',
     example: '2025-03-31T23:59:59.999Z',
   })
-  @IsDateString({}, { message: 'endDate must be a valid ISO date string' })
-  endDate: string; // Используем string для ISO даты
+  @IsDateString(
+    {},
+    { message: 'endDate должен быть валидной ISO строкой даты' },
+  )
+  endDate: string;
 }

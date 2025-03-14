@@ -15,21 +15,23 @@ import { AddStudentToStreamDto } from './dto/add-student-to-stream.dto';
 import { StreamResponseDto } from './dto/stream-response.dto';
 import { ApiOperation, ApiResponse, ApiTags, ApiParam } from '@nestjs/swagger';
 
-@ApiTags('Streams')
+@ApiTags('Потоки')
 @Controller('streams')
 export class StreamsController {
   constructor(private readonly streamsService: StreamsService) {}
 
   @Post()
-  @ApiOperation({ summary: 'Create a new stream' })
+  @ApiOperation({ summary: 'Создать новый поток' })
   @ApiResponse({
     status: 201,
-    description: 'Stream created successfully',
+    description: 'Поток успешно создан',
     type: StreamResponseDto,
   })
-  @ApiResponse({ status: 400, description: 'Invalid input data' })
+  @ApiResponse({ status: 400, description: 'Некорректные входные данные' })
   @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))
-  async createStream(@Body() createStreamDto: CreateStreamDto) {
+  async createStream(
+    @Body() createStreamDto: CreateStreamDto,
+  ): Promise<StreamResponseDto> {
     return this.streamsService.createStream(
       createStreamDto.courseId,
       createStreamDto.name,
@@ -39,93 +41,81 @@ export class StreamsController {
   }
 
   @Get(':streamId')
-  @ApiOperation({ summary: 'Get a stream by ID' })
+  @ApiOperation({ summary: 'Получить поток по ID' })
   @ApiParam({
     name: 'streamId',
-    description: 'ID of the stream to retrieve',
+    description: 'ID потока для получения',
     example: '507f1f77bcf86cd799439012',
   })
   @ApiResponse({
     status: 200,
-    description: 'Stream retrieved successfully',
+    description: 'Поток успешно получен',
     type: StreamResponseDto,
   })
-  @ApiResponse({ status: 404, description: 'Stream not found' })
-  async getStreamById(@Param('streamId') streamId: string) {
-    return this.streamsService.findStreamById(streamId);
+  @ApiResponse({ status: 404, description: 'Поток не найден' })
+  async getStreamById(
+    @Param('streamId') streamId: string,
+  ): Promise<StreamResponseDto> {
+    const stream = await this.streamsService.findStreamById(streamId);
+    if (!stream) {
+      throw new NotFoundException(`Поток с ID ${streamId} не найден`);
+    }
+    return stream;
   }
 
   @Get('course/:courseId')
-  @ApiOperation({ summary: 'Get all streams for a course' })
+  @ApiOperation({ summary: 'Получить все потоки курса' })
   @ApiParam({
     name: 'courseId',
-    description: 'ID of the course to retrieve streams for',
+    description: 'ID курса для получения потоков',
     example: '507f1f77bcf86cd799439011',
   })
   @ApiResponse({
     status: 200,
-    description: 'List of streams retrieved successfully',
+    description: 'Список потоков успешно получен',
     type: [StreamResponseDto],
   })
-  @ApiResponse({ status: 404, description: 'No streams found for this course' })
-  async getStreamsByCourse(@Param('courseId') courseId: string) {
-    return this.streamsService.getStreamsByCourse(courseId);
+  @ApiResponse({ status: 404, description: 'Потоки для курса не найдены' })
+  async getStreamsByCourse(
+    @Param('courseId') courseId: string,
+  ): Promise<StreamResponseDto[]> {
+    const streams = await this.streamsService.getStreamsByCourse(courseId);
+    if (!streams.length) {
+      throw new NotFoundException(
+        `Потоки для курса с ID ${courseId} не найдены`,
+      );
+    }
+    return streams;
   }
 
-  // @Post(':streamId/students')
-  // @ApiOperation({ summary: 'Add a student to a stream' })
-  // @ApiParam({
-  //   name: 'streamId',
-  //   description: 'ID of the stream to add the student to',
-  //   example: '507f1f77bcf86cd799439012',
-  // })
-  // @ApiResponse({
-  //   status: 200,
-  //   description: 'Student added to stream successfully',
-  //   type: StreamResponseDto,
-  // })
-  // @ApiResponse({ status: 400, description: 'Invalid input data' })
-  // @ApiResponse({ status: 404, description: 'Stream not found' })
-  // @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))
-  // async addStudentToStream(
-  //   @Param('streamId') streamId: string,
-  //   @Body() addStudentDto: AddStudentToStreamDto,
-  // ) {
-  //   const updatedStream = await this.streamsService.addStudentToStream(
-  //     streamId,
-  //     addStudentDto.studentId,
-  //   );
-  //   return this.streamsService.findStreamById(streamId); // Возвращаем обновлённый поток
-  // }
-
   @Post(':streamId/students')
-  @ApiOperation({ summary: 'Add a student to a stream' })
+  @ApiOperation({ summary: 'Добавить студента в поток' })
   @ApiParam({
     name: 'streamId',
-    description: 'ID of the stream to add the student to',
+    description: 'ID потока для добавления студента',
     example: '507f1f77bcf86cd799439012',
   })
   @ApiResponse({
     status: 200,
-    description: 'Student added to stream successfully',
+    description: 'Студент успешно добавлен в поток',
     type: StreamResponseDto,
   })
   @ApiResponse({
     status: 400,
-    description: 'Invalid input data or student already enrolled',
+    description: 'Некорректные данные или студент уже записан',
   })
-  @ApiResponse({ status: 404, description: 'Stream not found' })
+  @ApiResponse({ status: 404, description: 'Поток не найден' })
   @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))
   async addStudentToStream(
     @Param('streamId') streamId: string,
     @Body() addStudentDto: AddStudentToStreamDto,
-  ) {
+  ): Promise<StreamResponseDto> {
     const updatedStream = await this.streamsService.addStudentToStream(
       streamId,
       addStudentDto.studentId,
     );
     if (!updatedStream) {
-      throw new NotFoundException(`Stream with ID ${streamId} not found`);
+      throw new NotFoundException(`Поток с ID ${streamId} не найден`);
     }
     return updatedStream;
   }

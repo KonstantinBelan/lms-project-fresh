@@ -1,4 +1,3 @@
-// src/streams/streams.module.ts
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { StreamsService } from './streams.service';
@@ -7,10 +6,10 @@ import { Stream, StreamSchema } from './schemas/stream.schema';
 
 @Module({
   imports: [
-    MongooseModule.forFeature([{ name: Stream.name, schema: StreamSchema }]),
+    MongooseModule.forFeature([{ name: Stream.name, schema: StreamSchema }]), // Регистрация схемы потока в Mongoose
   ],
-  controllers: [StreamsController],
-  providers: [StreamsService],
-  exports: [StreamsService],
+  controllers: [StreamsController], // Контроллеры модуля
+  providers: [StreamsService], // Сервисы модуля
+  exports: [StreamsService], // Экспорт сервиса для использования в других модулях
 })
 export class StreamsModule {}
