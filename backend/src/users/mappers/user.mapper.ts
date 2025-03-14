@@ -2,6 +2,7 @@
 import { Types } from 'mongoose';
 import { User } from '../schemas/user.schema';
 import { UserResponseDto } from '../dto/user-response.dto';
+import { UserSettingsDto } from '../dto/user-settings.dto';
 
 /**
  * Преобразует User в UserResponseDto.
@@ -21,7 +22,7 @@ export function mapToUserResponseDto(user: User): UserResponseDto {
     phone: userObj.phone,
     avatar: userObj.avatar,
     telegramId: userObj.telegramId,
-    settings: userObj.settings,
+    settings: userObj.settings ? { ...userObj.settings } : undefined,
     groups: (userObj.groups || []).map((id: any) =>
       id instanceof Types.ObjectId ? id.toString() : String(id),
     ),

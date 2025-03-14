@@ -1,4 +1,6 @@
+// src/users/dto/user-response.dto.ts
 import { ApiProperty } from '@nestjs/swagger';
+import { UserSettingsDto } from './user-settings.dto';
 
 export class UserResponseDto {
   @ApiProperty({
@@ -50,16 +52,10 @@ export class UserResponseDto {
 
   @ApiProperty({
     description: 'Настройки пользователя',
-    example: { notifications: true, language: 'ru' },
+    type: UserSettingsDto,
     required: false,
-    type: 'object',
   })
-  settings?: {
-    notifications: boolean;
-    language: string;
-    resetToken?: string;
-    resetTokenExpires?: number;
-  };
+  settings?: UserSettingsDto;
 
   @ApiProperty({
     description: 'Список ID групп пользователя',
