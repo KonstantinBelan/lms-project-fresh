@@ -282,6 +282,14 @@ export class QuizzesService {
         message,
         title: template.title,
       });
+      // Проверяем наличие _id и приводим его к строке
+      if (!notification._id) {
+        this.logger.error(
+          `Уведомление для студента ${studentId} не содержит _id`,
+        );
+        throw new Error('Не удалось создать уведомление: отсутствует ID');
+      }
+
       await this.notificationsService.sendNotificationToUser(
         notification._id.toString(),
         studentId,
