@@ -184,6 +184,19 @@ describe('CoursesController', () => {
       expect(result).toEqual(mockModule);
       expect(service.findModuleById).toHaveBeenCalledWith(mockModule._id);
     });
+
+    it('должен выбросить NotFoundException, если модуль не найден', async () => {
+      mockCoursesService.findModuleById.mockResolvedValueOnce(null);
+      await expect(
+        controller.findModule(mockCourse._id, mockModule._id),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('должен выбросить BadRequestException при неверном ID', async () => {
+      await expect(
+        controller.findModule('invalid', mockModule._id),
+      ).rejects.toThrow(BadRequestException);
+    });
   });
 
   describe('createLesson', () => {
@@ -213,6 +226,19 @@ describe('CoursesController', () => {
       expect(result).toEqual(mockLesson);
       expect(service.findLessonById).toHaveBeenCalledWith(mockLesson._id);
     });
+
+    it('должен выбросить NotFoundException, если урок не найден', async () => {
+      mockCoursesService.findLessonById.mockResolvedValueOnce(null);
+      await expect(
+        controller.findLesson(mockCourse._id, mockModule._id, mockLesson._id),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('должен выбросить BadRequestException при неверном ID', async () => {
+      await expect(
+        controller.findLesson(mockCourse._id, mockModule._id, 'invalid'),
+      ).rejects.toThrow(BadRequestException);
+    });
   });
 
   describe('getCourseStatistics', () => {
@@ -239,6 +265,26 @@ describe('CoursesController', () => {
         mockLesson._id,
         dto,
       );
+    });
+
+    it('должен выбросить NotFoundException, если урок не найден', async () => {
+      mockCoursesService.updateLesson.mockResolvedValueOnce(null);
+      const dto = { title: 'Обновленный урок', content: 'Новое содержимое' };
+      await expect(
+        controller.updateLesson(
+          mockCourse._id,
+          mockModule._id,
+          mockLesson._id,
+          dto,
+        ),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('должен выбросить BadRequestException при неверном ID', async () => {
+      const dto = { title: 'Обновленный урок', content: 'Новое содержимое' };
+      await expect(
+        controller.updateLesson(mockCourse._id, mockModule._id, 'invalid', dto),
+      ).rejects.toThrow(BadRequestException);
     });
   });
 

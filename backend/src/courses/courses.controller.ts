@@ -373,7 +373,12 @@ export class CoursesController {
     }
     this.logger.log(`Поиск модуля ${moduleId} в курсе ${courseId}`);
     await this.coursesService.findCourseById(courseId); // Проверка существования курса
-    return this.coursesService.findModuleById(moduleId);
+    const module = await this.coursesService.findModuleById(moduleId);
+    if (!module) {
+      this.logger.warn(`Модуль с ID ${moduleId} не найден`);
+      throw new NotFoundException(`Модуль с ID ${moduleId} не найден`);
+    }
+    return module;
   }
 
   // Создание урока
@@ -468,7 +473,12 @@ export class CoursesController {
     );
     await this.coursesService.findCourseById(courseId); // Проверка курса
     await this.coursesService.findModuleById(moduleId); // Проверка модуля
-    return this.coursesService.findLessonById(lessonId);
+    const lesson = await this.coursesService.findLessonById(lessonId);
+    if (!lesson) {
+      this.logger.warn(`Урок с ID ${lessonId} не найден`);
+      throw new NotFoundException(`Урок с ID ${lessonId} не найден`);
+    }
+    return lesson;
   }
 
   // Получение статистики курса
@@ -552,12 +562,17 @@ export class CoursesController {
     this.logger.log(
       `Обновление урока ${lessonId} в модуле ${moduleId} курса ${courseId}`,
     );
-    return this.coursesService.updateLesson(
+    const updatedLesson = await this.coursesService.updateLesson(
       courseId,
       moduleId,
       lessonId,
       updateLessonDto,
     );
+    if (!updatedLesson) {
+      this.logger.warn(`Урок с ID ${lessonId} не найден`);
+      throw new NotFoundException(`Урок с ID ${lessonId} не найден`);
+    }
+    return updatedLesson;
   }
 
   // Удаление урока
