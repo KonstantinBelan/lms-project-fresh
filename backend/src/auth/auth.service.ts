@@ -52,9 +52,14 @@ export class AuthService {
       throw new UnauthorizedException('Неверные учетные данные');
     }
     const { password, ...result } = user;
-    await this.cacheManager.set(cacheKey, result, 3600); // Кэшируем на 1 час
+    const validatedUser: ValidatedUser = {
+      _id: result._id.toString(), // Приводим ObjectId к строке
+      email: result.email,
+      roles: result.roles,
+    };
+    await this.cacheManager.set(cacheKey, validatedUser, 3600); // Кэшируем на 1 час
     this.logger.log(`Успешная валидация для ${email}`);
-    return result;
+    return validatedUser;
   }
 
   async signUp(
@@ -79,7 +84,7 @@ export class AuthService {
     this.logger.log(`Вход пользователя: ${email}`);
     const validatedUser = await this.validateUser(email, password);
     const payload = {
-      sub: validatedUser._id.toString(),
+      sub: validatedUser._id,
       email: validatedUser.email,
       roles: validatedUser.roles,
     };
@@ -117,7 +122,7 @@ export class AuthService {
       subject: 'Сброс пароля',
       text: `Ваш токен сброса: ${token}. Он действителен в течение 1 часа.`,
     });
-    await this.cacheManager.set(cacheKey, token, 3600); // Кэшируем на 1 час
+    await this.cacheManager.set(cacheKey, token, 3600);
     this.logger.log(`Токен ${token} отправлен на ${email}`);
     return token;
   }
@@ -155,7 +160,7 @@ export class AuthService {
         resetTokenExpires: undefined,
       },
     });
-    await this.cacheManager.del(cacheKey); // Удаляем токен из кэша после сброса
+    await this.cacheManager.del(cacheKey);
     this.logger.log(`Пароль успешно сброшен для ${email}`);
   }
 }
