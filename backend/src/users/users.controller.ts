@@ -93,7 +93,9 @@ export class UsersController {
   }
 
   @Get('all')
-  @ApiOperation({ summary: 'Получить всех пользователей' })
+  @ApiOperation({
+    summary: 'Получить всех пользователей с фильтрами и пагинацией',
+  })
   @ApiQuery({
     name: 'roles',
     description: 'Фильтр по ролям (через запятую)',
@@ -112,10 +114,34 @@ export class UsersController {
     required: false,
     example: '507f1f77bcf86cd799439011,507f1f77bcf86cd799439012',
   })
+  @ApiQuery({
+    name: 'page',
+    description: 'Номер страницы (начиная с 1)',
+    required: false,
+    example: 1,
+  })
+  @ApiQuery({
+    name: 'limit',
+    description: 'Количество записей на странице (максимум 100)',
+    required: false,
+    example: 10,
+  })
   @ApiResponse({
     status: 200,
-    description: 'Все пользователи получены',
-    type: [UserResponseDto],
+    description: 'Пользователи получены с пагинацией',
+    schema: {
+      type: 'object',
+      properties: {
+        data: {
+          type: 'array',
+          items: { $ref: '#/components/schemas/UserResponseDto' },
+        },
+        total: { type: 'number', example: 50 },
+        page: { type: 'number', example: 1 },
+        limit: { type: 'number', example: 10 },
+        totalPages: { type: 'number', example: 5 },
+      },
+    },
   })
   @ApiResponse({ status: 403, description: 'Доступ запрещён' })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
@@ -124,15 +150,40 @@ export class UsersController {
     @Query('roles') roles?: string,
     @Query('email') email?: string,
     @Query('groups') groups?: string,
-  ): Promise<UserResponseDto[]> {
-    this.logger.log('Получение списка всех пользователей с фильтрами');
+    @Query('page') page: string = '1',
+    @Query('limit') limit: string = '10',
+  ): Promise<{
+    data: UserResponseDto[];
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  }> {
+    this.logger.log(
+      'Получение списка всех пользователей с фильтрами и пагинацией',
+    );
     const filters: { roles?: string[]; email?: string; groups?: string[] } = {};
     if (roles) filters.roles = roles.split(',').map((role) => role.trim());
     if (email) filters.email = email;
     if (groups) filters.groups = groups.split(',').map((group) => group.trim());
 
-    const users = await this.usersService.findAll(filters);
-    return users.map(mapToUserResponseDto);
+    const pageNum = parseInt(page, 10) || 1;
+    const limitNum = Math.min(parseInt(limit, 10) || 10, 100); // Ограничим максимум до 100
+
+    const { users, total } = await this.usersService.findAll(
+      filters,
+      pageNum,
+      limitNum,
+    );
+    const totalPages = Math.ceil(total / limitNum);
+
+    return {
+      data: users.map(mapToUserResponseDto),
+      total,
+      page: pageNum,
+      limit: limitNum,
+      totalPages,
+    };
   }
 
   @Get('email/:email')

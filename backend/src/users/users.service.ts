@@ -137,19 +137,26 @@ export class UsersService {
   }
 
   /**
-   * Получает всех пользователей с опциональными фильтрами.
+   * Получает пользователей с опциональными фильтрами и пагинацией.
    * @param filters - Фильтры по ролям, email и группам
-   * @returns Список пользователей
+   * @param page - Номер страницы (начиная с 1)
+   * @param limit - Количество записей на странице
+   * @returns Объект с пользователями и общим количеством
    */
   async findAll(
     filters: { roles?: string[]; email?: string; groups?: string[] } = {},
-  ): Promise<User[]> {
-    this.logger.debug('Получение всех пользователей с фильтрами');
-    const cacheKey = `users:all:${JSON.stringify(filters)}`; // Уникальный ключ кэша для фильтров
-    const cachedUsers = await this.cacheManager.get<User[]>(cacheKey);
-    if (cachedUsers) {
+    page: number = 1,
+    limit: number = 10,
+  ): Promise<{ users: User[]; total: number }> {
+    this.logger.debug('Получение пользователей с фильтрами и пагинацией');
+    const cacheKey = `users:all:${JSON.stringify({ filters, page, limit })}`;
+    const cachedResult = await this.cacheManager.get<{
+      users: User[];
+      total: number;
+    }>(cacheKey);
+    if (cachedResult) {
       this.logger.debug('Пользователи найдены в кэше');
-      return cachedUsers;
+      return cachedResult;
     }
 
     const query: any = {};
@@ -157,7 +164,7 @@ export class UsersService {
       query.roles = { $in: filters.roles };
     }
     if (filters.email) {
-      query.email = { $regex: filters.email, $options: 'i' }; // Частичное совпадение, регистронезависимо
+      query.email = { $regex: filters.email, $options: 'i' };
     }
     if (filters.groups && filters.groups.length > 0) {
       const groupObjectIds = filters.groups.map((id) => {
@@ -169,10 +176,18 @@ export class UsersService {
       query.groups = { $in: groupObjectIds };
     }
 
-    const users = await this.userModel.find(query).lean().exec();
-    await this.cacheManager.set(cacheKey, users, this.CACHE_TTL);
-    this.logger.debug(`Найдено ${users.length} пользователей в базе`);
-    return users;
+    const skip = (page - 1) * limit;
+    const [users, total] = await Promise.all([
+      this.userModel.find(query).skip(skip).limit(limit).lean().exec(),
+      this.userModel.countDocuments(query).exec(),
+    ]);
+
+    const result = { users, total };
+    await this.cacheManager.set(cacheKey, result, this.CACHE_TTL);
+    this.logger.debug(
+      `Найдено ${users.length} пользователей из ${total} в базе`,
+    );
+    return result;
   }
 
   /**
