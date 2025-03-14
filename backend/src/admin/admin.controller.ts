@@ -81,19 +81,16 @@ export class AdminController {
     status: 200,
     description: 'Список пользователей успешно получен',
     schema: {
-      example: {
-        data: [
-          {
-            id: '507f1f77bcf86cd799439012',
-            email: 'user@example.com',
-            roles: ['STUDENT'],
-            groups: ['507f1f77bcf86cd799439011'],
-          },
-        ],
-        total: 50,
-        page: 1,
-        limit: 10,
-        totalPages: 5,
+      type: 'object',
+      properties: {
+        data: {
+          type: 'array',
+          items: { $ref: '#/components/schemas/UserResponseDto' },
+        },
+        total: { type: 'number', example: 50 },
+        page: { type: 'number', example: 1 },
+        limit: { type: 'number', example: 10 },
+        totalPages: { type: 'number', example: 5 },
       },
     },
   })
@@ -172,19 +169,18 @@ export class AdminController {
   @ApiResponse({
     status: 200,
     description: 'Список курсов успешно получен',
+    type: ICourseResponse,
     schema: {
-      example: {
-        data: [
-          {
-            title: 'Математика для начинающих',
-            description: 'Основы математики',
-            teacherId: '507f1f77bcf86cd799439012',
-          },
-        ],
-        total: 20,
-        page: 1,
-        limit: 10,
-        totalPages: 2,
+      type: 'object',
+      properties: {
+        data: {
+          type: 'array',
+          items: { $ref: '#/components/schemas/Course' },
+        },
+        total: { type: 'number', example: 20 },
+        page: { type: 'number', example: 1 },
+        limit: { type: 'number', example: 10 },
+        totalPages: { type: 'number', example: 2 },
       },
     },
   })
@@ -235,18 +231,16 @@ export class AdminController {
     status: 200,
     description: 'Записи о зачислении успешно получены',
     schema: {
-      example: {
-        data: [
-          {
-            userId: '507f1f77bcf86cd799439012',
-            courseId: '507f1f77bcf86cd799439011',
-            createdAt: '2025-03-14T10:00:00Z',
-          },
-        ],
-        total: 50,
-        page: 1,
-        limit: 10,
-        totalPages: 5,
+      type: 'object',
+      properties: {
+        data: {
+          type: 'array',
+          items: { $ref: '#/components/schemas/Enrollment' },
+        },
+        total: { type: 'number', example: 50 },
+        page: { type: 'number', example: 1 },
+        limit: { type: 'number', example: 10 },
+        totalPages: { type: 'number', example: 5 },
       },
     },
   })
@@ -316,20 +310,18 @@ export class AdminController {
   @ApiResponse({
     status: 200,
     description: 'Уведомления успешно получены',
+    type: INotificationResponse,
     schema: {
-      example: {
-        data: [
-          {
-            message: 'Вы записаны на курс "Математика"',
-            userId: '507f1f77bcf86cd799439012',
-            courseId: '507f1f77bcf86cd799439011',
-            createdAt: '2025-03-14T10:00:00Z',
-          },
-        ],
-        total: 50,
-        page: 1,
-        limit: 10,
-        totalPages: 5,
+      type: 'object',
+      properties: {
+        data: {
+          type: 'array',
+          items: { $ref: '#/components/schemas/Notification' },
+        },
+        total: { type: 'number', example: 50 },
+        page: { type: 'number', example: 1 },
+        limit: { type: 'number', example: 10 },
+        totalPages: { type: 'number', example: 5 },
       },
     },
   })
@@ -367,27 +359,22 @@ export class AdminController {
   @ApiResponse({
     status: 200,
     description: 'Сводка по активности успешно получена',
+    type: IActivityResponse,
     schema: {
-      example: {
-        totalUsers: 100,
-        totalCourses: 20,
-        totalEnrollments: 50,
-        totalNotifications: 200,
-        recentEnrollments: [
-          {
-            userId: '507f1f77bcf86cd799439012',
-            courseId: '507f1f77bcf86cd799439011',
-            createdAt: '2025-03-14T10:00:00Z',
-          },
-        ],
-        recentNotifications: [
-          {
-            message: 'Курс "Математика" обновлён',
-            userId: '507f1f77bcf86cd799439012',
-            courseId: '507f1f77bcf86cd799439011',
-            createdAt: '2025-03-14T12:00:00Z',
-          },
-        ],
+      type: 'object',
+      properties: {
+        totalUsers: { type: 'number', example: 100 },
+        totalCourses: { type: 'number', example: 20 },
+        totalEnrollments: { type: 'number', example: 50 },
+        totalNotifications: { type: 'number', example: 200 },
+        recentEnrollments: {
+          type: 'array',
+          items: { $ref: '#/components/schemas/Enrollment' },
+        },
+        recentNotifications: {
+          type: 'array',
+          items: { $ref: '#/components/schemas/Notification' },
+        },
       },
     },
   })
