@@ -1,9 +1,23 @@
-import * as dotenv from 'dotenv'; // Импортируем dotenv для явной загрузки (опционально)
+import * as dotenv from 'dotenv'; // Импортируем dotenv для работы с переменными окружения
 
-// Явно загружаем .env (если не загружен через main.ts)
+// Загружаем переменные из файла .env
 dotenv.config();
 
-export const config = {
+// Интерфейс для описания структуры конфигурации
+interface AppConfig {
+  email: {
+    host: string;
+    port: number;
+    user: string;
+    pass: string;
+  };
+  telegram: {
+    botToken: string;
+  };
+}
+
+// Конфигурация приложения с переменными окружения
+export const config: AppConfig = {
   email: {
     host: process.env.EMAIL_HOST || 'smtp.gmail.com',
     port: process.env.EMAIL_PORT ? parseInt(process.env.EMAIL_PORT, 10) : 587,
@@ -12,18 +26,27 @@ export const config = {
   },
   telegram: {
     botToken: process.env.TELEGRAM_BOT_TOKEN || 'your-telegram-bot-token',
-    // chatId: process.env.TELEGRAM_CHAT_ID || 'your-chat-id',
   },
 };
 
-// Добавляем отладку
-console.log('Config loaded - Email:', {
+// Выводим отладочную информацию в консоль
+console.log('Конфигурация загружена - Email:', {
   host: process.env.EMAIL_HOST,
   port: process.env.EMAIL_PORT,
   user: process.env.EMAIL_USER,
-  pass: process.env.EMAIL_PASS ? '***' : 'undefined',
+  pass: process.env.EMAIL_PASS ? '***' : 'не определено',
 });
-console.log('Config loaded - Telegram:', {
-  botToken: process.env.TELEGRAM_BOT_TOKEN ? '***' : 'undefined',
-  // chatId: process.env.TELEGRAM_CHAT_ID,
+console.log('Конфигурация загружена - Telegram:', {
+  botToken: process.env.TELEGRAM_BOT_TOKEN ? '***' : 'не определено',
 });
+
+// Проверка на наличие обязательных переменных окружения
+if (
+  !process.env.EMAIL_USER ||
+  !process.env.EMAIL_PASS ||
+  !process.env.TELEGRAM_BOT_TOKEN
+) {
+  throw new Error(
+    'Отсутствуют обязательные переменные окружения: EMAIL_USER, EMAIL_PASS или TELEGRAM_BOT_TOKEN',
+  );
+}
