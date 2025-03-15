@@ -175,7 +175,16 @@ export class HomeworksController {
     description: 'Решение успешно создано',
     type: CreateSubmissionDto,
   })
-  @ApiResponse({ status: 400, description: 'Некорректный запрос' })
+  @ApiResponse({
+    status: 400,
+    description: 'Некорректный запрос',
+    example: { message: 'Идентификатор домашнего задания невалиден' },
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Доступ запрещён',
+    example: { message: 'Требуется роль студента' },
+  })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles(Role.STUDENT)
   @UsePipes(new ValidationPipe())
