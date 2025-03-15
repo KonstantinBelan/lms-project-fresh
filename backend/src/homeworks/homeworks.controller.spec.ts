@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { HomeworksController } from './homeworks.controller';
 import { HomeworksService } from './homeworks.service';
 import { BadRequestException } from '@nestjs/common';
+import { Types } from 'mongoose';
 
 describe('HomeworksController', () => {
   let controller: HomeworksController;
@@ -40,7 +41,11 @@ describe('HomeworksController', () => {
   describe('createHomework', () => {
     it('должен создать домашнее задание', async () => {
       const dto = { lessonId: '507f1f77bcf86cd799439011', description: 'Тест' };
-      const result = { _id: '507f1f77bcf86cd799439012', ...dto };
+      const result = {
+        _id: new Types.ObjectId('507f1f77bcf86cd799439012'),
+        ...dto,
+        lessonId: new Types.ObjectId(dto.lessonId),
+      };
       mockHomeworksService.createHomework.mockResolvedValue(result);
       expect(await controller.createHomework(dto)).toEqual(result);
     });
@@ -61,7 +66,11 @@ describe('HomeworksController', () => {
     });
 
     it('должен вернуть домашнее задание', async () => {
-      const homework = { _id: '507f1f77bcf86cd799439011', description: 'Тест' };
+      const homework = {
+        _id: new Types.ObjectId('507f1f77bcf86cd799439011'),
+        description: 'Тест',
+        lessonId: new Types.ObjectId(),
+      };
       mockHomeworksService.findHomeworkById.mockResolvedValue(homework);
       expect(
         await controller.findHomeworkById('507f1f77bcf86cd799439011'),

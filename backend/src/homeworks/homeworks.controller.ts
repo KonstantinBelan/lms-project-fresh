@@ -172,8 +172,8 @@ export class HomeworksController {
     description: 'Домашнее задание успешно получено',
     type: CreateHomeworkDto,
     example: {
-      _id: '507f1f77bcf86cd799439011',
-      lessonId: '507f1f77bcf86cd799439012',
+      _id: new Types.ObjectId('507f1f77bcf86cd799439011'),
+      lessonId: new Types.ObjectId('507f1f77bcf86cd799439012'),
       description: 'Решить задачи по математике',
       deadline: '2025-03-20T23:59:59Z',
       points: 15,
@@ -216,8 +216,8 @@ export class HomeworksController {
     type: [CreateHomeworkDto],
     example: [
       {
-        _id: '507f1f77bcf86cd799439011',
-        lessonId: '507f1f77bcf86cd799439011',
+        _id: new Types.ObjectId('507f1f77bcf86cd799439011'),
+        lessonId: new Types.ObjectId('507f1f77bcf86cd799439011'),
         description: 'Решить задачи по математике',
         deadline: '2025-03-20T23:59:59Z',
         points: 15,
@@ -343,9 +343,9 @@ export class HomeworksController {
     description: 'Решение успешно получено',
     type: CreateSubmissionDto,
     example: {
-      _id: '507f1f77bcf86cd799439011',
-      homeworkId: '507f1f77bcf86cd799439011',
-      studentId: '507f1f77bcf86cd799439012',
+      _id: new Types.ObjectId('507f1f77bcf86cd799439011'),
+      homeworkId: new Types.ObjectId('507f1f77bcf86cd799439011'),
+      studentId: new Types.ObjectId('507f1f77bcf86cd799439012'),
       submissionContent: 'Ответы: 1, 2, 3',
     },
   })
@@ -386,9 +386,9 @@ export class HomeworksController {
     type: [CreateSubmissionDto],
     example: [
       {
-        _id: '507f1f77bcf86cd799439011',
-        homeworkId: '507f1f77bcf86cd799439011',
-        studentId: '507f1f77bcf86cd799439012',
+        _id: new Types.ObjectId('507f1f77bcf86cd799439011'),
+        homeworkId: new Types.ObjectId('507f1f77bcf86cd799439011'),
+        studentId: new Types.ObjectId('507f1f77bcf86cd799439012'),
         submissionContent: 'Ответы: 1, 2, 3',
       },
     ],
@@ -430,9 +430,9 @@ export class HomeworksController {
     type: [CreateSubmissionDto],
     example: [
       {
-        _id: '507f1f77bcf86cd799439011',
-        homeworkId: '507f1f77bcf86cd799439011',
-        studentId: '507f1f77bcf86cd799439011',
+        _id: new Types.ObjectId('507f1f77bcf86cd799439011'),
+        homeworkId: new Types.ObjectId('507f1f77bcf86cd799439011'),
+        studentId: new Types.ObjectId('507f1f77bcf86cd799439011'),
         submissionContent: 'Ответы: 1, 2, 3',
       },
     ],

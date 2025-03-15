@@ -7,7 +7,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { Homework, HomeworkDocument } from './schemas/homework.schema';
 import { Submission, SubmissionDocument } from './schemas/submission.schema';
 import { CreateHomeworkDto } from './dto/create-homework.dto';
@@ -17,17 +17,20 @@ import { UpdateSubmissionDto } from './dto/update-submission.dto';
 import { NotificationsService } from '../notifications/notifications.service';
 import { CoursesService } from '../courses/courses.service';
 import { EnrollmentsService } from '../enrollments/enrollments.service';
-import { Types } from 'mongoose';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 
 // Интерфейсы для типизации данных
 export interface IHomework extends Omit<Homework, '_id'> {
-  _id: string;
+  _id: Types.ObjectId;
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 export interface ISubmission extends Omit<Submission, '_id'> {
-  _id: string;
+  _id: Types.ObjectId;
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 @Injectable()
@@ -70,7 +73,7 @@ export class HomeworksService {
     const homeworks = (await this.homeworkModel
       .find({ deadline: { $exists: true }, isActive: true })
       .lean()
-      .exec()) as IHomework[];
+      .exec()) as unknown as IHomework[];
 
     await this.cacheManager.set(cacheKey, homeworks, 3600);
     this.logger.log('Все активные домашние задания получены из базы');
@@ -94,9 +97,9 @@ export class HomeworksService {
       points: createHomeworkDto.points || 10,
       deadline,
     });
-    const savedHomework = (await newHomework.save()) as IHomework;
+    const savedHomework = (await newHomework.save()).toObject() as IHomework;
 
-    await this.cacheManager.del(`homework:${savedHomework._id}`);
+    await this.cacheManager.del(`homework:${savedHomework._id.toString()}`);
     await this.cacheManager.del(
       `homeworks:lesson:${createHomeworkDto.lessonId}`,
     );
@@ -148,14 +151,16 @@ export class HomeworksService {
     const updatedHomework = (await this.homeworkModel
       .findByIdAndUpdate(id, updateData, { new: true, runValidators: true })
       .lean()
-      .exec()) as IHomework;
+      .exec()) as unknown as IHomework;
 
     if (!updatedHomework) {
       throw new NotFoundException('Домашнее задание не найдено');
     }
 
     await this.cacheManager.del(`homework:${id}`);
-    await this.cacheManager.del(`homeworks:lesson:${updatedHomework.lessonId}`);
+    await this.cacheManager.del(
+      `homeworks:lesson:${updatedHomework.lessonId.toString()}`,
+    );
     await this.cacheManager.del('homeworks:all');
 
     this.logger.log(`Обновлено домашнее задание с ID: ${id}`);
@@ -170,16 +175,18 @@ export class HomeworksService {
       );
     }
 
-    const homework = await this.homeworkModel
+    const homework = (await this.homeworkModel
       .findByIdAndDelete(id)
       .lean()
-      .exec();
+      .exec()) as unknown as IHomework;
     if (!homework) {
       throw new NotFoundException('Домашнее задание не найдено');
     }
 
     await this.cacheManager.del(`homework:${id}`);
-    await this.cacheManager.del(`homeworks:lesson:${homework.lessonId}`);
+    await this.cacheManager.del(
+      `homeworks:lesson:${homework.lessonId.toString()}`,
+    );
     await this.cacheManager.del('homeworks:all');
     this.logger.log(`Удалено домашнее задание с ID: ${id}`);
   }
@@ -202,7 +209,7 @@ export class HomeworksService {
     const homework = (await this.homeworkModel
       .findById(id)
       .lean()
-      .exec()) as IHomework | null;
+      .exec()) as unknown as IHomework | null;
     if (homework) {
       await this.cacheManager.set(cacheKey, homework, 3600);
       this.logger.debug(`Домашнее задание найдено в базе: ${id}`);
@@ -229,7 +236,7 @@ export class HomeworksService {
     const homeworks = (await this.homeworkModel
       .find({ lessonId: objectId })
       .lean()
-      .exec()) as IHomework[];
+      .exec()) as unknown as IHomework[];
 
     if (homeworks.length > 0) {
       await this.cacheManager.set(cacheKey, homeworks, 3600);
@@ -258,7 +265,9 @@ export class HomeworksService {
       homeworkId: new Types.ObjectId(createSubmissionDto.homeworkId),
       studentId: new Types.ObjectId(createSubmissionDto.studentId),
     });
-    const savedSubmission = (await newSubmission.save()) as ISubmission;
+    const savedSubmission = (
+      await newSubmission.save()
+    ).toObject() as ISubmission;
 
     const homework = await this.findHomeworkById(
       createSubmissionDto.homeworkId,
@@ -304,7 +313,7 @@ export class HomeworksService {
       );
     }
 
-    await this.cacheManager.del(`submission:${savedSubmission._id}`);
+    await this.cacheManager.del(`submission:${savedSubmission._id.toString()}`);
     await this.cacheManager.del(
       `submissions:homework:${createSubmissionDto.homeworkId}`,
     );
@@ -331,7 +340,7 @@ export class HomeworksService {
         runValidators: true,
       })
       .lean()
-      .exec()) as ISubmission;
+      .exec()) as unknown as ISubmission;
 
     if (!updatedSubmission) {
       throw new NotFoundException('Решение не найдено');
@@ -339,10 +348,10 @@ export class HomeworksService {
 
     await this.cacheManager.del(`submission:${id}`);
     await this.cacheManager.del(
-      `submissions:homework:${updatedSubmission.homeworkId}`,
+      `submissions:homework:${updatedSubmission.homeworkId.toString()}`,
     );
     await this.cacheManager.del(
-      `submissions:student:${updatedSubmission.studentId}`,
+      `submissions:student:${updatedSubmission.studentId.toString()}`,
     );
 
     this.logger.log(`Обновлено решение с ID: ${id}`);
@@ -365,7 +374,7 @@ export class HomeworksService {
     const submission = (await this.submissionModel
       .findById(id)
       .lean()
-      .exec()) as ISubmission | null;
+      .exec()) as unknown as ISubmission | null;
     if (submission) {
       await this.cacheManager.set(cacheKey, submission, 3600);
       this.logger.debug(`Решение найдено в базе: ${id}`);
@@ -395,7 +404,7 @@ export class HomeworksService {
     const submissions = (await this.submissionModel
       .find({ homeworkId: objectId })
       .lean()
-      .exec()) as ISubmission[];
+      .exec()) as unknown as ISubmission[];
 
     if (submissions.length > 0) {
       await this.cacheManager.set(cacheKey, submissions, 3600);
@@ -424,7 +433,7 @@ export class HomeworksService {
     const submissions = (await this.submissionModel
       .find({ studentId: objectId })
       .lean()
-      .exec()) as ISubmission[];
+      .exec()) as unknown as ISubmission[];
 
     if (submissions.length > 0) {
       await this.cacheManager.set(cacheKey, submissions, 3600);
@@ -597,9 +606,11 @@ export class HomeworksService {
 
     await this.cacheManager.del(`submission:${submissionId}`);
     await this.cacheManager.del(
-      `submissions:homework:${submission.homeworkId}`,
+      `submissions:homework:${submission.homeworkId.toString()}`,
     );
-    await this.cacheManager.del(`submissions:student:${submission.studentId}`);
+    await this.cacheManager.del(
+      `submissions:student:${submission.studentId.toString()}`,
+    );
 
     const result = { grade, comment };
     await this.cacheManager.set(cacheKey, result, 3600);
@@ -627,7 +638,7 @@ export class HomeworksService {
     const homework = (await this.homeworkModel
       .findById(homeworkId)
       .lean()
-      .exec()) as IHomework;
+      .exec()) as unknown as IHomework;
     if (!homework) throw new NotFoundException('Домашнее задание не найдено');
 
     const now = new Date();
@@ -641,9 +652,9 @@ export class HomeworksService {
       const submissions = (await this.submissionModel
         .find({ homeworkId: homework._id })
         .lean()
-        .exec()) as ISubmission[];
+        .exec()) as unknown as ISubmission[];
       const lateSubmissions = submissions.filter(
-        (s) => !s.isReviewed && new Date(s.createdAt) > deadline,
+        (s) => !s.isReviewed && new Date(s.createdAt!) > deadline,
       );
 
       if (lateSubmissions.length > 0) {
@@ -736,7 +747,7 @@ export class HomeworksService {
         match: { courseId: new Types.ObjectId(courseId) },
       })
       .lean()
-      .exec()) as ISubmission[];
+      .exec()) as unknown as ISubmission[];
 
     const filteredSubmissions = submissions.filter((s) => s.homeworkId);
     if (filteredSubmissions.length > 0) {
@@ -764,7 +775,7 @@ export class HomeworksService {
     const homeworks = (await this.homeworkModel
       .find({ lessonId: { $in: lessons } })
       .lean()
-      .exec()) as IHomework[];
+      .exec()) as unknown as IHomework[];
 
     if (homeworks.length > 0) {
       await this.cacheManager.set(cacheKey, homeworks, 3600);
@@ -790,7 +801,7 @@ export class HomeworksService {
     const submissions = (await this.submissionModel
       .find({ homeworkId: { $in: homeworks.map((h) => h._id) } })
       .lean()
-      .exec()) as ISubmission[];
+      .exec()) as unknown as ISubmission[];
 
     if (submissions.length > 0) {
       await this.cacheManager.set(cacheKey, submissions, 3600);

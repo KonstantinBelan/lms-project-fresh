@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { HomeworksService } from './homeworks.service';
+import { HomeworksService, IHomework } from './homeworks.service';
 import { getModelToken } from '@nestjs/mongoose';
 import { NotificationsService } from '../notifications/notifications.service';
 import { CoursesService } from '../courses/courses.service';
@@ -116,7 +116,11 @@ describe('HomeworksService', () => {
     });
 
     it('должен вернуть задание из базы', async () => {
-      const homework = { _id: '507f1f77bcf86cd799439011', description: 'Тест' };
+      const homework: IHomework = {
+        _id: new Types.ObjectId('507f1f77bcf86cd799439011'),
+        description: 'Тест',
+        lessonId: new Types.ObjectId(),
+      };
       homeworkModel.findById.mockReturnValue({
         lean: jest
           .fn()
@@ -134,14 +138,14 @@ describe('HomeworksService', () => {
         description: 'Тест',
         deadline: '2025-03-20',
       };
-      const savedHomework = {
-        _id: '507f1f77bcf86cd799439012',
+      const savedHomework: IHomework = {
+        _id: new Types.ObjectId('507f1f77bcf86cd799439012'),
         ...dto,
         lessonId: new Types.ObjectId(dto.lessonId),
       };
       jest
         .spyOn(homeworkModel.prototype, 'save')
-        .mockResolvedValue(savedHomework);
+        .mockResolvedValue({ toObject: () => savedHomework });
       const result = await service.createHomework(dto);
       expect(result).toEqual(savedHomework);
     });
