@@ -125,5 +125,44 @@ describe('EnrollmentsService', () => {
         ),
       ).rejects.toThrow(BadRequestException);
     });
+
+    // Новый тест: проверка на некорректный MongoID
+    it('должен выбросить ошибку при некорректном studentId', async () => {
+      await expect(
+        service.updateStudentProgress(
+          'invalid-id',
+          validCourseId,
+          validModuleId,
+          validLessonId,
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  // Новый блок тестов для метода createEnrollment
+  describe('createEnrollment', () => {
+    it('должен создать новое зачисление', async () => {
+      mockEnrollmentModel.findOne.mockImplementation(() => ({
+        lean: jest.fn().mockReturnValue({
+          exec: jest.fn().mockResolvedValue(null),
+        }),
+      }));
+      const mockEnrollment = {
+        _id: '67c59acebe3880a60e6f53b1',
+        studentId: validStudentId,
+        courseId: validCourseId,
+        save: jest.fn().mockResolvedValue(true),
+      };
+      jest
+        .spyOn(service['enrollmentModel'], 'create')
+        .mockResolvedValue(mockEnrollment as any);
+
+      const result = await service.createEnrollment(
+        validStudentId,
+        validCourseId,
+      );
+      expect(result).toBeDefined();
+      expect(result._id).toBe('67c59acebe3880a60e6f53b1');
+    });
   });
 });

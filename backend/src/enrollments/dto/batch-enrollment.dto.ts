@@ -9,6 +9,10 @@ import { ApiProperty } from '@nestjs/swagger';
 
 // DTO для представления строки даты
 export class DateStringDto {
+  @ApiProperty({
+    example: '2025-03-15T00:00:00Z',
+    description: 'Дата в формате ISO',
+  })
   @IsDateString(
     {},
     {
