@@ -6,6 +6,8 @@
     <h1 style='color: #2c3e50;'>Привет, {{name}}!</h1>
     {{#if courseTitle}}
       <p>Добро пожаловать на курс "{{courseTitle}}".</p>
+    {{else}}
+      <p>Добро пожаловать в нашу систему обучения!</p>
     {{/if}}
     {{#if courseUrl}}
       <p>
@@ -15,7 +17,9 @@
           style='color: #3498db; text-decoration: none;'
         >Перейти к курсу</a>
       </p>
+    {{else}}
+      <p>Скоро мы добавим ссылку на твой курс!</p>
     {{/if}}
-    <p>С уважением,<br />Команда Deasy LMS</p>
+    <p>С уважением,<br />{{#if teamName}}{{teamName}}{{else}}Команда Deasy LMS{{/if}}</p>
   </body>
 </html>

@@ -10,28 +10,26 @@ import { Type } from 'class-transformer';
 import { MailContext } from '../mailer.interface';
 
 export class RecipientDto {
+  @ApiProperty({
+    description: 'Email получателя',
+    example: 'user@example.com',
+  })
   @IsNotEmpty({ message: 'Поле "to" обязательно' })
   @IsString({ message: 'Поле "to" должно быть строкой' })
   to: string;
 
+  @ApiProperty({
+    description: 'Контекст для шаблона письма',
+    example: { name: 'Иван', courseTitle: 'Nest.js Basics' },
+  })
   @IsObject({ message: 'Поле "context" должно быть объектом' })
   context: MailContext;
 }
 
-// DTO для тела запроса массовой рассылки
 export class BulkMailDto {
   @ApiProperty({
-    description:
-      'Массив получателей письма, каждый получатель содержит email и контекст для шаблона',
-    example: [{ to: 'user@example.com', context: { name: 'Иван' } }],
-    type: 'array',
-    items: {
-      type: 'object',
-      properties: {
-        to: { type: 'string', example: 'user@example.com' },
-        context: { type: 'object', example: { name: 'Иван' } },
-      },
-    },
+    description: 'Массив получателей письма',
+    type: [RecipientDto],
   })
   @IsArray({ message: 'Поле "recipients" должно быть массивом' })
   @ValidateNested({ each: true })

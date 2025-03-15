@@ -4,7 +4,15 @@
   </head>
   <body style='font-family: Arial, sans-serif; color: #333;'>
     <h1 style='color: #2c3e50;'>Привет, {{name}}!</h1>
-    <p>Осталось {{daysLeft}} дней до дедлайна курса "{{courseTitle}}".</p>
+    {{#if daysLeft}}
+      {{#if (eq daysLeft 1)}}
+        <p>Остался 1 день до дедлайна курса "{{courseTitle}}".</p>
+      {{else}}
+        <p>Осталось {{daysLeft}} дней до дедлайна курса "{{courseTitle}}".</p>
+      {{/if}}
+    {{else}}
+      <p>Скоро дедлайн курса "{{courseTitle}}", поторопись!</p>
+    {{/if}}
     <p>
       Успей завершить задания:
       <a

@@ -36,6 +36,26 @@ export class MailerController {
     description: 'Неверные данные',
     type: ErrorResponseDto,
   })
+  @ApiResponse({
+    status: 401,
+    description: 'Неавторизованный доступ',
+    type: ErrorResponseDto,
+    content: {
+      'application/json': {
+        example: { statusCode: 401, message: 'Unauthorized' },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 500,
+    description: 'Внутренняя ошибка сервера',
+    type: ErrorResponseDto,
+    content: {
+      'application/json': {
+        example: { statusCode: 500, message: 'Internal server error' },
+      },
+    },
+  })
   async sendBulkMail(@Body(ValidationPipe) body: BulkMailDto) {
     this.logger.log(
       `Получен запрос на массовую рассылку для ${body.recipients.length} получателей`,
