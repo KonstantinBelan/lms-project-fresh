@@ -23,14 +23,14 @@ import { Cache } from 'cache-manager';
 // Интерфейсы для типизации данных
 export interface IHomework extends Omit<Homework, '_id'> {
   _id: Types.ObjectId;
-  createdAt?: Date;
-  updatedAt?: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export interface ISubmission extends Omit<Submission, '_id'> {
   _id: Types.ObjectId;
-  createdAt?: Date;
-  updatedAt?: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 @Injectable()
