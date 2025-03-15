@@ -21,6 +21,7 @@ import { CoursesService } from '../courses/courses.service';
 import * as TelegramBot from 'node-telegram-bot-api';
 import { config } from '../config/config';
 import { CreateNotificationDto } from './dto/create-notification.dto';
+import { UpdateNotificationDto } from './dto/update-notification.dto';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 import axios from 'axios';
@@ -310,22 +311,41 @@ export class NotificationsService implements INotificationsService {
   // Обновление уведомления
   async updateNotification(
     id: string,
-    dto: CreateNotificationDto,
+    dto: UpdateNotificationDto,
   ): Promise<NotificationDocument | null> {
     this.logger.log(`Обновление уведомления ${id}: ${JSON.stringify(dto)}`);
+
+    // Формируем объект обновления только с переданными полями
+    const updateFields: any = {};
+
+    if (dto.title !== undefined) updateFields.title = dto.title;
+    if (dto.message !== undefined) updateFields.message = dto.message;
+    if (dto.userId !== undefined)
+      updateFields.userId = new Types.ObjectId(dto.userId);
+    if (dto.recipients !== undefined) {
+      updateFields.recipients = dto.recipients.map(
+        (id) => new Types.ObjectId(id),
+      );
+    }
+
+    if (Object.keys(updateFields).length === 0) {
+      throw new BadRequestException('Не указаны поля для обновления');
+    }
+
     const updated = await this.notificationModel
       .findByIdAndUpdate(
         new Types.ObjectId(id),
-        {
-          title: dto.title,
-          message: dto.message,
-          userId: dto.userId ? new Types.ObjectId(dto.userId) : undefined,
-          recipients: dto.recipients?.map((id) => new Types.ObjectId(id)) || [],
-        },
+        { $set: updateFields }, // Используем $set для частичного обновления
         { new: true },
       )
       .lean()
       .exec();
+
+    if (!updated) {
+      this.logger.warn(`Уведомление ${id} не найдено`);
+      return null;
+    }
+
     this.logger.log(`Уведомление обновлено: ${id}`);
     return updated;
   }

@@ -21,6 +21,8 @@ import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { NotificationsService } from './notifications.service';
 import { CreateNotificationDto } from './dto/create-notification.dto';
+import { UpdateNotificationDto } from './dto/update-notification.dto';
+import { SendNotificationDto } from './dto/send-notification.dto';
 import { Role } from '../auth/roles.enum';
 import {
   ApiTags,
@@ -329,7 +331,7 @@ export class NotificationsController {
   @UsePipes(new ValidationPipe())
   async updateNotification(
     @Param('id') id: string,
-    @Body() updateNotificationDto: CreateNotificationDto,
+    @Body() updateNotificationDto: UpdateNotificationDto,
   ) {
     this.logger.log(
       `Обновление уведомления ${id}: ${JSON.stringify(updateNotificationDto)}`,
@@ -383,6 +385,18 @@ export class NotificationsController {
   @ApiSecurity('JWT-auth')
   @HttpCode(200)
   @ApiOperation({ summary: 'Отправить уведомление одному пользователю' })
+  @ApiBody({
+    description: 'Идентификатор пользователя для отправки уведомления',
+    type: SendNotificationDto,
+    examples: {
+      example1: {
+        value: {
+          userId: '67c92217f30e0a8bcd56bf86',
+        },
+        summary: 'Пример тела запроса',
+      },
+    },
+  })
   @ApiParam({
     name: 'id',
     description: 'Идентификатор уведомления',
@@ -394,18 +408,6 @@ export class NotificationsController {
     description:
       'Уведомление успешно поставлено в очередь для отправки пользователю',
     type: CreateNotificationDto,
-    content: {
-      'application/json': {
-        example: {
-          key: 'new_course',
-          title: 'Новый курс',
-          message: 'Вы записаны на курс Course 9',
-          userId: '67c92217f30e0a8bcd56bf86',
-          isSent: true,
-          sentAt: '2025-03-11T12:00:00Z',
-        },
-      },
-    },
   })
   @ApiResponse({
     status: 400,
@@ -417,13 +419,9 @@ export class NotificationsController {
   @UsePipes(new ValidationPipe())
   async sendNotificationToUser(
     @Param('id') notificationId: string,
-    @Body() body: { userId: string },
+    @Body() sendNotificationDto: SendNotificationDto, // Используем DTO
   ) {
-    const { userId } = body;
-    if (!userId) {
-      this.logger.warn('Отсутствует userId в теле запроса');
-      throw new BadRequestException('Требуется userId');
-    }
+    const { userId } = sendNotificationDto; // Теперь body типизировано
     this.logger.log(
       `Отправка уведомления ${notificationId} пользователю ${userId}`,
     );
