@@ -16,6 +16,7 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { CreateGroupDto } from './dto/create-group.dto';
 import { GroupResponseDto } from './dto/group-response.dto';
+import { GroupDocument } from './schemas/group.schema';
 import {
   ApiSecurity,
   ApiTags,
@@ -25,6 +26,7 @@ import {
   ApiQuery,
 } from '@nestjs/swagger';
 import { ParseIntPipe, DefaultValuePipe } from '@nestjs/common';
+import { Types } from 'mongoose';
 
 @ApiTags('Группы')
 @Controller('groups')
@@ -264,10 +266,15 @@ export class GroupsController {
    */
   private mapToResponseDto(group: GroupDocument): GroupResponseDto {
     return {
-      _id: group._id.toString(),
+      _id:
+        group._id instanceof Types.ObjectId
+          ? group._id.toString()
+          : String(group._id),
       name: group.name,
       description: group.description,
-      students: group.students.map((id) => id.toString()),
+      students: group.students.map((id) =>
+        id instanceof Types.ObjectId ? id.toString() : String(id),
+      ),
     };
   }
 }
