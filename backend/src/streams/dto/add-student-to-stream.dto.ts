@@ -3,7 +3,7 @@ import { ApiProperty } from '@nestjs/swagger';
 
 export class AddStudentToStreamDto {
   @ApiProperty({
-    description: 'ID студента для добавления в поток',
+    description: 'Идентификатор студента для добавления в поток',
     example: '67c92217f30e0a8bcd56bf86',
   })
   @IsMongoId({ message: 'studentId должен быть валидным MongoDB ObjectId' })

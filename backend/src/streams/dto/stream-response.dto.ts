@@ -1,6 +1,15 @@
 import { ApiProperty } from '@nestjs/swagger';
 
-export class StreamResponseDto {
+export interface IStreamResponse {
+  _id: string;
+  courseId: string;
+  name: string;
+  startDate: string;
+  endDate: string;
+  students: string[];
+}
+
+export class StreamResponseDto implements IStreamResponse {
   @ApiProperty({
     description: 'Уникальный идентификатор потока',
     example: '507f1f77bcf86cd799439012',
@@ -8,7 +17,7 @@ export class StreamResponseDto {
   _id: string;
 
   @ApiProperty({
-    description: 'ID курса, к которому относится поток',
+    description: 'Идентификатор курса, к которому относится поток',
     example: '507f1f77bcf86cd799439011',
   })
   courseId: string;
@@ -32,7 +41,7 @@ export class StreamResponseDto {
   endDate: string;
 
   @ApiProperty({
-    description: 'Массив ID студентов, записанных в поток',
+    description: 'Массив идентификаторов студентов, записанных в поток',
     example: ['67c92217f30e0a8bcd56bf86'],
     type: [String],
   })

@@ -4,7 +4,7 @@ import { Document, Types } from 'mongoose';
 @Schema({ timestamps: true })
 export class Stream {
   @Prop({ required: true, type: Types.ObjectId, ref: 'Course' })
-  courseId: Types.ObjectId; // ID курса, к которому относится поток
+  courseId: Types.ObjectId; // Идентификатор курса, к которому относится поток
 
   @Prop({ required: true })
   name: string; // Название потока, например, "Поток 1 - Март 2025"
@@ -16,7 +16,7 @@ export class Stream {
   endDate: Date; // Дата окончания потока
 
   @Prop({ type: [Types.ObjectId], ref: 'User', default: [] })
-  students: Types.ObjectId[]; // Список ID студентов в потоке
+  students: Types.ObjectId[]; // Список идентификаторов студентов в потоке
 }
 
 export type StreamDocument = Stream & Document;

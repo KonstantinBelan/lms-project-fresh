@@ -1,4 +1,3 @@
-// src/streams/streams.controller.ts
 import {
   Controller,
   Post,
@@ -28,7 +27,20 @@ export class StreamsController {
     description: 'Поток успешно создан',
     type: StreamResponseDto,
   })
-  @ApiResponse({ status: 400, description: 'Некорректные входные данные' })
+  @ApiResponse({
+    status: 400,
+    description: 'Некорректные входные данные',
+    schema: {
+      example: { message: 'Дата начала должна быть раньше даты окончания' },
+    },
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Неверный формат courseId',
+    schema: {
+      example: { message: 'courseId должен быть валидным MongoDB ObjectId' },
+    },
+  })
   @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))
   async createStream(
     @Body() createStreamDto: CreateStreamDto,
@@ -43,10 +55,10 @@ export class StreamsController {
   }
 
   @Get(':streamId')
-  @ApiOperation({ summary: 'Получить поток по ID' })
+  @ApiOperation({ summary: 'Получить поток по идентификатору' })
   @ApiParam({
     name: 'streamId',
-    description: 'ID потока для получения',
+    description: 'Идентификатор потока для получения',
     example: '507f1f77bcf86cd799439012',
   })
   @ApiResponse({
@@ -54,13 +66,23 @@ export class StreamsController {
     description: 'Поток успешно получен',
     type: StreamResponseDto,
   })
-  @ApiResponse({ status: 404, description: 'Поток не найден' })
+  @ApiResponse({
+    status: 404,
+    description: 'Поток не найден',
+    schema: {
+      example: {
+        message: 'Поток с идентификатором 507f1f77bcf86cd799439012 не найден',
+      },
+    },
+  })
   async getStreamById(
     @Param('streamId') streamId: string,
   ): Promise<StreamResponseDto> {
     const stream = await this.streamsService.findStreamById(streamId);
     if (!stream) {
-      throw new NotFoundException(`Поток с ID ${streamId} не найден`);
+      throw new NotFoundException(
+        `Поток с идентификатором ${streamId} не найден`,
+      );
     }
     return mapToStreamResponseDto(stream);
   }
@@ -69,7 +91,7 @@ export class StreamsController {
   @ApiOperation({ summary: 'Получить все потоки курса' })
   @ApiParam({
     name: 'courseId',
-    description: 'ID курса для получения потоков',
+    description: 'Идентификатор курса для получения потоков',
     example: '507f1f77bcf86cd799439011',
   })
   @ApiResponse({
@@ -77,14 +99,23 @@ export class StreamsController {
     description: 'Список потоков успешно получен',
     type: [StreamResponseDto],
   })
-  @ApiResponse({ status: 404, description: 'Потоки для курса не найдены' })
+  @ApiResponse({
+    status: 404,
+    description: 'Потоки для курса не найдены',
+    schema: {
+      example: {
+        message:
+          'Потоки для курса с идентификатором 507f1f77bcf86cd799439011 не найдены',
+      },
+    },
+  })
   async getStreamsByCourse(
     @Param('courseId') courseId: string,
   ): Promise<StreamResponseDto[]> {
     const streams = await this.streamsService.getStreamsByCourse(courseId);
     if (!streams.length) {
       throw new NotFoundException(
-        `Потоки для курса с ID ${courseId} не найдены`,
+        `Потоки для курса с идентификатором ${courseId} не найдены`,
       );
     }
     return streams.map(mapToStreamResponseDto);
@@ -94,7 +125,7 @@ export class StreamsController {
   @ApiOperation({ summary: 'Добавить студента в поток' })
   @ApiParam({
     name: 'streamId',
-    description: 'ID потока для добавления студента',
+    description: 'Идентификатор потока для добавления студента',
     example: '507f1f77bcf86cd799439012',
   })
   @ApiResponse({
@@ -105,8 +136,22 @@ export class StreamsController {
   @ApiResponse({
     status: 400,
     description: 'Некорректные данные или студент уже записан',
+    schema: {
+      example: {
+        message:
+          'Студент с идентификатором 67c92217f30e0a8bcd56bf86 уже записан в поток 507f1f77bcf86cd799439012',
+      },
+    },
   })
-  @ApiResponse({ status: 404, description: 'Поток не найден' })
+  @ApiResponse({
+    status: 404,
+    description: 'Поток не найден',
+    schema: {
+      example: {
+        message: 'Поток с идентификатором 507f1f77bcf86cd799439012 не найден',
+      },
+    },
+  })
   @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))
   async addStudentToStream(
     @Param('streamId') streamId: string,
@@ -117,7 +162,9 @@ export class StreamsController {
       addStudentDto.studentId,
     );
     if (!updatedStream) {
-      throw new NotFoundException(`Поток с ID ${streamId} не найден`);
+      throw new NotFoundException(
+        `Поток с идентификатором ${streamId} не найден`,
+      );
     }
     return mapToStreamResponseDto(updatedStream);
   }

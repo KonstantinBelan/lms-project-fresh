@@ -3,14 +3,14 @@ import { Stream, StreamDocument } from '../schemas/stream.schema';
 import { StreamResponseDto } from '../dto/stream-response.dto';
 
 /**
- * Преобразует Stream или StreamDocument в StreamResponseDto.
+ * Преобразует объект потока (Stream или StreamDocument) в StreamResponseDto.
  * @param stream - Объект потока (plain объект или документ Mongoose)
  * @returns Объект StreamResponseDto
  */
 export function mapToStreamResponseDto(
   stream: Stream | StreamDocument,
 ): StreamResponseDto {
-  const streamObj = stream as any; // Приводим к any для работы с plain объектом
+  const streamObj = stream as any;
   return {
     _id:
       streamObj._id instanceof Types.ObjectId
