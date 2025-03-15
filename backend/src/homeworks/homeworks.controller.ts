@@ -29,6 +29,7 @@ import {
   ApiParam,
   ApiBody,
 } from '@nestjs/swagger';
+import { IHomework, ISubmission } from './homeworks.service';
 
 @ApiTags('Домашние задания')
 @Controller('homeworks')
@@ -42,12 +43,29 @@ export class HomeworksController {
     status: 201,
     description: 'Домашнее задание успешно создано',
     type: CreateHomeworkDto,
+    example: {
+      lessonId: '507f1f77bcf86cd799439011',
+      description: 'Решить задачи по математике',
+      deadline: '2025-03-20T23:59:59Z',
+      points: 15,
+    },
   })
-  @ApiResponse({ status: 400, description: 'Некорректный запрос' })
+  @ApiResponse({
+    status: 400,
+    description: 'Некорректный запрос',
+    example: { message: 'Некорректный формат даты дедлайна' },
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Доступ запрещён',
+    example: { message: 'Требуется роль преподавателя или администратора' },
+  })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles(Role.TEACHER, Role.ADMIN, Role.MANAGER)
   @UsePipes(new ValidationPipe())
-  async createHomework(@Body() createHomeworkDto: CreateHomeworkDto) {
+  async createHomework(
+    @Body() createHomeworkDto: CreateHomeworkDto,
+  ): Promise<IHomework> {
     try {
       return await this.homeworksService.createHomework(createHomeworkDto);
     } catch (error) {
@@ -63,19 +81,33 @@ export class HomeworksController {
     description: 'Идентификатор домашнего задания',
     example: '507f1f77bcf86cd799439011',
   })
+  @ApiBody({ type: UpdateHomeworkDto })
   @ApiResponse({
     status: 200,
     description: 'Домашнее задание успешно обновлено',
     type: UpdateHomeworkDto,
+    example: {
+      description: 'Обновлённое описание задачи',
+      points: 20,
+    },
   })
-  @ApiResponse({ status: 400, description: 'Некорректный запрос' })
+  @ApiResponse({
+    status: 400,
+    description: 'Некорректный запрос',
+    example: { message: 'Некорректный идентификатор домашнего задания' },
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Домашнее задание не найдено',
+    example: { message: 'Домашнее задание не найдено' },
+  })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles(Role.TEACHER, Role.ADMIN, Role.MANAGER)
   @UsePipes(new ValidationPipe())
   async updateHomework(
     @Param('id') id: string,
     @Body() updateHomeworkDto: UpdateHomeworkDto,
-  ) {
+  ): Promise<IHomework> {
     if (!Types.ObjectId.isValid(id)) {
       throw new BadRequestException(
         'Некорректный идентификатор домашнего задания',
@@ -99,11 +131,21 @@ export class HomeworksController {
   @ApiResponse({
     status: 200,
     description: 'Домашнее задание успешно удалено',
+    example: { message: 'Домашнее задание успешно удалено' },
   })
-  @ApiResponse({ status: 400, description: 'Некорректный запрос' })
+  @ApiResponse({
+    status: 400,
+    description: 'Некорректный запрос',
+    example: { message: 'Некорректный идентификатор домашнего задания' },
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Домашнее задание не найдено',
+    example: { message: 'Домашнее задание не найдено' },
+  })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles(Role.TEACHER, Role.ADMIN, Role.MANAGER)
-  async deleteHomework(@Param('id') id: string) {
+  async deleteHomework(@Param('id') id: string): Promise<{ message: string }> {
     if (!Types.ObjectId.isValid(id)) {
       throw new BadRequestException(
         'Некорректный идентификатор домашнего задания',
@@ -128,12 +170,28 @@ export class HomeworksController {
   @ApiResponse({
     status: 200,
     description: 'Домашнее задание успешно получено',
+    type: CreateHomeworkDto,
+    example: {
+      _id: '507f1f77bcf86cd799439011',
+      lessonId: '507f1f77bcf86cd799439012',
+      description: 'Решить задачи по математике',
+      deadline: '2025-03-20T23:59:59Z',
+      points: 15,
+    },
   })
-  @ApiResponse({ status: 404, description: 'Домашнее задание не найдено' })
-  @ApiResponse({ status: 403, description: 'Доступ запрещён' })
+  @ApiResponse({
+    status: 404,
+    description: 'Домашнее задание не найдено',
+    example: { message: 'Домашнее задание не найдено' },
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Доступ запрещён',
+    example: { message: 'Требуется авторизация' },
+  })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles(Role.STUDENT, Role.TEACHER, Role.ADMIN, Role.MANAGER, Role.ASSISTANT)
-  async findHomeworkById(@Param('id') id: string) {
+  async findHomeworkById(@Param('id') id: string): Promise<IHomework | null> {
     if (!Types.ObjectId.isValid(id)) {
       throw new BadRequestException(
         'Некорректный идентификатор домашнего задания',
@@ -155,12 +213,32 @@ export class HomeworksController {
   @ApiResponse({
     status: 200,
     description: 'Домашние задания успешно получены',
+    type: [CreateHomeworkDto],
+    example: [
+      {
+        _id: '507f1f77bcf86cd799439011',
+        lessonId: '507f1f77bcf86cd799439011',
+        description: 'Решить задачи по математике',
+        deadline: '2025-03-20T23:59:59Z',
+        points: 15,
+      },
+    ],
   })
-  @ApiResponse({ status: 404, description: 'Домашние задания не найдены' })
-  @ApiResponse({ status: 403, description: 'Доступ запрещён' })
+  @ApiResponse({
+    status: 400,
+    description: 'Некорректный запрос',
+    example: { message: 'Некорректный идентификатор урока' },
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Домашние задания не найдены',
+    example: { message: 'Домашние задания не найдены' },
+  })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles(Role.STUDENT, Role.TEACHER, Role.ADMIN, Role.MANAGER, Role.ASSISTANT)
-  async findHomeworksByLesson(@Param('lessonId') lessonId: string) {
+  async findHomeworksByLesson(
+    @Param('lessonId') lessonId: string,
+  ): Promise<IHomework[]> {
     if (!Types.ObjectId.isValid(lessonId)) {
       throw new BadRequestException('Некорректный идентификатор урока');
     }
@@ -170,15 +248,21 @@ export class HomeworksController {
   @Post('submissions')
   @ApiSecurity('JWT-auth')
   @ApiOperation({ summary: 'Создать новое решение' })
+  @ApiBody({ type: CreateSubmissionDto })
   @ApiResponse({
     status: 201,
     description: 'Решение успешно создано',
     type: CreateSubmissionDto,
+    example: {
+      homeworkId: '507f1f77bcf86cd799439011',
+      studentId: '507f1f77bcf86cd799439012',
+      submissionContent: 'Ответы: 1, 2, 3',
+    },
   })
   @ApiResponse({
     status: 400,
     description: 'Некорректный запрос',
-    example: { message: 'Идентификатор домашнего задания невалиден' },
+    example: { message: 'Некорректный идентификатор домашнего задания' },
   })
   @ApiResponse({
     status: 403,
@@ -188,7 +272,9 @@ export class HomeworksController {
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles(Role.STUDENT)
   @UsePipes(new ValidationPipe())
-  async createSubmission(@Body() createSubmissionDto: CreateSubmissionDto) {
+  async createSubmission(
+    @Body() createSubmissionDto: CreateSubmissionDto,
+  ): Promise<ISubmission> {
     try {
       return await this.homeworksService.createSubmission(createSubmissionDto);
     } catch (error) {
@@ -204,19 +290,33 @@ export class HomeworksController {
     description: 'Идентификатор решения',
     example: '507f1f77bcf86cd799439011',
   })
+  @ApiBody({ type: UpdateSubmissionDto })
   @ApiResponse({
     status: 200,
     description: 'Решение успешно обновлено',
     type: UpdateSubmissionDto,
+    example: {
+      submissionContent: 'Обновлённые ответы: 1, 2, 3, 4',
+      grade: 85,
+    },
   })
-  @ApiResponse({ status: 400, description: 'Некорректный запрос' })
+  @ApiResponse({
+    status: 400,
+    description: 'Некорректный запрос',
+    example: { message: 'Некорректный идентификатор решения' },
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Решение не найдено',
+    example: { message: 'Решение не найдено' },
+  })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles(Role.TEACHER, Role.ADMIN, Role.MANAGER, Role.ASSISTANT)
   @UsePipes(new ValidationPipe())
   async updateSubmission(
     @Param('id') id: string,
     @Body() updateSubmissionDto: UpdateSubmissionDto,
-  ) {
+  ): Promise<ISubmission> {
     if (!Types.ObjectId.isValid(id)) {
       throw new BadRequestException('Некорректный идентификатор решения');
     }
@@ -241,12 +341,29 @@ export class HomeworksController {
   @ApiResponse({
     status: 200,
     description: 'Решение успешно получено',
+    type: CreateSubmissionDto,
+    example: {
+      _id: '507f1f77bcf86cd799439011',
+      homeworkId: '507f1f77bcf86cd799439011',
+      studentId: '507f1f77bcf86cd799439012',
+      submissionContent: 'Ответы: 1, 2, 3',
+    },
   })
-  @ApiResponse({ status: 404, description: 'Решение не найдено' })
-  @ApiResponse({ status: 403, description: 'Доступ запрещён' })
+  @ApiResponse({
+    status: 404,
+    description: 'Решение не найдено',
+    example: { message: 'Решение не найдено' },
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Доступ запрещён',
+    example: { message: 'Требуется авторизация' },
+  })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles(Role.STUDENT, Role.TEACHER, Role.ADMIN, Role.MANAGER, Role.ASSISTANT)
-  async findSubmissionById(@Param('id') id: string) {
+  async findSubmissionById(
+    @Param('id') id: string,
+  ): Promise<ISubmission | null> {
     if (!Types.ObjectId.isValid(id)) {
       throw new BadRequestException('Некорректный идентификатор решения');
     }
@@ -266,12 +383,31 @@ export class HomeworksController {
   @ApiResponse({
     status: 200,
     description: 'Решения успешно получены',
+    type: [CreateSubmissionDto],
+    example: [
+      {
+        _id: '507f1f77bcf86cd799439011',
+        homeworkId: '507f1f77bcf86cd799439011',
+        studentId: '507f1f77bcf86cd799439012',
+        submissionContent: 'Ответы: 1, 2, 3',
+      },
+    ],
   })
-  @ApiResponse({ status: 404, description: 'Решения не найдены' })
-  @ApiResponse({ status: 403, description: 'Доступ запрещён' })
+  @ApiResponse({
+    status: 400,
+    description: 'Некорректный запрос',
+    example: { message: 'Некорректный идентификатор домашнего задания' },
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Решения не найдены',
+    example: { message: 'Решения не найдены' },
+  })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles(Role.TEACHER, Role.ADMIN, Role.MANAGER, Role.ASSISTANT)
-  async findSubmissionsByHomework(@Param('homeworkId') homeworkId: string) {
+  async findSubmissionsByHomework(
+    @Param('homeworkId') homeworkId: string,
+  ): Promise<ISubmission[]> {
     if (!Types.ObjectId.isValid(homeworkId)) {
       throw new BadRequestException(
         'Некорректный идентификатор домашнего задания',
@@ -291,12 +427,31 @@ export class HomeworksController {
   @ApiResponse({
     status: 200,
     description: 'Решения успешно получены',
+    type: [CreateSubmissionDto],
+    example: [
+      {
+        _id: '507f1f77bcf86cd799439011',
+        homeworkId: '507f1f77bcf86cd799439011',
+        studentId: '507f1f77bcf86cd799439011',
+        submissionContent: 'Ответы: 1, 2, 3',
+      },
+    ],
   })
-  @ApiResponse({ status: 404, description: 'Решения не найдены' })
-  @ApiResponse({ status: 403, description: 'Доступ запрещён' })
+  @ApiResponse({
+    status: 400,
+    description: 'Некорректный запрос',
+    example: { message: 'Некорректный идентификатор студента' },
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Решения не найдены',
+    example: { message: 'Решения не найдены' },
+  })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles(Role.STUDENT, Role.TEACHER, Role.ADMIN, Role.MANAGER, Role.ASSISTANT)
-  async findSubmissionsByStudent(@Param('studentId') studentId: string) {
+  async findSubmissionsByStudent(
+    @Param('studentId') studentId: string,
+  ): Promise<ISubmission[]> {
     if (!Types.ObjectId.isValid(studentId)) {
       throw new BadRequestException('Некорректный идентификатор студента');
     }
@@ -322,15 +477,32 @@ export class HomeworksController {
     status: 200,
     description: 'Решение успешно проверено автоматически',
     type: Object,
-    example: { grade: 85, comment: 'Автоматическая проверка: 85%' },
+    example: {
+      grade: 85,
+      comment: 'Автопроверка: 85% на основе 8 правильных ответов из 10',
+    },
   })
-  @ApiResponse({ status: 400, description: 'Некорректный запрос' })
-  @ApiResponse({ status: 404, description: 'Решение не найдено' })
-  @ApiResponse({ status: 403, description: 'Доступ запрещён' })
+  @ApiResponse({
+    status: 400,
+    description: 'Некорректный запрос',
+    example: { message: 'Некорректный идентификатор решения' },
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Решение не найдено',
+    example: { message: 'Решение не найдено' },
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Доступ запрещён',
+    example: { message: 'Требуется роль преподавателя или администратора' },
+  })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles(Role.TEACHER, Role.ADMIN, Role.MANAGER, Role.ASSISTANT)
   @UsePipes(new ValidationPipe({ transform: true, whitelist: true }))
-  async autoCheckSubmission(@Body('submissionId') submissionId: string) {
+  async autoCheckSubmission(
+    @Body('submissionId') submissionId: string,
+  ): Promise<{ grade: number; comment: string }> {
     if (!Types.ObjectId.isValid(submissionId)) {
       throw new BadRequestException('Некорректный идентификатор решения');
     }

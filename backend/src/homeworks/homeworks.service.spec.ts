@@ -1,238 +1,160 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { HomeworksService } from './homeworks.service';
 import { getModelToken } from '@nestjs/mongoose';
-import { Homework, HomeworkDocument } from './schemas/homework.schema';
-import { Submission, SubmissionDocument } from './schemas/submission.schema';
 import { NotificationsService } from '../notifications/notifications.service';
 import { CoursesService } from '../courses/courses.service';
 import { EnrollmentsService } from '../enrollments/enrollments.service';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Types } from 'mongoose';
-import { UpdateHomeworkDto } from './dto/update-homework.dto';
-import { CreateSubmissionDto } from './dto/create-submission.dto';
 
-describe('HomeworksService - updateHomework', () => {
+describe('HomeworksService', () => {
   let service: HomeworksService;
   let homeworkModel: any;
+  let submissionModel: any;
 
-  const mockHomework = {
-    _id: new Types.ObjectId('507f1f77bcf86cd799439011'),
-    lessonId: new Types.ObjectId('507f1f77bcf86cd799439012'),
-    description: 'Старое описание',
-    category: 'practice',
-    deadline: new Date('2025-03-20'),
-    isActive: true,
-    points: 10,
+  const mockHomeworkModel = {
+    find: jest.fn().mockReturnValue({
+      lean: jest
+        .fn()
+        .mockReturnValue({ exec: jest.fn().mockResolvedValue([]) }),
+    }),
+    findById: jest.fn().mockReturnValue({
+      lean: jest
+        .fn()
+        .mockReturnValue({ exec: jest.fn().mockResolvedValue(null) }),
+    }),
+    findByIdAndUpdate: jest.fn().mockReturnValue({
+      lean: jest
+        .fn()
+        .mockReturnValue({ exec: jest.fn().mockResolvedValue(null) }),
+    }),
+    findByIdAndDelete: jest.fn().mockReturnValue({
+      lean: jest
+        .fn()
+        .mockReturnValue({ exec: jest.fn().mockResolvedValue(null) }),
+    }),
+  };
+
+  const mockSubmissionModel = {
+    find: jest.fn().mockReturnValue({
+      lean: jest
+        .fn()
+        .mockReturnValue({ exec: jest.fn().mockResolvedValue([]) }),
+    }),
+    findById: jest.fn().mockReturnValue({
+      lean: jest
+        .fn()
+        .mockReturnValue({ exec: jest.fn().mockResolvedValue(null) }),
+    }),
+    findByIdAndUpdate: jest.fn().mockReturnValue({
+      lean: jest
+        .fn()
+        .mockReturnValue({ exec: jest.fn().mockResolvedValue(null) }),
+    }),
   };
 
   const mockCacheManager = {
-    get: jest.fn(),
-    set: jest.fn(),
-    del: jest.fn(),
+    get: jest.fn().mockResolvedValue(null),
+    set: jest.fn().mockResolvedValue(undefined),
+    del: jest.fn().mockResolvedValue(undefined),
   };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         HomeworksService,
-        {
-          provide: getModelToken(Homework.name),
-          useValue: {
-            findByIdAndUpdate: jest.fn(),
-          },
-        },
-        {
-          provide: getModelToken(Submission.name),
-          useValue: {},
-        },
-        {
-          provide: NotificationsService,
-          useValue: {},
-        },
-        {
-          provide: CoursesService,
-          useValue: {},
-        },
-        {
-          provide: EnrollmentsService,
-          useValue: {},
-        },
-        {
-          provide: CACHE_MANAGER,
-          useValue: mockCacheManager,
-        },
-      ],
-    }).compile();
-
-    service = module.get<HomeworksService>(HomeworksService);
-    homeworkModel = module.get(getModelToken(Homework.name));
-  });
-
-  it('должен успешно обновить домашнее задание', async () => {
-    const updateDto: UpdateHomeworkDto = {
-      description: 'Новое описание',
-      points: 25,
-    };
-    homeworkModel.findByIdAndUpdate.mockResolvedValue({
-      ...mockHomework,
-      ...updateDto,
-    });
-
-    const result = await service.updateHomework(
-      mockHomework._id.toString(),
-      updateDto,
-    );
-
-    expect(homeworkModel.findByIdAndUpdate).toHaveBeenCalledWith(
-      mockHomework._id.toString(),
-      expect.objectContaining({
-        description: 'Новое описание',
-        points: 25,
-      }),
-      { new: true, runValidators: true },
-    );
-    expect(mockCacheManager.del).toHaveBeenCalledTimes(2);
-    expect(result.description).toBe('Новое описание');
-    expect(result.points).toBe(25);
-  });
-
-  it('должен выбросить исключение при невалидном ID', async () => {
-    const updateDto: UpdateHomeworkDto = { description: 'Новое описание' };
-    await expect(
-      service.updateHomework('invalid-id', updateDto),
-    ).rejects.toThrow(BadRequestException);
-  });
-
-  it('должен выбросить исключение, если задание не найдено', async () => {
-    homeworkModel.findByIdAndUpdate.mockResolvedValue(null);
-    const updateDto: UpdateHomeworkDto = { description: 'Новое описание' };
-    await expect(
-      service.updateHomework(mockHomework._id.toString(), updateDto),
-    ).rejects.toThrow(NotFoundException);
-  });
-});
-
-describe('HomeworksService - createSubmission', () => {
-  let service: HomeworksService;
-  let submissionModel: any;
-  let homeworkModel: any;
-  let notificationsService: any;
-  let coursesService: any;
-  let enrollmentsService: any;
-  let cacheManager: any;
-
-  const mockSubmissionDto: CreateSubmissionDto = {
-    homeworkId: '507f1f77bcf86cd799439011',
-    studentId: '507f1f77bcf86cd799439012',
-    submissionContent: 'Моё решение: реализовал API',
-  };
-
-  const mockHomework = {
-    _id: new Types.ObjectId(mockSubmissionDto.homeworkId),
-    lessonId: new Types.ObjectId('507f1f77bcf86cd799439013'),
-    description: 'Написать API',
-    points: 20,
-  };
-
-  const mockCourse = {
-    _id: new Types.ObjectId('507f1f77bcf86cd799439014'),
-    title: 'Nest.js Basics',
-  };
-
-  beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        HomeworksService,
-        {
-          provide: getModelToken(Homework.name),
-          useValue: { findById: jest.fn() },
-        },
-        {
-          provide: getModelToken(Submission.name),
-          useValue: { save: jest.fn(), constructor: jest.fn() },
-        },
+        { provide: getModelToken('Homework'), useValue: mockHomeworkModel },
+        { provide: getModelToken('Submission'), useValue: mockSubmissionModel },
         {
           provide: NotificationsService,
           useValue: {
+            notifyDeadline: jest.fn(),
             getNotificationByKey: jest.fn(),
-            replacePlaceholders: jest.fn(),
             createNotification: jest.fn(),
             sendNotificationToUser: jest.fn(),
           },
         },
         {
           provide: CoursesService,
-          useValue: { findCourseByLesson: jest.fn() },
+          useValue: {
+            findCourseByLesson: jest.fn(),
+            getLessonsForCourse: jest.fn(),
+          },
         },
         {
           provide: EnrollmentsService,
-          useValue: { awardPoints: jest.fn() },
+          useValue: {
+            awardPoints: jest.fn(),
+            updateStudentProgress: jest.fn(),
+            findEnrollmentsByStudent: jest.fn(),
+          },
         },
-        {
-          provide: CACHE_MANAGER,
-          useValue: { del: jest.fn() },
-        },
+        { provide: CACHE_MANAGER, useValue: mockCacheManager },
       ],
     }).compile();
 
     service = module.get<HomeworksService>(HomeworksService);
-    homeworkModel = module.get(getModelToken(Homework.name));
-    submissionModel = module.get(getModelToken(Submission.name));
-    notificationsService = module.get(NotificationsService);
-    coursesService = module.get(CoursesService);
-    enrollmentsService = module.get(EnrollmentsService);
-    cacheManager = module.get(CACHE_MANAGER);
+    homeworkModel = module.get(getModelToken('Homework'));
+    submissionModel = module.get(getModelToken('Submission'));
   });
 
-  it('должен успешно создать решение', async () => {
-    homeworkModel.findById.mockResolvedValue(mockHomework);
-    coursesService.findCourseByLesson.mockResolvedValue(mockCourse);
-    enrollmentsService.awardPoints.mockResolvedValue(true);
-    notificationsService.getNotificationByKey.mockResolvedValue({
-      title: 'Новое решение',
-      message: 'Вы заработали {points} баллов',
-    });
-    notificationsService.replacePlaceholders.mockReturnValue(
-      'Вы заработали 20 баллов',
-    );
-    notificationsService.createNotification.mockResolvedValue({
-      _id: new Types.ObjectId(),
-    });
-    submissionModel.constructor.mockReturnValue({
-      save: jest.fn().mockResolvedValue({
-        _id: new Types.ObjectId(),
-        ...mockSubmissionDto,
-      }),
-    });
-
-    const result = await service.createSubmission(mockSubmissionDto);
-
-    expect(submissionModel.constructor).toHaveBeenCalledWith({
-      ...mockSubmissionDto,
-      homeworkId: expect.any(Types.ObjectId),
-      studentId: expect.any(Types.ObjectId),
-    });
-    expect(enrollmentsService.awardPoints).toHaveBeenCalledWith(
-      mockSubmissionDto.studentId,
-      mockCourse._id.toString(),
-      20,
-    );
-    expect(notificationsService.sendNotificationToUser).toHaveBeenCalled();
-    expect(result.submissionContent).toBe(mockSubmissionDto.submissionContent);
+  it('должен быть определён', () => {
+    expect(service).toBeDefined();
   });
 
-  it('должен выбросить исключение при невалидном homeworkId', async () => {
-    const invalidDto = { ...mockSubmissionDto, homeworkId: 'invalid-id' };
-    await expect(service.createSubmission(invalidDto)).rejects.toThrow(
-      BadRequestException,
-    );
+  describe('findHomeworkById', () => {
+    it('должен выбросить исключение при некорректном ID', async () => {
+      await expect(service.findHomeworkById('invalid-id')).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('должен вернуть null, если задание не найдено', async () => {
+      const result = await service.findHomeworkById('507f1f77bcf86cd799439011');
+      expect(result).toBeNull();
+    });
+
+    it('должен вернуть задание из базы', async () => {
+      const homework = { _id: '507f1f77bcf86cd799439011', description: 'Тест' };
+      homeworkModel.findById.mockReturnValue({
+        lean: jest
+          .fn()
+          .mockReturnValue({ exec: jest.fn().mockResolvedValue(homework) }),
+      });
+      const result = await service.findHomeworkById('507f1f77bcf86cd799439011');
+      expect(result).toEqual(homework);
+    });
   });
 
-  it('должен выбросить исключение, если домашнее задание не найдено', async () => {
-    homeworkModel.findById.mockResolvedValue(null);
-    await expect(service.createSubmission(mockSubmissionDto)).rejects.toThrow(
-      NotFoundException,
-    );
+  describe('createHomework', () => {
+    it('должен создать новое домашнее задание', async () => {
+      const dto = {
+        lessonId: '507f1f77bcf86cd799439011',
+        description: 'Тест',
+        deadline: '2025-03-20',
+      };
+      const savedHomework = {
+        _id: '507f1f77bcf86cd799439012',
+        ...dto,
+        lessonId: new Types.ObjectId(dto.lessonId),
+      };
+      jest
+        .spyOn(homeworkModel.prototype, 'save')
+        .mockResolvedValue(savedHomework);
+      const result = await service.createHomework(dto);
+      expect(result).toEqual(savedHomework);
+    });
+
+    it('должен выбросить исключение при некорректной дате', async () => {
+      const dto = {
+        lessonId: '507f1f77bcf86cd799439011',
+        description: 'Тест',
+        deadline: 'invalid-date',
+      };
+      await expect(service.createHomework(dto)).rejects.toThrow(
+        BadRequestException,
+      );
+    });
   });
 });

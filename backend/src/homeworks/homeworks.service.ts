@@ -16,11 +16,19 @@ import { CreateSubmissionDto } from './dto/create-submission.dto';
 import { UpdateSubmissionDto } from './dto/update-submission.dto';
 import { NotificationsService } from '../notifications/notifications.service';
 import { CoursesService } from '../courses/courses.service';
-import { UsersService } from '../users/users.service';
+import { EnrollmentsService } from '../enrollments/enrollments.service';
 import { Types } from 'mongoose';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
-import { EnrollmentsService } from '../enrollments/enrollments.service';
+
+// Интерфейсы для типизации данных
+export interface IHomework extends Omit<Homework, '_id'> {
+  _id: string;
+}
+
+export interface ISubmission extends Omit<Submission, '_id'> {
+  _id: string;
+}
 
 @Injectable()
 export class HomeworksService {
@@ -36,25 +44,43 @@ export class HomeworksService {
     private enrollmentsService: EnrollmentsService,
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
   ) {
-    this.logger.debug('Конструктор HomeworksService вызван');
-    this.logger.debug('Модель домашних заданий:', !!this.homeworkModel);
-    this.logger.debug('Модель подписок ДЗ:', !!this.submissionModel);
-    this.logger.debug('Сервис уведомлений:', !!this.notificationsService);
-    this.logger.debug('Сервис курсов:', !!this.coursesService);
-    this.logger.debug('Сервис поступлений:', !!this.enrollmentsService);
+    this.logger.debug('Конструктор сервиса домашних заданий вызван');
+    this.logger.debug(
+      `Модель домашних заданий инициализирована: ${!!this.homeworkModel}`,
+    );
+    this.logger.debug(
+      `Модель решений инициализирована: ${!!this.submissionModel}`,
+    );
+    this.logger.debug(
+      `Сервис уведомлений доступен: ${!!this.notificationsService}`,
+    );
+    this.logger.debug(`Сервис курсов доступен: ${!!this.coursesService}`);
+    this.logger.debug(`Сервис записей доступен: ${!!this.enrollmentsService}`);
   }
 
-  // Методы для домашних заданий (уже обработаны в предыдущем шаге)
-  async findAllHomeworks(): Promise<HomeworkDocument[]> {
-    return this.homeworkModel
+  // Получение всех активных домашних заданий
+  async findAllHomeworks(): Promise<IHomework[]> {
+    const cacheKey = 'homeworks:all';
+    const cached = await this.cacheManager.get<IHomework[]>(cacheKey);
+    if (cached) {
+      this.logger.debug('Все домашние задания найдены в кэше');
+      return cached;
+    }
+
+    const homeworks = (await this.homeworkModel
       .find({ deadline: { $exists: true }, isActive: true })
       .lean()
-      .exec();
+      .exec()) as IHomework[];
+
+    await this.cacheManager.set(cacheKey, homeworks, 3600);
+    this.logger.log('Все активные домашние задания получены из базы');
+    return homeworks;
   }
 
+  // Создание нового домашнего задания
   async createHomework(
     createHomeworkDto: CreateHomeworkDto,
-  ): Promise<HomeworkDocument> {
+  ): Promise<IHomework> {
     const deadline = createHomeworkDto.deadline
       ? new Date(createHomeworkDto.deadline)
       : undefined;
@@ -68,12 +94,13 @@ export class HomeworksService {
       points: createHomeworkDto.points || 10,
       deadline,
     });
-    const savedHomework: HomeworkDocument = await newHomework.save();
+    const savedHomework = (await newHomework.save()) as IHomework;
 
-    await this.cacheManager.del(`homework:${savedHomework._id.toString()}`);
+    await this.cacheManager.del(`homework:${savedHomework._id}`);
     await this.cacheManager.del(
       `homeworks:lesson:${createHomeworkDto.lessonId}`,
     );
+    await this.cacheManager.del('homeworks:all');
 
     this.logger.log(`Создано домашнее задание с ID: ${savedHomework._id}`);
     return savedHomework;
@@ -83,20 +110,18 @@ export class HomeworksService {
   async updateHomework(
     id: string,
     updateHomeworkDto: UpdateHomeworkDto,
-  ): Promise<HomeworkDocument> {
+  ): Promise<IHomework> {
     if (!Types.ObjectId.isValid(id)) {
       throw new BadRequestException(
         'Некорректный идентификатор домашнего задания',
       );
     }
 
-    // Создаём объект с явной типизацией для всех полей
     const updateData: Partial<Homework> & {
       deadline?: Date;
       lessonId?: Types.ObjectId;
     } = {};
 
-    // Преобразуем и добавляем свойства, если они присутствуют в updateHomeworkDto
     if (updateHomeworkDto.lessonId) {
       if (!Types.ObjectId.isValid(updateHomeworkDto.lessonId)) {
         throw new BadRequestException('Некорректный идентификатор урока');
@@ -104,18 +129,14 @@ export class HomeworksService {
       updateData.lessonId = new Types.ObjectId(updateHomeworkDto.lessonId);
     }
 
-    if (updateHomeworkDto.description !== undefined) {
+    if (updateHomeworkDto.description !== undefined)
       updateData.description = updateHomeworkDto.description;
-    }
-    if (updateHomeworkDto.category !== undefined) {
+    if (updateHomeworkDto.category !== undefined)
       updateData.category = updateHomeworkDto.category;
-    }
-    if (updateHomeworkDto.isActive !== undefined) {
+    if (updateHomeworkDto.isActive !== undefined)
       updateData.isActive = updateHomeworkDto.isActive;
-    }
-    if (updateHomeworkDto.points !== undefined) {
+    if (updateHomeworkDto.points !== undefined)
       updateData.points = updateHomeworkDto.points;
-    }
     if (updateHomeworkDto.deadline) {
       const deadline = new Date(updateHomeworkDto.deadline);
       if (isNaN(deadline.getTime())) {
@@ -124,26 +145,24 @@ export class HomeworksService {
       updateData.deadline = deadline;
     }
 
-    const updatedHomework = await this.homeworkModel
-      .findByIdAndUpdate(id, updateData, {
-        new: true,
-        runValidators: true,
-      })
-      .exec();
+    const updatedHomework = (await this.homeworkModel
+      .findByIdAndUpdate(id, updateData, { new: true, runValidators: true })
+      .lean()
+      .exec()) as IHomework;
 
     if (!updatedHomework) {
       throw new NotFoundException('Домашнее задание не найдено');
     }
 
     await this.cacheManager.del(`homework:${id}`);
-    await this.cacheManager.del(
-      `homeworks:lesson:${updatedHomework.lessonId.toString()}`,
-    );
+    await this.cacheManager.del(`homeworks:lesson:${updatedHomework.lessonId}`);
+    await this.cacheManager.del('homeworks:all');
 
     this.logger.log(`Обновлено домашнее задание с ID: ${id}`);
     return updatedHomework;
   }
 
+  // Удаление домашнего задания
   async deleteHomework(id: string): Promise<void> {
     if (!Types.ObjectId.isValid(id)) {
       throw new BadRequestException(
@@ -151,19 +170,22 @@ export class HomeworksService {
       );
     }
 
-    const homework = await this.homeworkModel.findByIdAndDelete(id).exec();
+    const homework = await this.homeworkModel
+      .findByIdAndDelete(id)
+      .lean()
+      .exec();
     if (!homework) {
       throw new NotFoundException('Домашнее задание не найдено');
     }
 
     await this.cacheManager.del(`homework:${id}`);
-    await this.cacheManager.del(
-      `homeworks:lesson:${homework.lessonId.toString()}`,
-    );
+    await this.cacheManager.del(`homeworks:lesson:${homework.lessonId}`);
+    await this.cacheManager.del('homeworks:all');
     this.logger.log(`Удалено домашнее задание с ID: ${id}`);
   }
 
-  async findHomeworkById(id: string): Promise<Homework | null> {
+  // Поиск домашнего задания по ID
+  async findHomeworkById(id: string): Promise<IHomework | null> {
     if (!Types.ObjectId.isValid(id)) {
       throw new BadRequestException(
         'Некорректный идентификатор домашнего задания',
@@ -171,53 +193,57 @@ export class HomeworksService {
     }
 
     const cacheKey = `homework:${id}`;
-    const cachedHomework = await this.cacheManager.get<Homework>(cacheKey);
+    const cachedHomework = await this.cacheManager.get<IHomework>(cacheKey);
     if (cachedHomework) {
-      this.logger.debug(`Найдено домашнее задание в кэше: ${id}`);
+      this.logger.debug(`Домашнее задание найдено в кэше: ${id}`);
       return cachedHomework;
     }
 
-    const homework = await this.homeworkModel.findById(id).lean().exec();
+    const homework = (await this.homeworkModel
+      .findById(id)
+      .lean()
+      .exec()) as IHomework | null;
     if (homework) {
       await this.cacheManager.set(cacheKey, homework, 3600);
-      this.logger.debug(`Найдено домашнее задание в базе: ${id}`);
+      this.logger.debug(`Домашнее задание найдено в базе: ${id}`);
     }
     return homework;
   }
 
-  async findHomeworksByLesson(lessonId: string): Promise<Homework[]> {
+  // Поиск домашних заданий по уроку
+  async findHomeworksByLesson(lessonId: string): Promise<IHomework[]> {
     if (!Types.ObjectId.isValid(lessonId)) {
       throw new BadRequestException('Некорректный идентификатор урока');
     }
 
     const cacheKey = `homeworks:lesson:${lessonId}`;
-    const cachedHomeworks = await this.cacheManager.get<Homework[]>(cacheKey);
+    const cachedHomeworks = await this.cacheManager.get<IHomework[]>(cacheKey);
     if (cachedHomeworks) {
       this.logger.debug(
-        `Найдены домашние задания в кэше для урока: ${lessonId}`,
+        `Домашние задания найдены в кэше для урока: ${lessonId}`,
       );
       return cachedHomeworks;
     }
 
     const objectId = new Types.ObjectId(lessonId);
-    const homeworks = await this.homeworkModel
+    const homeworks = (await this.homeworkModel
       .find({ lessonId: objectId })
       .lean()
-      .exec();
+      .exec()) as IHomework[];
 
     if (homeworks.length > 0) {
       await this.cacheManager.set(cacheKey, homeworks, 3600);
       this.logger.debug(
-        `Найдены домашние задания в базе для урока: ${lessonId}`,
+        `Домашние задания найдены в базе для урока: ${lessonId}`,
       );
     }
     return homeworks;
   }
 
-  // Методы для решений
+  // Создание нового решения
   async createSubmission(
     createSubmissionDto: CreateSubmissionDto,
-  ): Promise<SubmissionDocument> {
+  ): Promise<ISubmission> {
     if (!Types.ObjectId.isValid(createSubmissionDto.homeworkId)) {
       throw new BadRequestException(
         'Некорректный идентификатор домашнего задания',
@@ -232,7 +258,7 @@ export class HomeworksService {
       homeworkId: new Types.ObjectId(createSubmissionDto.homeworkId),
       studentId: new Types.ObjectId(createSubmissionDto.studentId),
     });
-    const savedSubmission: SubmissionDocument = await newSubmission.save();
+    const savedSubmission = (await newSubmission.save()) as ISubmission;
 
     const homework = await this.findHomeworkById(
       createSubmissionDto.homeworkId,
@@ -278,9 +304,7 @@ export class HomeworksService {
       );
     }
 
-    // Явное приведение типа для _id
-    const submissionId = (savedSubmission._id as Types.ObjectId).toString();
-    await this.cacheManager.del(`submission:${submissionId}`);
+    await this.cacheManager.del(`submission:${savedSubmission._id}`);
     await this.cacheManager.del(
       `submissions:homework:${createSubmissionDto.homeworkId}`,
     );
@@ -292,20 +316,22 @@ export class HomeworksService {
     return savedSubmission;
   }
 
+  // Обновление решения
   async updateSubmission(
     id: string,
     updateSubmissionDto: UpdateSubmissionDto,
-  ): Promise<SubmissionDocument> {
+  ): Promise<ISubmission> {
     if (!Types.ObjectId.isValid(id)) {
       throw new BadRequestException('Некорректный идентификатор решения');
     }
 
-    const updatedSubmission = await this.submissionModel
+    const updatedSubmission = (await this.submissionModel
       .findByIdAndUpdate(id, updateSubmissionDto, {
         new: true,
         runValidators: true,
       })
-      .exec();
+      .lean()
+      .exec()) as ISubmission;
 
     if (!updatedSubmission) {
       throw new NotFoundException('Решение не найдено');
@@ -313,37 +339,42 @@ export class HomeworksService {
 
     await this.cacheManager.del(`submission:${id}`);
     await this.cacheManager.del(
-      `submissions:homework:${updatedSubmission.homeworkId.toString()}`,
+      `submissions:homework:${updatedSubmission.homeworkId}`,
     );
     await this.cacheManager.del(
-      `submissions:student:${updatedSubmission.studentId.toString()}`,
+      `submissions:student:${updatedSubmission.studentId}`,
     );
 
     this.logger.log(`Обновлено решение с ID: ${id}`);
     return updatedSubmission;
   }
 
-  async findSubmissionById(id: string): Promise<Submission | null> {
+  // Поиск решения по ID
+  async findSubmissionById(id: string): Promise<ISubmission | null> {
     if (!Types.ObjectId.isValid(id)) {
       throw new BadRequestException('Некорректный идентификатор решения');
     }
 
     const cacheKey = `submission:${id}`;
-    const cachedSubmission = await this.cacheManager.get<Submission>(cacheKey);
+    const cachedSubmission = await this.cacheManager.get<ISubmission>(cacheKey);
     if (cachedSubmission) {
-      this.logger.debug(`Найдено решение в кэше: ${id}`);
+      this.logger.debug(`Решение найдено в кэше: ${id}`);
       return cachedSubmission;
     }
 
-    const submission = await this.submissionModel.findById(id).lean().exec();
+    const submission = (await this.submissionModel
+      .findById(id)
+      .lean()
+      .exec()) as ISubmission | null;
     if (submission) {
       await this.cacheManager.set(cacheKey, submission, 3600);
-      this.logger.debug(`Найдено решение в базе: ${id}`);
+      this.logger.debug(`Решение найдено в базе: ${id}`);
     }
     return submission;
   }
 
-  async findSubmissionsByHomework(homeworkId: string): Promise<Submission[]> {
+  // Поиск решений по домашнему заданию
+  async findSubmissionsByHomework(homeworkId: string): Promise<ISubmission[]> {
     if (!Types.ObjectId.isValid(homeworkId)) {
       throw new BadRequestException(
         'Некорректный идентификатор домашнего задания',
@@ -352,55 +383,57 @@ export class HomeworksService {
 
     const cacheKey = `submissions:homework:${homeworkId}`;
     const cachedSubmissions =
-      await this.cacheManager.get<Submission[]>(cacheKey);
+      await this.cacheManager.get<ISubmission[]>(cacheKey);
     if (cachedSubmissions) {
       this.logger.debug(
-        `Найдены решения в кэше для домашнего задания: ${homeworkId}`,
+        `Решения найдены в кэше для домашнего задания: ${homeworkId}`,
       );
       return cachedSubmissions;
     }
 
     const objectId = new Types.ObjectId(homeworkId);
-    const submissions = await this.submissionModel
+    const submissions = (await this.submissionModel
       .find({ homeworkId: objectId })
       .lean()
-      .exec();
+      .exec()) as ISubmission[];
 
     if (submissions.length > 0) {
       await this.cacheManager.set(cacheKey, submissions, 3600);
       this.logger.debug(
-        `Найдены решения в базе для домашнего задания: ${homeworkId}`,
+        `Решения найдены в базе для домашнего задания: ${homeworkId}`,
       );
     }
     return submissions;
   }
 
-  async findSubmissionsByStudent(studentId: string): Promise<Submission[]> {
+  // Поиск решений по студенту
+  async findSubmissionsByStudent(studentId: string): Promise<ISubmission[]> {
     if (!Types.ObjectId.isValid(studentId)) {
       throw new BadRequestException('Некорректный идентификатор студента');
     }
 
     const cacheKey = `submissions:student:${studentId}`;
     const cachedSubmissions =
-      await this.cacheManager.get<Submission[]>(cacheKey);
+      await this.cacheManager.get<ISubmission[]>(cacheKey);
     if (cachedSubmissions) {
-      this.logger.debug(`Найдены решения в кэше для студента: ${studentId}`);
+      this.logger.debug(`Решения найдены в кэше для студента: ${studentId}`);
       return cachedSubmissions;
     }
 
     const objectId = new Types.ObjectId(studentId);
-    const submissions = await this.submissionModel
+    const submissions = (await this.submissionModel
       .find({ studentId: objectId })
       .lean()
-      .exec();
+      .exec()) as ISubmission[];
 
     if (submissions.length > 0) {
       await this.cacheManager.set(cacheKey, submissions, 3600);
-      this.logger.debug(`Найдены решения в базе для студента: ${studentId}`);
+      this.logger.debug(`Решения найдены в базе для студента: ${studentId}`);
     }
     return submissions;
   }
 
+  // Проверка дедлайнов и отправка уведомлений
   async checkDeadlines(): Promise<void> {
     const cacheKey = 'homeworks:deadlines';
     const cachedDeadlines = await this.cacheManager.get<{
@@ -457,6 +490,7 @@ export class HomeworksService {
     this.logger.log('Проверка дедлайнов завершена');
   }
 
+  // Автоматическая проверка решения
   async autoCheckSubmission(
     submissionId: string,
   ): Promise<{ grade: number; comment: string }> {
@@ -479,7 +513,6 @@ export class HomeworksService {
     const submission = await this.submissionModel.findById(submissionId).exec();
     if (!submission) throw new NotFoundException('Решение не найдено');
 
-    // Пример логики автопроверки
     const correctAnswers = 10;
     const submittedAnswers = submission.submissionContent
       .split(',')
@@ -564,11 +597,9 @@ export class HomeworksService {
 
     await this.cacheManager.del(`submission:${submissionId}`);
     await this.cacheManager.del(
-      `submissions:homework:${submission.homeworkId.toString()}`,
+      `submissions:homework:${submission.homeworkId}`,
     );
-    await this.cacheManager.del(
-      `submissions:student:${submission.studentId.toString()}`,
-    );
+    await this.cacheManager.del(`submissions:student:${submission.studentId}`);
 
     const result = { grade, comment };
     await this.cacheManager.set(cacheKey, result, 3600);
@@ -578,6 +609,7 @@ export class HomeworksService {
     return result;
   }
 
+  // Проверка уведомлений о дедлайнах
   async checkDeadlineNotifications(homeworkId: string): Promise<void> {
     if (!Types.ObjectId.isValid(homeworkId)) {
       throw new BadRequestException(
@@ -592,10 +624,10 @@ export class HomeworksService {
       return;
     }
 
-    const homework = await this.homeworkModel
+    const homework = (await this.homeworkModel
       .findById(homeworkId)
       .lean()
-      .exec();
+      .exec()) as IHomework;
     if (!homework) throw new NotFoundException('Домашнее задание не найдено');
 
     const now = new Date();
@@ -606,10 +638,10 @@ export class HomeworksService {
       throw new BadRequestException('Дедлайн не указан для домашнего задания');
 
     if (now > deadline) {
-      const submissions = await this.submissionModel
+      const submissions = (await this.submissionModel
         .find({ homeworkId: homework._id })
         .lean()
-        .exec();
+        .exec()) as ISubmission[];
       const lateSubmissions = submissions.filter(
         (s) => !s.isReviewed && new Date(s.createdAt) > deadline,
       );
@@ -673,10 +705,11 @@ export class HomeworksService {
     }
   }
 
+  // Получение решений студента по курсу
   async getSubmissionsByStudentAndCourse(
     studentId: string,
     courseId: string,
-  ): Promise<Submission[]> {
+  ): Promise<ISubmission[]> {
     if (
       !Types.ObjectId.isValid(studentId) ||
       !Types.ObjectId.isValid(courseId)
@@ -686,38 +719,82 @@ export class HomeworksService {
       );
     }
 
-    const submissions = await this.submissionModel
+    const cacheKey = `submissions:student:${studentId}:course:${courseId}`;
+    const cachedSubmissions =
+      await this.cacheManager.get<ISubmission[]>(cacheKey);
+    if (cachedSubmissions) {
+      this.logger.debug(
+        `Решения найдены в кэше для студента ${studentId} и курса ${courseId}`,
+      );
+      return cachedSubmissions;
+    }
+
+    const submissions = (await this.submissionModel
       .find({ studentId })
       .populate({
         path: 'homeworkId',
         match: { courseId: new Types.ObjectId(courseId) },
       })
       .lean()
-      .exec();
-    return submissions.filter((s) => s.homeworkId);
+      .exec()) as ISubmission[];
+
+    const filteredSubmissions = submissions.filter((s) => s.homeworkId);
+    if (filteredSubmissions.length > 0) {
+      await this.cacheManager.set(cacheKey, filteredSubmissions, 3600);
+    }
+    return filteredSubmissions;
   }
 
-  async getHomeworksByCourse(courseId: string): Promise<Homework[]> {
+  // Получение домашних заданий по курсу
+  async getHomeworksByCourse(courseId: string): Promise<IHomework[]> {
     if (!Types.ObjectId.isValid(courseId)) {
       throw new BadRequestException('Некорректный идентификатор курса');
+    }
+
+    const cacheKey = `homeworks:course:${courseId}`;
+    const cachedHomeworks = await this.cacheManager.get<IHomework[]>(cacheKey);
+    if (cachedHomeworks) {
+      this.logger.debug(
+        `Домашние задания найдены в кэше для курса ${courseId}`,
+      );
+      return cachedHomeworks;
     }
 
     const lessons = await this.coursesService.getLessonsForCourse(courseId);
-    return this.homeworkModel
+    const homeworks = (await this.homeworkModel
       .find({ lessonId: { $in: lessons } })
       .lean()
-      .exec();
+      .exec()) as IHomework[];
+
+    if (homeworks.length > 0) {
+      await this.cacheManager.set(cacheKey, homeworks, 3600);
+    }
+    return homeworks;
   }
 
-  async getSubmissionsByCourse(courseId: string): Promise<Submission[]> {
+  // Получение решений по курсу
+  async getSubmissionsByCourse(courseId: string): Promise<ISubmission[]> {
     if (!Types.ObjectId.isValid(courseId)) {
       throw new BadRequestException('Некорректный идентификатор курса');
     }
 
+    const cacheKey = `submissions:course:${courseId}`;
+    const cachedSubmissions =
+      await this.cacheManager.get<ISubmission[]>(cacheKey);
+    if (cachedSubmissions) {
+      this.logger.debug(`Решения найдены в кэше для курса ${courseId}`);
+      return cachedSubmissions;
+    }
+
     const homeworks = await this.getHomeworksByCourse(courseId);
-    return this.submissionModel
+    const submissions = (await this.submissionModel
       .find({ homeworkId: { $in: homeworks.map((h) => h._id) } })
       .lean()
-      .exec();
+      .exec()) as ISubmission[];
+
+    if (submissions.length > 0) {
+      await this.cacheManager.set(cacheKey, submissions, 3600);
+    }
+    return submissions;
   }
 }
