@@ -1,7 +1,5 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
-import { Homework } from './homework.schema';
-import { User } from '../../users/schemas/user.schema';
 
 export type SubmissionDocument = Submission &
   Document & {
@@ -17,29 +15,32 @@ export class Submission {
   @Prop({ required: true, type: Types.ObjectId, ref: 'User' })
   studentId: Types.ObjectId;
 
-  @Prop({ required: true, maxlength: 5000 }) // Ограничиваем длину содержимого
+  @Prop({ required: true, maxlength: 5000 })
   submissionContent: string;
 
-  @Prop({ maxlength: 1000 }) // Ограничиваем длину комментария преподавателя
+  @Prop({ maxlength: 1000 })
   teacherComment?: string;
 
-  @Prop({ type: Number, min: 0, max: 100 }) // Оценка от 0 до 100
+  @Prop({ type: Number, min: 0, max: 100 })
   grade?: number;
 
-  @Prop({ default: false }) // Статус проверки
+  @Prop({ default: false })
   isReviewed: boolean;
 
   __v: number;
 }
 
 export const SubmissionSchema = SchemaFactory.createForClass(Submission);
-SubmissionSchema.index({ homeworkId: 1 }); // Индекс для поиска по homeworkId
-SubmissionSchema.index({ studentId: 1 }); // Индекс для поиска по studentId
-SubmissionSchema.index({ grade: 1 }); // Индекс для поиска по grade
+SubmissionSchema.index({ homeworkId: 1 });
+SubmissionSchema.index({ studentId: 1 });
+SubmissionSchema.index({ grade: 1 });
+SubmissionSchema.index(
+  { homeworkId: 1, studentId: 1 },
+  { unique: true }, // Уникальность комбинации homeworkId и studentId
+);
 
-// Хук перед сохранением для логирования
 SubmissionSchema.pre('save', function (next) {
-  console.log('Сохранение решения с homeworkId и studentId:', {
+  console.log('Сохранение решения с данными:', {
     homeworkId: this.homeworkId,
     studentId: this.studentId,
   });

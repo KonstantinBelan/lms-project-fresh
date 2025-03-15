@@ -12,17 +12,17 @@ import {
 
 export class UpdateSubmissionDto extends PartialType(CreateSubmissionDto) {
   @ApiProperty({
-    example: 'Это комментарий преподавателя',
-    description: 'Обновлённый комментарий преподавателя',
+    example: 'Хорошая работа, но нужно больше деталей',
+    description: 'Комментарий преподавателя',
     required: false,
   })
   @IsOptional()
-  @IsString({ message: 'Комментарий преподавателя должен быть строкой' })
+  @IsString({ message: 'Комментарий должен быть строкой' })
   teacherComment?: string;
 
   @ApiProperty({
-    example: 85,
-    description: 'Обновлённая оценка за решение (от 0 до 100)',
+    example: 90,
+    description: 'Оценка за решение (от 0 до 100)',
     required: false,
   })
   @IsOptional()
@@ -33,10 +33,10 @@ export class UpdateSubmissionDto extends PartialType(CreateSubmissionDto) {
 
   @ApiProperty({
     example: true,
-    description: 'Обновлённый статус проверки решения',
+    description: 'Статус проверки решения',
     required: false,
   })
   @IsOptional()
-  @IsBoolean({ message: 'Статус проверки должен быть булевым значением' })
+  @IsBoolean({ message: 'Статус проверки должен быть булевым' })
   isReviewed?: boolean;
 }

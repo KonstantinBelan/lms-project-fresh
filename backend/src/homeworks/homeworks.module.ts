@@ -8,7 +8,6 @@ import { NotificationsModule } from '../notifications/notifications.module';
 import { CoursesModule } from '../courses/courses.module';
 import { EnrollmentsModule } from '../enrollments/enrollments.module';
 import { UsersModule } from '../users/users.module';
-import { CacheModule } from '@nestjs/cache-manager';
 
 /**
  * Модуль для управления домашними заданиями и их решениями
@@ -19,11 +18,10 @@ import { CacheModule } from '@nestjs/cache-manager';
       { name: Homework.name, schema: HomeworkSchema },
       { name: Submission.name, schema: SubmissionSchema },
     ]),
-    forwardRef(() => NotificationsModule), // Модуль уведомлений
-    forwardRef(() => CoursesModule), // Модуль курсов
-    forwardRef(() => EnrollmentsModule), // Модуль записей на курсы
-    UsersModule, // Модуль пользователей
-    CacheModule.register(), // Модуль кэширования
+    forwardRef(() => NotificationsModule),
+    forwardRef(() => CoursesModule),
+    forwardRef(() => EnrollmentsModule),
+    UsersModule,
   ],
   providers: [HomeworksService],
   controllers: [HomeworksController],

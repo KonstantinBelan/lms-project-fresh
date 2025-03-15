@@ -11,7 +11,7 @@ import {
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
-// Определяем перечисление для категорий домашнего задания
+// Перечисление категорий домашнего задания
 export enum HomeworkCategory {
   THEORY = 'theory',
   PRACTICE = 'practice',
@@ -21,7 +21,7 @@ export enum HomeworkCategory {
 export class CreateHomeworkDto {
   @ApiProperty({
     example: '507f1f77bcf86cd799439011',
-    description: 'Идентификатор урока',
+    description: 'Идентификатор урока, к которому привязано домашнее задание',
   })
   @IsNotEmpty({ message: 'Идентификатор урока не может быть пустым' })
   @IsMongoId({
@@ -30,7 +30,7 @@ export class CreateHomeworkDto {
   lessonId: string;
 
   @ApiProperty({
-    example: 'Это описание домашнего задания',
+    example: 'Написать эссе о применении Nest.js в разработке',
     description: 'Описание домашнего задания',
   })
   @IsNotEmpty({ message: 'Описание не может быть пустым' })
@@ -38,10 +38,10 @@ export class CreateHomeworkDto {
   description: string;
 
   @ApiProperty({
-    example: HomeworkCategory.THEORY,
-    description: 'Категория домашнего задания (теория, практика или проект)',
-    required: false,
+    example: HomeworkCategory.PRACTICE,
+    description: 'Категория домашнего задания: теория, практика или проект',
     enum: HomeworkCategory,
+    required: false,
   })
   @IsOptional()
   @IsEnum(HomeworkCategory, {
@@ -50,23 +50,22 @@ export class CreateHomeworkDto {
   category?: HomeworkCategory;
 
   @ApiProperty({
-    example: '2025-03-15T00:00:00Z',
-    description: 'Крайний срок выполнения домашнего задания',
+    example: '2025-03-20T23:59:59Z',
+    description: 'Крайний срок выполнения в формате ISO',
     required: false,
   })
   @IsOptional()
   @IsDateString(
     {},
     {
-      message:
-        'Крайний срок должен быть валидной строкой даты в формате ISO (например, "2025-03-15T00:00:00Z")',
+      message: 'Крайний срок должен быть валидной датой в формате ISO',
     },
   )
   deadline?: string;
 
   @ApiProperty({
     example: true,
-    description: 'Активно ли домашнее задание',
+    description: 'Статус активности домашнего задания',
     required: false,
     default: false,
   })
@@ -74,8 +73,8 @@ export class CreateHomeworkDto {
   isActive?: boolean;
 
   @ApiProperty({
-    example: 10,
-    description: 'Баллы за выполнение домашнего задания (от 0 до 100)',
+    example: 20,
+    description: 'Баллы за выполнение (от 0 до 100)',
     required: false,
   })
   @IsOptional()

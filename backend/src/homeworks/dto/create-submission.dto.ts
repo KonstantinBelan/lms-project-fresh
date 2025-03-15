@@ -16,8 +16,8 @@ export class CreateSubmissionDto {
   homeworkId: string;
 
   @ApiProperty({
-    example: '507f1f77bcf86cd799439011',
-    description: 'Идентификатор студента',
+    example: '507f1f77bcf86cd799439012',
+    description: 'Идентификатор студента, отправившего решение',
   })
   @IsNotEmpty({ message: 'Идентификатор студента не может быть пустым' })
   @IsMongoId({
@@ -26,7 +26,7 @@ export class CreateSubmissionDto {
   studentId: string;
 
   @ApiProperty({
-    example: 'Это содержимое решения',
+    example: 'Моё решение: реализовал API на Nest.js',
     description: 'Содержимое решения (текст, ссылка или другая информация)',
   })
   @IsNotEmpty({ message: 'Содержимое решения не может быть пустым' })

@@ -89,4 +89,13 @@ export interface IHomeworksService {
    * @returns Массив решений
    */
   findSubmissionsByStudent(studentId: string): Promise<Submission[]>;
+
+  /**
+   * Создает несколько домашних заданий одновременно
+   * @param createHomeworkDtos Массив данных для создания домашних заданий
+   * @returns Массив созданных домашних заданий
+   */
+  createMultipleHomeworks(
+    createHomeworkDtos: CreateHomeworkDto[],
+  ): Promise<HomeworkDocument[]>;
 }
