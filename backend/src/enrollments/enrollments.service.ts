@@ -57,17 +57,17 @@ export class EnrollmentsService implements IEnrollmentsService {
     private readonly mailerService: MailerService,
   ) {
     this.logger.debug('Конструктор EnrollmentsService вызван');
-    this.logger.debug('Модель Enrollment:', !!this.enrollmentModel);
-    this.logger.debug('Менеджер кэша:', !!this.cacheManager);
-    this.logger.debug('Сервис пользователей:', !!this.usersService);
-    this.logger.debug('Сервис курсов:', !!this.coursesService);
-    this.logger.debug('Сервис уведомлений:', !!this.notificationsService);
-    this.logger.debug('Очередь уведомлений:', !!this.notificationsQueue);
-    this.logger.debug('Сервис потоков:', !!this.streamsService);
-    this.logger.debug('Сервис тарифов:', !!this.tariffsService);
+    this.logger.debug(`Модель Enrollment: ${!!this.enrollmentModel}`);
+    this.logger.debug(`Менеджер кэша: ${!!this.cacheManager}`);
+    this.logger.debug(`Сервис пользователей: ${!!this.usersService}`);
+    this.logger.debug(`Сервис курсов: ${!!this.coursesService}`);
+    this.logger.debug(`Сервис уведомлений: ${!!this.notificationsService}`);
+    this.logger.debug(`Очередь уведомлений: ${!!this.notificationsQueue}`);
+    this.logger.debug(`Сервис потоков: ${!!this.streamsService}`);
+    this.logger.debug(`Сервис тарифов: ${!!this.tariffsService}`);
   }
 
-  // Метод для отправки уведомлений о зачислении
+  // Приватный метод для отправки уведомлений о зачислении
   private async sendEnrollmentNotifications(
     studentId: string,
     courseId: string,
@@ -172,6 +172,7 @@ export class EnrollmentsService implements IEnrollmentsService {
     );
   }
 
+  // Создание нового зачисления
   async createEnrollment(
     studentId: string,
     courseId: string,
@@ -181,6 +182,13 @@ export class EnrollmentsService implements IEnrollmentsService {
     skipNotifications = false,
   ): Promise<EnrollmentDocument> {
     const start = Date.now();
+
+    if (
+      !Types.ObjectId.isValid(studentId) ||
+      !Types.ObjectId.isValid(courseId)
+    ) {
+      throw new BadRequestException('Некорректный studentId или courseId');
+    }
 
     const studentObjectId = new Types.ObjectId(studentId);
     const courseObjectId = new Types.ObjectId(courseId);
@@ -265,6 +273,7 @@ export class EnrollmentsService implements IEnrollmentsService {
     return savedEnrollment;
   }
 
+  // Массовое создание зачислений
   async createBatchEnrollments(
     batchEnrollmentDto: BatchEnrollmentDto,
   ): Promise<EnrollmentDocument[]> {
@@ -323,6 +332,7 @@ export class EnrollmentsService implements IEnrollmentsService {
     return enrollments;
   }
 
+  // Поиск зачислений по идентификатору студента
   async findEnrollmentsByStudent(
     studentId: string,
   ): Promise<EnrollmentDocument[]> {
@@ -334,6 +344,10 @@ export class EnrollmentsService implements IEnrollmentsService {
       return cachedEnrollments;
     }
 
+    if (!Types.ObjectId.isValid(studentId)) {
+      throw new BadRequestException('Некорректный studentId');
+    }
+
     const enrollments = await this.enrollmentModel
       .find({ studentId: new Types.ObjectId(studentId) })
       .lean()
@@ -343,10 +357,18 @@ export class EnrollmentsService implements IEnrollmentsService {
     return enrollments;
   }
 
+  // Поиск зачисления по студенту и курсу
   async findEnrollmentByStudentAndCourse(
     studentId: string,
     courseId: string,
   ): Promise<EnrollmentDocument | null> {
+    if (
+      !Types.ObjectId.isValid(studentId) ||
+      !Types.ObjectId.isValid(courseId)
+    ) {
+      throw new BadRequestException('Некорректный studentId или courseId');
+    }
+
     return this.enrollmentModel
       .findOne({
         studentId: new Types.ObjectId(studentId),
@@ -356,12 +378,17 @@ export class EnrollmentsService implements IEnrollmentsService {
       .exec();
   }
 
+  // Поиск зачислений по идентификатору курса
   async findEnrollmentsByCourse(courseId: string): Promise<any[]> {
     const cacheKey = `enrollments:course:${courseId}`;
     const cachedEnrollments = await this.cacheManager.get<any[]>(cacheKey);
     if (cachedEnrollments) {
       this.logger.debug(`Зачисления найдены в кэше для курса ${courseId}`);
       return cachedEnrollments;
+    }
+
+    if (!Types.ObjectId.isValid(courseId)) {
+      throw new BadRequestException('Некорректный courseId');
     }
 
     const enrollments = await this.enrollmentModel
@@ -400,6 +427,7 @@ export class EnrollmentsService implements IEnrollmentsService {
     return enrichedEnrollments;
   }
 
+  // Поиск зачисления по идентификатору
   async findEnrollmentById(
     enrollmentId: string,
   ): Promise<EnrollmentDocument | null> {
@@ -411,6 +439,10 @@ export class EnrollmentsService implements IEnrollmentsService {
       return cachedEnrollment;
     }
 
+    if (!Types.ObjectId.isValid(enrollmentId)) {
+      throw new BadRequestException('Некорректный enrollmentId');
+    }
+
     const enrollment = await this.enrollmentModel
       .findById(enrollmentId)
       .lean()
@@ -420,12 +452,24 @@ export class EnrollmentsService implements IEnrollmentsService {
     return enrollment;
   }
 
+  // Обновление прогресса студента
   async updateStudentProgress(
     studentId: string,
     courseId: string,
     moduleId: string,
     lessonId: string,
   ): Promise<EnrollmentDocument | null> {
+    if (
+      !Types.ObjectId.isValid(studentId) ||
+      !Types.ObjectId.isValid(courseId) ||
+      !Types.ObjectId.isValid(moduleId) ||
+      !Types.ObjectId.isValid(lessonId)
+    ) {
+      throw new BadRequestException(
+        'Некорректный studentId, courseId, moduleId или lessonId',
+      );
+    }
+
     const enrollment = await this.enrollmentModel
       .findOneAndUpdate(
         {
@@ -460,11 +504,22 @@ export class EnrollmentsService implements IEnrollmentsService {
     return enrollment;
   }
 
+  // Завершение урока и начисление баллов
   async completeLesson(
     studentId: string,
     courseId: string,
     lessonId: string,
   ): Promise<EnrollmentDocument> {
+    if (
+      !Types.ObjectId.isValid(studentId) ||
+      !Types.ObjectId.isValid(courseId) ||
+      !Types.ObjectId.isValid(lessonId)
+    ) {
+      throw new BadRequestException(
+        'Некорректный studentId, courseId или lessonId',
+      );
+    }
+
     const enrollment = await this.enrollmentModel
       .findOne({
         studentId: new Types.ObjectId(studentId),
@@ -519,11 +574,19 @@ export class EnrollmentsService implements IEnrollmentsService {
     return enrollment;
   }
 
+  // Начисление баллов студенту
   async awardPoints(
     studentId: string,
     courseId: string,
     points: number,
   ): Promise<EnrollmentDocument> {
+    if (
+      !Types.ObjectId.isValid(studentId) ||
+      !Types.ObjectId.isValid(courseId)
+    ) {
+      throw new BadRequestException('Некорректный studentId или courseId');
+    }
+
     const enrollment = await this.enrollmentModel
       .findOne({
         studentId: new Types.ObjectId(studentId),
@@ -557,6 +620,7 @@ export class EnrollmentsService implements IEnrollmentsService {
     return enrollment;
   }
 
+  // Получение прогресса студента по курсу
   async getStudentProgress(
     studentId: string,
     courseId: string,
@@ -639,6 +703,7 @@ export class EnrollmentsService implements IEnrollmentsService {
     return progress;
   }
 
+  // Получение детального прогресса студента
   async getDetailedStudentProgress(
     studentId: string,
   ): Promise<DetailedStudentProgress> {
@@ -650,6 +715,10 @@ export class EnrollmentsService implements IEnrollmentsService {
         `Детальный прогресс найден в кэше для студента ${studentId}`,
       );
       return cachedProgress;
+    }
+
+    if (!Types.ObjectId.isValid(studentId)) {
+      throw new BadRequestException('Некорректный studentId');
     }
 
     const enrollments = await this.findEnrollmentsByStudent(studentId);
@@ -716,11 +785,22 @@ export class EnrollmentsService implements IEnrollmentsService {
     return result;
   }
 
+  // Обновление прогресса по идентификатору зачисления
   async updateProgress(
     enrollmentId: string,
     moduleId: string,
     lessonId: string,
   ): Promise<EnrollmentDocument | null> {
+    if (
+      !Types.ObjectId.isValid(enrollmentId) ||
+      !Types.ObjectId.isValid(moduleId) ||
+      !Types.ObjectId.isValid(lessonId)
+    ) {
+      throw new BadRequestException(
+        'Некорректный enrollmentId, moduleId или lessonId',
+      );
+    }
+
     const enrollment = await this.findEnrollmentById(enrollmentId);
     if (!enrollment) throw new BadRequestException('Зачисление не найдено');
 
@@ -732,10 +812,15 @@ export class EnrollmentsService implements IEnrollmentsService {
     );
   }
 
+  // Завершение курса
   async completeCourse(
     enrollmentId: string,
     grade: number,
   ): Promise<EnrollmentDocument | null> {
+    if (!Types.ObjectId.isValid(enrollmentId)) {
+      throw new BadRequestException('Некорректный enrollmentId');
+    }
+
     if (grade < 0 || grade > 100) {
       throw new BadRequestException(
         'Оценка должна быть в диапазоне от 0 до 100',
@@ -781,21 +866,40 @@ export class EnrollmentsService implements IEnrollmentsService {
     return updatedEnrollment;
   }
 
+  // Удаление зачисления
   async deleteEnrollment(enrollmentId: string): Promise<void> {
+    if (!Types.ObjectId.isValid(enrollmentId)) {
+      throw new BadRequestException('Некорректный enrollmentId');
+    }
+
+    const enrollment = await this.enrollmentModel.findById(enrollmentId).exec();
+    if (!enrollment) throw new NotFoundException('Зачисление не найдено');
+
     await Promise.all([
       this.cacheManager.del(`enrollment:${enrollmentId}`),
-      this.cacheManager.del(`enrollments:student:*`),
-      this.cacheManager.del(`enrollments:course:*`),
+      this.cacheManager.del(`enrollments:student:${enrollment.studentId}`),
+      this.cacheManager.del(`enrollments:course:${enrollment.courseId}`),
     ]);
     await this.enrollmentModel.findByIdAndDelete(enrollmentId).exec();
     this.logger.debug(`Зачисление ${enrollmentId} удалено`);
   }
 
+  // Уведомление о прогрессе
   async notifyProgress(
     enrollmentId: string,
     moduleId: string,
     lessonId: string,
   ): Promise<void> {
+    if (
+      !Types.ObjectId.isValid(enrollmentId) ||
+      !Types.ObjectId.isValid(moduleId) ||
+      !Types.ObjectId.isValid(lessonId)
+    ) {
+      throw new BadRequestException(
+        'Некорректный enrollmentId, moduleId или lessonId',
+      );
+    }
+
     const enrollment = await this.findEnrollmentById(enrollmentId);
     if (!enrollment) throw new BadRequestException('Зачисление не найдено');
 
@@ -817,6 +921,7 @@ export class EnrollmentsService implements IEnrollmentsService {
     this.logger.debug(`Уведомление о прогрессе отправлено для ${enrollmentId}`);
   }
 
+  // Экспорт зачислений в CSV
   async exportEnrollmentsToCsv(): Promise<string> {
     const cacheKey = 'enrollments:csv';
     const cachedCsv = await this.cacheManager.get<string>(cacheKey);
@@ -859,6 +964,7 @@ export class EnrollmentsService implements IEnrollmentsService {
     return csv;
   }
 
+  // Поиск зачислений по идентификатору курса
   async findByCourseId(courseId: string): Promise<Enrollment[]> {
     if (!Types.ObjectId.isValid(courseId))
       throw new BadRequestException('Некорректный courseId');
@@ -868,24 +974,39 @@ export class EnrollmentsService implements IEnrollmentsService {
       .exec();
   }
 
+  // Получение зачислений студента
   async getEnrollmentsByStudent(studentId: string) {
+    if (!Types.ObjectId.isValid(studentId)) {
+      throw new BadRequestException('Некорректный studentId');
+    }
     return this.enrollmentModel
       .find({ studentId: new Types.ObjectId(studentId) })
       .lean()
       .exec();
   }
 
+  // Получение зачислений по курсу
   async getEnrollmentsByCourse(courseId: string) {
+    if (!Types.ObjectId.isValid(courseId)) {
+      throw new BadRequestException('Некорректный courseId');
+    }
     return this.enrollmentModel
       .find({ courseId: new Types.ObjectId(courseId) })
       .lean()
       .exec();
   }
 
+  // Поиск одного зачисления по студенту и курсу
   async findOneByStudentAndCourse(
     studentId: string,
     courseId: string,
   ): Promise<EnrollmentDocument | null> {
+    if (
+      !Types.ObjectId.isValid(studentId) ||
+      !Types.ObjectId.isValid(courseId)
+    ) {
+      throw new BadRequestException('Некорректный studentId или courseId');
+    }
     return this.enrollmentModel
       .findOne({
         studentId: new Types.ObjectId(studentId),

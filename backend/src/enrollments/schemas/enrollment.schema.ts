@@ -18,10 +18,10 @@ export class Enrollment extends Document {
   streamId?: Types.ObjectId; // Идентификатор потока (опционально)
 
   @Prop({ type: [String], default: [] })
-  completedModules: string[]; // Завершенные модули
+  completedModules: string[]; // Список завершенных модулей
 
   @Prop({ type: [String], default: [] })
-  completedLessons: string[]; // Завершенные уроки
+  completedLessons: string[]; // Список завершенных уроков
 
   @Prop({ type: Boolean, default: false })
   isCompleted: boolean; // Завершен ли курс
@@ -30,7 +30,7 @@ export class Enrollment extends Document {
   grade?: number; // Оценка за курс (опционально)
 
   @Prop({ type: Date })
-  deadline?: Date; // Дедлайн (опционально)
+  deadline?: Date; // Дедлайн курса (опционально)
 
   @Prop({ type: Number, default: 0 })
   points: number; // Количество набранных баллов

@@ -35,18 +35,22 @@ export class CreateEnrollmentDto {
   deadline?: string;
 
   @ApiProperty({
+    example: '507f1f77bcf86cd799439015',
     description: 'Идентификатор потока (опционально)',
     required: false,
   })
   @IsOptional()
   @IsString({ message: 'Идентификатор потока должен быть строкой' })
+  @IsMongoId({ message: 'Идентификатор потока должен быть валидным MongoID' })
   streamId?: string;
 
   @ApiProperty({
+    example: '507f1f77bcf86cd799439016',
     description: 'Идентификатор тарифа (опционально)',
     required: false,
   })
   @IsOptional()
   @IsString({ message: 'Идентификатор тарифа должен быть строкой' })
+  @IsMongoId({ message: 'Идентификатор тарифа должен быть валидным MongoID' })
   tariffId?: string;
 }

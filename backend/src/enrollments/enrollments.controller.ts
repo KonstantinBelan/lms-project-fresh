@@ -32,44 +32,130 @@ import {
   ApiResponse,
   ApiParam,
   ApiSecurity,
+  ApiBody,
+  ApiProperty,
 } from '@nestjs/swagger';
+import { EnrollmentDocument } from './schemas/enrollment.schema';
+import { Types } from 'mongoose';
+import { Logger } from '@nestjs/common';
+
+// DTO для ответа с данными о зачислении
+class EnrollmentResponseDto {
+  @ApiProperty({
+    example: '507f1f77bcf86cd799439011',
+    description: 'Идентификатор зачисления',
+  })
+  id: string;
+
+  @ApiProperty({
+    example: '507f1f77bcf86cd799439012',
+    description: 'Идентификатор студента',
+  })
+  studentId: string;
+
+  @ApiProperty({
+    example: '507f1f77bcf86cd799439013',
+    description: 'Идентификатор курса',
+  })
+  courseId: string;
+
+  @ApiProperty({
+    example: ['507f1f77bcf86cd799439014'],
+    description: 'Список завершенных модулей',
+  })
+  completedModules: string[];
+
+  @ApiProperty({
+    example: ['507f1f77bcf86cd799439015'],
+    description: 'Список завершенных уроков',
+  })
+  completedLessons: string[];
+
+  @ApiProperty({ example: false, description: 'Завершен ли курс' })
+  isCompleted: boolean;
+
+  @ApiProperty({
+    example: 85,
+    description: 'Оценка за курс (опционально)',
+    required: false,
+  })
+  grade?: number;
+
+  @ApiProperty({
+    example: '2025-03-15T00:00:00Z',
+    description: 'Дедлайн (опционально)',
+    required: false,
+  })
+  deadline?: string;
+
+  @ApiProperty({ example: 50, description: 'Количество баллов' })
+  points: number;
+}
+
+// Маппер для преобразования EnrollmentDocument в EnrollmentResponseDto
+function mapToEnrollmentResponse(
+  enrollment: EnrollmentDocument,
+): EnrollmentResponseDto {
+  return {
+    id: enrollment._id.toString(),
+    studentId: enrollment.studentId.toString(),
+    courseId: enrollment.courseId.toString(),
+    completedModules: enrollment.completedModules.map((id) => id.toString()),
+    completedLessons: enrollment.completedLessons.map((id) => id.toString()),
+    isCompleted: enrollment.isCompleted,
+    grade: enrollment.grade,
+    deadline: enrollment.deadline?.toISOString(),
+    points: enrollment.points,
+  };
+}
 
 @ApiTags('Зачисления')
 @Controller('enrollments')
 @Catch(AlreadyEnrolledException)
+@UseGuards(AuthGuard('jwt'), RolesGuard)
+@ApiSecurity('JWT-auth')
 export class EnrollmentsController {
+  private readonly logger = new Logger(EnrollmentsController.name);
+
   constructor(private readonly enrollmentsService: EnrollmentsService) {}
 
   @Post()
-  @ApiSecurity('JWT-auth')
+  @Roles(Role.STUDENT, Role.TEACHER, Role.ADMIN, Role.MANAGER)
   @ApiOperation({ summary: 'Создать новое зачисление' })
   @ApiResponse({
     status: 201,
     description: 'Зачисление успешно создано',
-    type: CreateEnrollmentDto,
+    type: EnrollmentResponseDto,
   })
   @ApiResponse({ status: 400, description: 'Некорректный запрос' })
   @ApiResponse({ status: 409, description: 'Студент уже зачислен' })
-  @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @Roles(Role.STUDENT, Role.TEACHER, Role.ADMIN, Role.MANAGER)
   @UsePipes(new ValidationPipe())
-  async create(@Body() createEnrollmentDto: CreateEnrollmentDto) {
+  async create(
+    @Body() createEnrollmentDto: CreateEnrollmentDto,
+  ): Promise<EnrollmentResponseDto> {
     try {
+      this.logger.debug(
+        `Создание зачисления: ${JSON.stringify(createEnrollmentDto)}`,
+      );
       const deadline = createEnrollmentDto.deadline
         ? new Date(createEnrollmentDto.deadline)
         : undefined;
-      return await this.enrollmentsService.createEnrollment(
+      if (deadline && isNaN(deadline.getTime())) {
+        throw new BadRequestException('Некорректный формат даты дедлайна');
+      }
+      const enrollment = await this.enrollmentsService.createEnrollment(
         createEnrollmentDto.studentId,
         createEnrollmentDto.courseId,
         deadline,
         createEnrollmentDto.streamId,
         createEnrollmentDto.tariffId,
       );
+      return mapToEnrollmentResponse(enrollment);
     } catch (error) {
       if (error instanceof AlreadyEnrolledException) {
         throw error;
       }
-      console.log('Ошибка в createEnrollment:', error); // Временный лог для отладки
+      this.logger.error(`Ошибка при создании зачисления: ${error.message}`);
       throw new HttpException(
         {
           status: HttpStatus.INTERNAL_SERVER_ERROR,
@@ -82,40 +168,54 @@ export class EnrollmentsController {
   }
 
   @Post('batch')
-  @ApiSecurity('JWT-auth')
+  @Roles(Role.ADMIN, Role.MANAGER)
   @ApiOperation({ summary: 'Создать массовые зачисления' })
   @ApiResponse({
     status: 201,
     description: 'Зачисления успешно созданы',
-    type: BatchEnrollmentDto,
+    type: [EnrollmentResponseDto],
   })
   @ApiResponse({ status: 400, description: 'Некорректный запрос' })
-  @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @Roles(Role.ADMIN, Role.MANAGER)
   @UsePipes(new ValidationPipe())
-  async createBatch(@Body() batchEnrollmentDto: BatchEnrollmentDto) {
-    return this.enrollmentsService.createBatchEnrollments(batchEnrollmentDto);
+  async createBatch(
+    @Body() batchEnrollmentDto: BatchEnrollmentDto,
+  ): Promise<EnrollmentResponseDto[]> {
+    this.logger.debug(
+      `Массовое создание зачислений: ${JSON.stringify(batchEnrollmentDto)}`,
+    );
+    const enrollments =
+      await this.enrollmentsService.createBatchEnrollments(batchEnrollmentDto);
+    return enrollments.map(mapToEnrollmentResponse);
   }
 
   @Get('student/:studentId')
-  @ApiSecurity('JWT-auth')
+  @Roles(Role.STUDENT, Role.TEACHER, Role.ADMIN, Role.MANAGER, Role.ASSISTANT)
   @ApiOperation({ summary: 'Получить зачисления по идентификатору студента' })
   @ApiParam({
     name: 'studentId',
     description: 'Идентификатор студента',
     example: '507f1f77bcf86cd799439011',
   })
-  @ApiResponse({ status: 200, description: 'Зачисления успешно получены' })
-  @ApiResponse({ status: 404, description: 'Зачисления не найдены' })
-  @ApiResponse({ status: 403, description: 'Доступ запрещен' })
-  @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @Roles(Role.STUDENT, Role.TEACHER, Role.ADMIN, Role.MANAGER, Role.ASSISTANT)
-  async findByStudent(@Param('studentId') studentId: string) {
-    return this.enrollmentsService.findEnrollmentsByStudent(studentId);
+  @ApiResponse({
+    status: 200,
+    description: 'Зачисления успешно получены',
+    type: [EnrollmentResponseDto],
+  })
+  @ApiResponse({ status: 400, description: 'Некорректный studentId' })
+  async findByStudent(
+    @Param('studentId') studentId: string,
+  ): Promise<EnrollmentResponseDto[]> {
+    if (!Types.ObjectId.isValid(studentId)) {
+      throw new BadRequestException('Некорректный studentId');
+    }
+    this.logger.debug(`Поиск зачислений для студента ${studentId}`);
+    const enrollments =
+      await this.enrollmentsService.findEnrollmentsByStudent(studentId);
+    return enrollments.map(mapToEnrollmentResponse);
   }
 
   @Get('student/:studentId/course/:courseId/progress')
-  @ApiSecurity('JWT-auth')
+  @Roles(Role.STUDENT, Role.TEACHER, Role.ADMIN, Role.MANAGER, Role.ASSISTANT)
   @ApiOperation({ summary: 'Получить прогресс студента по курсу' })
   @ApiParam({
     name: 'studentId',
@@ -125,22 +225,32 @@ export class EnrollmentsController {
   @ApiParam({
     name: 'courseId',
     description: 'Идентификатор курса',
-    example: '507f1f77bcf86cd799439011',
+    example: '507f1f77bcf86cd799439012',
   })
-  @ApiResponse({ status: 200, description: 'Прогресс успешно получен' })
-  @ApiResponse({ status: 404, description: 'Прогресс не найден' })
-  @ApiResponse({ status: 403, description: 'Доступ запрещен' })
-  @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @Roles(Role.STUDENT, Role.TEACHER, Role.ADMIN, Role.MANAGER, Role.ASSISTANT)
+  @ApiResponse({
+    status: 200,
+    description: 'Прогресс успешно получен',
+    type: 'StudentProgress', // Предполагается, что StudentProgress определен в другом месте
+  })
+  @ApiResponse({ status: 400, description: 'Некорректные параметры' })
   async getStudentProgress(
     @Param('studentId') studentId: string,
     @Param('courseId') courseId: string,
   ) {
+    if (
+      !Types.ObjectId.isValid(studentId) ||
+      !Types.ObjectId.isValid(courseId)
+    ) {
+      throw new BadRequestException('Некорректный studentId или courseId');
+    }
+    this.logger.debug(
+      `Получение прогресса для студента ${studentId} по курсу ${courseId}`,
+    );
     return this.enrollmentsService.getStudentProgress(studentId, courseId);
   }
 
   @Get('student/:studentId/detailed-progress')
-  @ApiSecurity('JWT-auth')
+  @Roles(Role.STUDENT, Role.TEACHER, Role.ADMIN, Role.MANAGER, Role.ASSISTANT)
   @ApiOperation({ summary: 'Получить детальный прогресс студента' })
   @ApiParam({
     name: 'studentId',
@@ -150,51 +260,81 @@ export class EnrollmentsController {
   @ApiResponse({
     status: 200,
     description: 'Детальный прогресс успешно получен',
+    type: 'DetailedStudentProgress', // Предполагается, что определен в интерфейсе
   })
-  @ApiResponse({ status: 404, description: 'Детальный прогресс не найден' })
-  @ApiResponse({ status: 403, description: 'Доступ запрещен' })
-  @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @Roles(Role.STUDENT, Role.TEACHER, Role.ADMIN, Role.MANAGER, Role.ASSISTANT)
+  @ApiResponse({ status: 400, description: 'Некорректный studentId' })
   async getDetailedStudentProgress(@Param('studentId') studentId: string) {
+    if (!Types.ObjectId.isValid(studentId)) {
+      throw new BadRequestException('Некорректный studentId');
+    }
+    this.logger.debug(
+      `Получение детального прогресса для студента ${studentId}`,
+    );
     return this.enrollmentsService.getDetailedStudentProgress(studentId);
   }
 
   @Get('course/:courseId')
-  @ApiSecurity('JWT-auth')
+  @Roles(Role.TEACHER, Role.ADMIN)
   @ApiOperation({ summary: 'Получить зачисления по идентификатору курса' })
   @ApiParam({
     name: 'courseId',
     description: 'Идентификатор курса',
     example: '507f1f77bcf86cd799439011',
   })
-  @ApiResponse({ status: 200, description: 'Зачисления успешно получены' })
-  @ApiResponse({ status: 404, description: 'Зачисления не найдены' })
-  @ApiResponse({ status: 403, description: 'Доступ запрещен' })
-  @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @Roles(Role.TEACHER, Role.ADMIN)
-  async getCourseEnrollments(@Param('courseId') courseId: string) {
-    return this.enrollmentsService.findEnrollmentsByCourse(courseId);
+  @ApiResponse({
+    status: 200,
+    description: 'Зачисления успешно получены',
+    type: [EnrollmentResponseDto],
+  })
+  @ApiResponse({ status: 400, description: 'Некорректный courseId' })
+  async getCourseEnrollments(
+    @Param('courseId') courseId: string,
+  ): Promise<EnrollmentResponseDto[]> {
+    if (!Types.ObjectId.isValid(courseId)) {
+      throw new BadRequestException('Некорректный courseId');
+    }
+    this.logger.debug(`Поиск зачислений для курса ${courseId}`);
+    const enrollments =
+      await this.enrollmentsService.findEnrollmentsByCourse(courseId);
+    return enrollments.map((enrollment: any) => ({
+      id: enrollment.studentId,
+      studentId: enrollment.studentId,
+      courseId,
+      completedModules: enrollment.completedModules,
+      completedLessons: enrollment.completedLessons,
+      isCompleted: enrollment.isCompleted,
+      grade: enrollment.grade,
+      deadline: enrollment.deadline,
+      points: enrollment.points,
+    }));
   }
 
   @Get(':id')
-  @ApiSecurity('JWT-auth')
+  @Roles(Role.STUDENT, Role.TEACHER, Role.ADMIN, Role.MANAGER, Role.ASSISTANT)
   @ApiOperation({ summary: 'Получить зачисление по идентификатору' })
   @ApiParam({
     name: 'id',
     description: 'Идентификатор зачисления',
     example: '507f1f77bcf86cd799439011',
   })
-  @ApiResponse({ status: 200, description: 'Зачисление найдено' })
+  @ApiResponse({
+    status: 200,
+    description: 'Зачисление найдено',
+    type: EnrollmentResponseDto,
+  })
   @ApiResponse({ status: 404, description: 'Зачисление не найдено' })
-  @ApiResponse({ status: 403, description: 'Доступ запрещен' })
-  @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @Roles(Role.STUDENT, Role.TEACHER, Role.ADMIN, Role.MANAGER, Role.ASSISTANT)
-  async findOne(@Param('id') id: string) {
-    return this.enrollmentsService.findEnrollmentById(id);
+  async findOne(@Param('id') id: string): Promise<EnrollmentResponseDto> {
+    if (!Types.ObjectId.isValid(id)) {
+      throw new BadRequestException('Некорректный id');
+    }
+    this.logger.debug(`Поиск зачисления по ID ${id}`);
+    const enrollment = await this.enrollmentsService.findEnrollmentById(id);
+    if (!enrollment) throw new BadRequestException('Зачисление не найдено');
+    return mapToEnrollmentResponse(enrollment);
   }
 
   @Put(':id/progress')
-  @ApiSecurity('JWT-auth')
+  @Roles(Role.STUDENT, Role.ASSISTANT)
   @ApiOperation({ summary: 'Обновить прогресс студента' })
   @ApiParam({
     name: 'id',
@@ -204,31 +344,34 @@ export class EnrollmentsController {
   @ApiResponse({
     status: 200,
     description: 'Прогресс обновлен',
-    type: UpdateProgressDto,
+    type: EnrollmentResponseDto,
   })
   @ApiResponse({ status: 404, description: 'Зачисление не найдено' })
-  @ApiResponse({ status: 400, description: 'Некорректный запрос' })
-  @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @Roles(Role.STUDENT, Role.ASSISTANT)
   @UsePipes(new ValidationPipe())
   async updateProgress(
     @Param('id') id: string,
     @Body() updateProgressDto: UpdateProgressDto,
-  ) {
-    const enrollment = await this.enrollmentsService.findEnrollmentById(id);
-    if (!enrollment) {
-      throw new HttpException('Зачисление не найдено', HttpStatus.NOT_FOUND);
+  ): Promise<EnrollmentResponseDto> {
+    if (!Types.ObjectId.isValid(id)) {
+      throw new BadRequestException('Некорректный id');
     }
-    return this.enrollmentsService.updateStudentProgress(
-      enrollment.studentId.toString(),
-      enrollment.courseId.toString(),
-      updateProgressDto.moduleId,
-      updateProgressDto.lessonId,
-    );
+    this.logger.debug(`Обновление прогресса для зачисления ${id}`);
+    const enrollment = await this.enrollmentsService.findEnrollmentById(id);
+    if (!enrollment) throw new BadRequestException('Зачисление не найдено');
+    const updatedEnrollment =
+      await this.enrollmentsService.updateStudentProgress(
+        enrollment.studentId.toString(),
+        enrollment.courseId.toString(),
+        updateProgressDto.moduleId,
+        updateProgressDto.lessonId,
+      );
+    if (!updatedEnrollment)
+      throw new BadRequestException('Не удалось обновить прогресс');
+    return mapToEnrollmentResponse(updatedEnrollment);
   }
 
   @Put(':id/complete')
-  @ApiSecurity('JWT-auth')
+  @Roles(Role.TEACHER, Role.ADMIN, Role.MANAGER)
   @ApiOperation({ summary: 'Завершить курс' })
   @ApiParam({
     name: 'id',
@@ -238,22 +381,28 @@ export class EnrollmentsController {
   @ApiResponse({
     status: 200,
     description: 'Курс завершен',
-    type: CompleteCourseDto,
+    type: EnrollmentResponseDto,
   })
   @ApiResponse({ status: 404, description: 'Зачисление не найдено' })
-  @ApiResponse({ status: 400, description: 'Некорректный запрос' })
-  @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @Roles(Role.TEACHER, Role.ADMIN, Role.MANAGER)
   @UsePipes(new ValidationPipe())
   async completeCourse(
     @Param('id') id: string,
     @Body() completeCourseDto: CompleteCourseDto,
-  ) {
-    return this.enrollmentsService.completeCourse(id, completeCourseDto.grade);
+  ): Promise<EnrollmentResponseDto> {
+    if (!Types.ObjectId.isValid(id)) {
+      throw new BadRequestException('Некорректный id');
+    }
+    this.logger.debug(`Завершение курса для зачисления ${id}`);
+    const enrollment = await this.enrollmentsService.completeCourse(
+      id,
+      completeCourseDto.grade,
+    );
+    if (!enrollment) throw new BadRequestException('Зачисление не найдено');
+    return mapToEnrollmentResponse(enrollment);
   }
 
   @Delete(':id')
-  @ApiSecurity('JWT-auth')
+  @Roles(Role.ADMIN, Role.MANAGER)
   @ApiOperation({ summary: 'Удалить зачисление' })
   @ApiParam({
     name: 'id',
@@ -266,25 +415,30 @@ export class EnrollmentsController {
     schema: { example: { message: 'Зачисление удалено' } },
   })
   @ApiResponse({ status: 404, description: 'Зачисление не найдено' })
-  @ApiResponse({ status: 403, description: 'Доступ запрещен' })
-  @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @Roles(Role.ADMIN, Role.MANAGER)
-  async delete(@Param('id') id: string) {
-    return this.enrollmentsService.deleteEnrollment(id);
+  async delete(@Param('id') id: string): Promise<{ message: string }> {
+    if (!Types.ObjectId.isValid(id)) {
+      throw new BadRequestException('Некорректный id');
+    }
+    this.logger.debug(`Удаление зачисления ${id}`);
+    await this.enrollmentsService.deleteEnrollment(id);
+    return { message: 'Зачисление удалено' };
   }
 
   @Get('export/csv')
-  @ApiSecurity('JWT-auth')
+  @Roles(Role.ADMIN, Role.MANAGER)
   @ApiOperation({ summary: 'Экспортировать зачисления в CSV' })
   @ApiResponse({
     status: 200,
     description: 'Зачисления успешно экспортированы',
+    schema: {
+      type: 'string',
+      example:
+        'studentId,courseId,points\n507f1f77bcf86cd799439011,507f1f77bcf86cd799439012,50',
+    },
   })
-  @ApiResponse({ status: 404, description: 'Зачисления не найдены' })
   @ApiResponse({ status: 403, description: 'Доступ запрещен' })
-  @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @Roles(Role.ADMIN, Role.MANAGER)
   async exportCsv(@Res() res: Response) {
+    this.logger.debug('Экспорт зачислений в CSV');
     const csv = await this.enrollmentsService.exportEnrollmentsToCsv();
     res.set('Content-Type', 'text/csv');
     res.set('Content-Disposition', 'attachment; filename=enrollments.csv');
@@ -292,7 +446,7 @@ export class EnrollmentsController {
   }
 
   @Get('test-index/:studentId/:courseId')
-  @ApiSecurity('JWT-auth')
+  @Roles(Role.TEACHER, Role.ADMIN)
   @ApiOperation({ summary: 'Тестовый запрос индекса' })
   @ApiParam({
     name: 'studentId',
@@ -302,41 +456,76 @@ export class EnrollmentsController {
   @ApiParam({
     name: 'courseId',
     description: 'Идентификатор курса',
-    example: '507f1f77bcf86cd799439011',
+    example: '507f1f77bcf86cd799439012',
   })
-  @ApiResponse({ status: 200, description: 'Индекс успешно получен' })
-  @ApiResponse({ status: 404, description: 'Индекс не найден' })
-  @Roles(Role.TEACHER, Role.ADMIN)
+  @ApiResponse({
+    status: 200,
+    description: 'Индекс успешно получен',
+    type: EnrollmentResponseDto,
+  })
+  @ApiResponse({ status: 404, description: 'Зачисление не найдено' })
   async testIndex(
     @Param('studentId') studentId: string,
     @Param('courseId') courseId: string,
-  ) {
-    return this.enrollmentsService.findEnrollmentByStudentAndCourse(
-      studentId,
-      courseId,
-    );
+  ): Promise<EnrollmentResponseDto | null> {
+    if (
+      !Types.ObjectId.isValid(studentId) ||
+      !Types.ObjectId.isValid(courseId)
+    ) {
+      throw new BadRequestException('Некорректный studentId или courseId');
+    }
+    this.logger.debug(`Тестовый запрос индекса для ${studentId} и ${courseId}`);
+    const enrollment =
+      await this.enrollmentsService.findEnrollmentByStudentAndCourse(
+        studentId,
+        courseId,
+      );
+    return enrollment ? mapToEnrollmentResponse(enrollment) : null;
   }
 
   @Post('lesson/complete')
-  @ApiSecurity('JWT-auth')
-  @ApiOperation({ summary: 'Завершить урок и начислить баллы' })
-  @ApiResponse({ status: 200, description: 'Урок успешно завершен' })
-  @ApiResponse({ status: 400, description: 'Некорректный запрос' })
-  @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles(Role.STUDENT)
+  @ApiOperation({ summary: 'Завершить урок и начислить баллы' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        studentId: { type: 'string', example: '507f1f77bcf86cd799439011' },
+        courseId: { type: 'string', example: '507f1f77bcf86cd799439012' },
+        lessonId: { type: 'string', example: '507f1f77bcf86cd799439013' },
+      },
+      required: ['studentId', 'courseId', 'lessonId'],
+    },
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Урок успешно завершен',
+    type: EnrollmentResponseDto,
+  })
+  @ApiResponse({ status: 400, description: 'Некорректный запрос' })
   @UsePipes(new ValidationPipe())
   async completeLesson(
     @Body('studentId') studentId: string,
     @Body('courseId') courseId: string,
     @Body('lessonId') lessonId: string,
-  ) {
-    if (!studentId || !courseId || !lessonId) {
-      throw new BadRequestException('Требуются studentId, courseId и lessonId');
+  ): Promise<EnrollmentResponseDto> {
+    if (
+      !Types.ObjectId.isValid(studentId) ||
+      !Types.ObjectId.isValid(courseId) ||
+      !Types.ObjectId.isValid(lessonId)
+    ) {
+      throw new BadRequestException(
+        'Некорректный studentId, courseId или lessonId',
+      );
     }
-    return this.enrollmentsService.completeLesson(
+    this.logger.debug(
+      `Завершение урока ${lessonId} для студента ${studentId} на курсе ${courseId}`,
+    );
+    const enrollment = await this.enrollmentsService.completeLesson(
       studentId,
       courseId,
       lessonId,
     );
+    return mapToEnrollmentResponse(enrollment);
   }
 }
