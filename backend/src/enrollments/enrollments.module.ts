@@ -17,16 +17,19 @@ import { CacheModule } from '@nestjs/cache-manager';
 
 @Module({
   imports: [
+    // Подключение модели Enrollment для работы с MongoDB
     MongooseModule.forFeature([
       { name: Enrollment.name, schema: EnrollmentSchema },
     ]),
-    CacheModule.register(), // Регистрация модуля кэширования
+    // Регистрация модуля кэширования с TTL 1 час
+    CacheModule.register({ ttl: 3600 }),
     UsersModule,
-    forwardRef(() => CoursesModule),
+    forwardRef(() => CoursesModule), // Используем forwardRef для разрешения циклических зависимостей
     AuthModule,
     forwardRef(() => NotificationsModule),
+    // Настройка Bull для работы с очередями Redis
     BullModule.forRoot({
-      redis: { host: 'localhost', port: 6379 }, // Настройки Redis
+      redis: { host: 'localhost', port: 6379 }, // Настройки подключения к Redis
     }),
     BullModule.registerQueue({ name: 'notifications' }), // Очередь для уведомлений
     forwardRef(() => HomeworksModule),
@@ -37,6 +40,6 @@ import { CacheModule } from '@nestjs/cache-manager';
   ],
   controllers: [EnrollmentsController],
   providers: [EnrollmentsService],
-  exports: [EnrollmentsService, MongooseModule],
+  exports: [EnrollmentsService, MongooseModule], // Экспорт сервиса и MongooseModule для использования в других модулях
 })
 export class EnrollmentsModule {}

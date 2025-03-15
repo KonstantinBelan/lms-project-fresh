@@ -5,7 +5,7 @@ import { ApiProperty } from '@nestjs/swagger';
 export class CompleteCourseDto {
   @ApiProperty({
     example: 85,
-    description: 'Оценка, полученная за курс',
+    description: 'Оценка, полученная за курс (от 0 до 100)',
   })
   @IsNumber({}, { message: 'Оценка должна быть числом' })
   @Min(0, { message: 'Оценка не может быть меньше 0' })
