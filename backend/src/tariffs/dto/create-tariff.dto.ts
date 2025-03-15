@@ -9,7 +9,7 @@ import { ApiProperty } from '@nestjs/swagger';
 
 export class CreateTariffDto {
   @ApiProperty({
-    description: 'ID курса, к которому применяется тариф',
+    description: 'Идентификатор курса, к которому применяется тариф',
     example: '507f1f77bcf86cd799439011',
   })
   @IsMongoId({ message: 'courseId должен быть валидным MongoDB ObjectId' })
@@ -30,7 +30,7 @@ export class CreateTariffDto {
   price: number;
 
   @ApiProperty({
-    description: 'Массив ID модулей, доступных по этому тарифу',
+    description: 'Массив идентификаторов модулей, доступных по этому тарифу',
     example: ['507f1f77bcf86cd799439012'],
     type: [String],
   })

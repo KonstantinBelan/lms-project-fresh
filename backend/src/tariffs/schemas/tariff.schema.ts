@@ -4,7 +4,7 @@ import { Document, Types } from 'mongoose';
 @Schema()
 export class Tariff {
   @Prop({ type: Types.ObjectId, ref: 'Course', required: true })
-  courseId: Types.ObjectId; // ID курса, к которому относится тариф
+  courseId: Types.ObjectId; // Идентификатор курса, к которому относится тариф
 
   @Prop({ required: true })
   name: string; // Название тарифа
@@ -13,7 +13,7 @@ export class Tariff {
   price: number; // Цена тарифа
 
   @Prop({ type: [{ type: Types.ObjectId, ref: 'Module' }], default: [] })
-  accessibleModules: Types.ObjectId[]; // Список доступных модулей
+  accessibleModules: Types.ObjectId[]; // Список идентификаторов доступных модулей
 
   @Prop({ default: false })
   includesHomeworks: boolean; // Включает ли тариф доступ к домашним заданиям

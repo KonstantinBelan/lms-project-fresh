@@ -1,6 +1,17 @@
 import { ApiProperty } from '@nestjs/swagger';
 
-export class TariffResponseDto {
+// Интерфейс для типизации ответа тарифа
+export interface ITariffResponse {
+  _id: string;
+  courseId: string;
+  name: string;
+  price: number;
+  accessibleModules: string[];
+  includesHomeworks: boolean;
+  includesPoints: boolean;
+}
+
+export class TariffResponseDto implements ITariffResponse {
   @ApiProperty({
     description: 'Уникальный идентификатор тарифа',
     example: '507f1f77bcf86cd799439011',
@@ -8,7 +19,7 @@ export class TariffResponseDto {
   _id: string;
 
   @ApiProperty({
-    description: 'ID курса, к которому применяется тариф',
+    description: 'Идентификатор курса, к которому применяется тариф',
     example: '67c848283c783d942cafb829',
   })
   courseId: string;
@@ -26,7 +37,7 @@ export class TariffResponseDto {
   price: number;
 
   @ApiProperty({
-    description: 'Массив ID модулей, доступных по этому тарифу',
+    description: 'Массив идентификаторов модулей, доступных по этому тарифу',
     example: ['67c848283c783d942cafb82c'],
     type: [String],
   })

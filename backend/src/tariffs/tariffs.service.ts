@@ -1,21 +1,23 @@
-// src/tariffs/tariffs.service.ts
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Tariff, TariffDocument } from './schemas/tariff.schema';
+import { Cache } from 'cache-manager';
+import { Inject } from '@nestjs/common';
 
 @Injectable()
 export class TariffsService {
   constructor(
     @InjectModel(Tariff.name) private tariffModel: Model<TariffDocument>,
+    @Inject(CACHE_MANAGER) private cacheManager: Cache,
   ) {}
 
   /**
-   * Создаёт новый тариф для курса.
-   * @param courseId - ID курса
+   * Создает новый тариф для курса.
+   * @param courseId - Идентификатор курса
    * @param name - Название тарифа
    * @param price - Цена тарифа
-   * @param accessibleModules - Список ID доступных модулей
+   * @param accessibleModules - Список идентификаторов доступных модулей
    * @param includesHomeworks - Включает ли домашние задания
    * @param includesPoints - Включает ли накопление баллов
    * @returns Созданный тариф
@@ -41,27 +43,51 @@ export class TariffsService {
       includesHomeworks,
       includesPoints,
     });
+
+    // Сбрасываем кеш для курса после создания нового тарифа
+    await this.cacheManager.del(`tariffs_course_${courseId}`);
     return tariff.save();
   }
 
   /**
-   * Находит тариф по ID.
-   * @param tariffId - ID тарифа
+   * Находит тариф по идентификатору.
+   * @param tariffId - Идентификатор тарифа
    * @returns Тариф или null, если не найден
    */
   async findTariffById(tariffId: string): Promise<Tariff | null> {
-    return this.tariffModel.findById(tariffId).lean().exec();
+    const cacheKey = `tariff_${tariffId}`;
+    const cachedTariff = await this.cacheManager.get<Tariff>(cacheKey);
+
+    if (cachedTariff) {
+      return cachedTariff;
+    }
+
+    const tariff = await this.tariffModel.findById(tariffId).lean().exec();
+    if (tariff) {
+      await this.cacheManager.set(cacheKey, tariff, { ttl: 600 }); // Кеш на 10 минут
+    }
+    return tariff;
   }
 
   /**
-   * Получает все тарифы для курса.
-   * @param courseId - ID курса
+   * Получает все тарифы для курса с использованием кеширования.
+   * @param courseId - Идентификатор курса
    * @returns Список тарифов
    */
   async getTariffsByCourse(courseId: string): Promise<Tariff[]> {
-    return this.tariffModel
+    const cacheKey = `tariffs_course_${courseId}`;
+    const cachedTariffs = await this.cacheManager.get<Tariff[]>(cacheKey);
+
+    if (cachedTariffs) {
+      return cachedTariffs;
+    }
+
+    const tariffs = await this.tariffModel
       .find({ courseId: new Types.ObjectId(courseId) })
       .lean()
       .exec();
+
+    await this.cacheManager.set(cacheKey, tariffs, { ttl: 600 }); // Кеш на 10 минут
+    return tariffs;
   }
 }

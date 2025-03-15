@@ -3,7 +3,7 @@ import { Tariff, TariffDocument } from '../schemas/tariff.schema';
 import { TariffResponseDto } from '../dto/tariff-response.dto';
 
 /**
- * Преобразует Tariff или TariffDocument в TariffResponseDto.
+ * Преобразует объект тарифа (Tariff или TariffDocument) в TariffResponseDto.
  * @param tariff - Объект тарифа (plain объект или документ Mongoose)
  * @returns Объект TariffResponseDto
  */

@@ -7,11 +7,19 @@ import {
   UsePipes,
   ValidationPipe,
   NotFoundException,
+  BadRequestException,
 } from '@nestjs/common';
 import { TariffsService } from './tariffs.service';
 import { CreateTariffDto } from './dto/create-tariff.dto';
 import { TariffResponseDto } from './dto/tariff-response.dto';
-import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
+import {
+  ApiOperation,
+  ApiParam,
+  ApiResponse,
+  ApiTags,
+  ApiBadRequestResponse,
+  ApiNotFoundResponse,
+} from '@nestjs/swagger';
 import { mapToTariffResponseDto } from './mappers/tariff.mapper';
 
 @ApiTags('Тарифы')
@@ -26,7 +34,20 @@ export class TariffsController {
     description: 'Тариф успешно создан',
     type: TariffResponseDto,
   })
-  @ApiResponse({ status: 400, description: 'Некорректные входные данные' })
+  @ApiBadRequestResponse({
+    status: 400,
+    description: 'Некорректные входные данные',
+    schema: {
+      example: { message: 'Цена тарифа не может быть отрицательной' },
+    },
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Невалидный формат courseId',
+    schema: {
+      example: { message: 'courseId должен быть валидным MongoDB ObjectId' },
+    },
+  })
   @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))
   async createTariff(
     @Body() createTariffDto: CreateTariffDto,
@@ -46,7 +67,7 @@ export class TariffsController {
   @ApiOperation({ summary: 'Получить тарифы для курса' })
   @ApiParam({
     name: 'courseId',
-    description: 'ID курса для получения тарифов',
+    description: 'Идентификатор курса для получения тарифов',
     example: '67c848283c783d942cafb829',
   })
   @ApiResponse({
@@ -54,7 +75,22 @@ export class TariffsController {
     description: 'Список тарифов успешно получен',
     type: [TariffResponseDto],
   })
-  @ApiResponse({ status: 404, description: 'Тарифы для курса не найдены' })
+  @ApiNotFoundResponse({
+    status: 404,
+    description: 'Тарифы для курса не найдены',
+    schema: {
+      example: {
+        message: 'Тарифы для курса с ID 67c848283c783d942cafb829 не найдены',
+      },
+    },
+  })
+  @ApiBadRequestResponse({
+    status: 400,
+    description: 'Невалидный формат courseId',
+    schema: {
+      example: { message: 'courseId должен быть валидным MongoDB ObjectId' },
+    },
+  })
   async getTariffsByCourse(
     @Param('courseId') courseId: string,
   ): Promise<TariffResponseDto[]> {

@@ -10,6 +10,7 @@ import { CoursesModule } from './courses/courses.module';
 import { EnrollmentsModule } from './enrollments/enrollments.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { AnalyticsModule } from './analytics/analytics.module';
+import { RealTimeAnalyticsModule } from './real-time-analytics/real-time-analytics.module';
 import { HomeworksModule } from './homeworks/homeworks.module';
 import { TariffsModule } from './tariffs/tariffs.module';
 import { HomeworksService } from './homeworks/homeworks.service';
@@ -66,6 +67,7 @@ import { Types } from 'mongoose';
     QuizzesModule,
     TariffsModule,
     MailerModule,
+    RealTimeAnalyticsModule,
     CacheModule.register(cacheManagerConfig),
   ],
   controllers: [AppController],
