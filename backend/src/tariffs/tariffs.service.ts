@@ -2,8 +2,9 @@ import { Injectable, BadRequestException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Tariff, TariffDocument } from './schemas/tariff.schema';
-import { Cache } from 'cache-manager';
 import { Inject } from '@nestjs/common';
+import { Cache } from 'cache-manager';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
 
 @Injectable()
 export class TariffsService {
@@ -64,7 +65,7 @@ export class TariffsService {
 
     const tariff = await this.tariffModel.findById(tariffId).lean().exec();
     if (tariff) {
-      await this.cacheManager.set(cacheKey, tariff, { ttl: 600 }); // Кеш на 10 минут
+      await this.cacheManager.set(cacheKey, tariff, 600); // Кеш на 10 минут
     }
     return tariff;
   }
@@ -87,7 +88,7 @@ export class TariffsService {
       .lean()
       .exec();
 
-    await this.cacheManager.set(cacheKey, tariffs, { ttl: 600 }); // Кеш на 10 минут
+    await this.cacheManager.set(cacheKey, tariffs, 600); // Кеш на 10 минут
     return tariffs;
   }
 }

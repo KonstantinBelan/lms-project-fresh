@@ -7,19 +7,11 @@ import {
   UsePipes,
   ValidationPipe,
   NotFoundException,
-  BadRequestException,
 } from '@nestjs/common';
 import { TariffsService } from './tariffs.service';
 import { CreateTariffDto } from './dto/create-tariff.dto';
 import { TariffResponseDto } from './dto/tariff-response.dto';
-import {
-  ApiOperation,
-  ApiParam,
-  ApiResponse,
-  ApiTags,
-  ApiBadRequestResponse,
-  ApiNotFoundResponse,
-} from '@nestjs/swagger';
+import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { mapToTariffResponseDto } from './mappers/tariff.mapper';
 
 @ApiTags('Тарифы')
@@ -34,7 +26,7 @@ export class TariffsController {
     description: 'Тариф успешно создан',
     type: TariffResponseDto,
   })
-  @ApiBadRequestResponse({
+  @ApiResponse({
     status: 400,
     description: 'Некорректные входные данные',
     schema: {
@@ -75,7 +67,7 @@ export class TariffsController {
     description: 'Список тарифов успешно получен',
     type: [TariffResponseDto],
   })
-  @ApiNotFoundResponse({
+  @ApiResponse({
     status: 404,
     description: 'Тарифы для курса не найдены',
     schema: {
@@ -84,7 +76,7 @@ export class TariffsController {
       },
     },
   })
-  @ApiBadRequestResponse({
+  @ApiResponse({
     status: 400,
     description: 'Невалидный формат courseId',
     schema: {
