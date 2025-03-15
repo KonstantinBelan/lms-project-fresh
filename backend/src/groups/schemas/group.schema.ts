@@ -11,8 +11,8 @@ export class Group {
   @Prop({})
   description?: string; // Описание группы (опционально)
 
-  @Prop({ type: [{ type: Types.ObjectId, ref: 'User' }] })
-  students: Types.ObjectId[]; // Список студентов в группе
+  @Prop({ type: [{ type: Types.ObjectId, ref: 'User' }], default: [] })
+  students: Types.ObjectId[]; // Список идентификаторов студентов в группе
 }
 
 export const GroupSchema = SchemaFactory.createForClass(Group);

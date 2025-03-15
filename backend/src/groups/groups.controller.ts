@@ -15,6 +15,7 @@ import { Role } from '../auth/roles.enum';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { CreateGroupDto } from './dto/create-group.dto';
+import { GroupResponseDto } from './dto/group-response.dto';
 import {
   ApiSecurity,
   ApiTags,
@@ -39,13 +40,21 @@ export class GroupsController {
   @ApiResponse({
     status: 201,
     description: 'Группа создана',
-    type: CreateGroupDto,
+    type: GroupResponseDto,
   })
-  @ApiResponse({ status: 400, description: 'Неверный запрос' })
+  @ApiResponse({
+    status: 400,
+    description: 'Неверный запрос',
+    schema: { example: { message: 'Название должно быть строкой' } },
+  })
+  @ApiResponse({ status: 403, description: 'Доступ запрещен' })
   @Roles(Role.ADMIN)
-  async create(@Body() createGroupDto: CreateGroupDto) {
+  async create(
+    @Body() createGroupDto: CreateGroupDto,
+  ): Promise<GroupResponseDto> {
     this.logger.log(`Создание группы: ${createGroupDto.name}`);
-    return this.groupsService.create(createGroupDto);
+    const group = await this.groupsService.create(createGroupDto);
+    return this.mapToResponseDto(group);
   }
 
   @Get()
@@ -83,7 +92,7 @@ export class GroupsController {
       properties: {
         groups: {
           type: 'array',
-          items: { $ref: '#/components/schemas/Group' },
+          items: { $ref: '#/components/schemas/GroupResponseDto' },
         },
         total: { type: 'number' },
       },
@@ -96,32 +105,50 @@ export class GroupsController {
     @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number,
     @Query('sortBy') sortBy: 'name' | 'students' = 'name',
     @Query('sortOrder') sortOrder: 'asc' | 'desc' = 'asc',
-  ) {
+  ): Promise<{ groups: GroupResponseDto[]; total: number }> {
     this.logger.log(
       `Получение всех групп: skip=${skip}, limit=${limit}, sortBy=${sortBy}, sortOrder=${sortOrder}`,
     );
-    return this.groupsService.findAll(skip, limit, sortBy, sortOrder);
+    const result = await this.groupsService.findAll(
+      skip,
+      limit,
+      sortBy,
+      sortOrder,
+    );
+    return {
+      groups: result.groups.map(this.mapToResponseDto),
+      total: result.total,
+    };
   }
 
   @Get(':id')
   @ApiSecurity('JWT-auth')
-  @ApiOperation({ summary: 'Получить группу по ID' })
+  @ApiOperation({ summary: 'Получить группу по идентификатору' })
   @ApiParam({
     name: 'id',
-    description: 'ID группы',
+    description: 'Идентификатор группы',
     example: '507f1f77bcf86cd799439011',
   })
   @ApiResponse({
     status: 200,
     description: 'Группа найдена',
-    type: CreateGroupDto,
+    type: GroupResponseDto,
   })
-  @ApiResponse({ status: 404, description: 'Группа не найдена' })
+  @ApiResponse({
+    status: 404,
+    description: 'Группа не найдена',
+    schema: {
+      example: {
+        message: 'Группа с идентификатором 507f1f77bcf86cd799439011 не найдена',
+      },
+    },
+  })
   @ApiResponse({ status: 403, description: 'Доступ запрещен' })
   @Roles(Role.ADMIN, Role.TEACHER)
-  async findById(@Param('id') id: string) {
-    this.logger.log(`Поиск группы по ID: ${id}`);
-    return this.groupsService.findById(id);
+  async findById(@Param('id') id: string): Promise<GroupResponseDto> {
+    this.logger.log(`Поиск группы по идентификатору: ${id}`);
+    const group = await this.groupsService.findById(id);
+    return this.mapToResponseDto(group);
   }
 
   @Post(':id/students/:studentId')
@@ -129,24 +156,37 @@ export class GroupsController {
   @ApiOperation({ summary: 'Добавить студента в группу' })
   @ApiParam({
     name: 'id',
-    description: 'ID группы',
+    description: 'Идентификатор группы',
     example: '507f1f77bcf86cd799439011',
   })
   @ApiParam({
     name: 'studentId',
-    description: 'ID студента',
+    description: 'Идентификатор студента',
     example: '507f191e810c19729de860ea',
   })
-  @ApiResponse({ status: 201, description: 'Студент добавлен в группу' })
-  @ApiResponse({ status: 404, description: 'Группа или студент не найдены' })
+  @ApiResponse({
+    status: 201,
+    description: 'Студент добавлен в группу',
+    type: GroupResponseDto,
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Группа или студент не найдены',
+    schema: {
+      example: {
+        message: 'Студент с идентификатором 507f191e810c19729de860ea не найден',
+      },
+    },
+  })
   @ApiResponse({ status: 403, description: 'Доступ запрещен' })
   @Roles(Role.ADMIN)
   async addStudent(
     @Param('id') id: string,
     @Param('studentId') studentId: string,
-  ) {
+  ): Promise<GroupResponseDto> {
     this.logger.log(`Добавление студента ${studentId} в группу ${id}`);
-    return this.groupsService.addStudent(id, studentId);
+    const group = await this.groupsService.addStudent(id, studentId);
+    return this.mapToResponseDto(group);
   }
 
   @Delete(':id/students/:studentId')
@@ -154,29 +194,37 @@ export class GroupsController {
   @ApiOperation({ summary: 'Удалить студента из группы' })
   @ApiParam({
     name: 'id',
-    description: 'ID группы',
+    description: 'Идентификатор группы',
     example: '507f1f77bcf86cd799439011',
   })
   @ApiParam({
     name: 'studentId',
-    description: 'ID студента',
+    description: 'Идентификатор студента',
     example: '507f191e810c19729de860ea',
   })
   @ApiResponse({
     status: 200,
     description: 'Студент удален из группы',
-    schema: { example: { message: 'Студент удален из группы' } },
+    type: GroupResponseDto,
   })
-  @ApiResponse({ status: 404, description: 'Группа или студент не найдены' })
+  @ApiResponse({
+    status: 404,
+    description: 'Группа не найдена',
+    schema: {
+      example: {
+        message: 'Группа с идентификатором 507f1f77bcf86cd799439011 не найдена',
+      },
+    },
+  })
   @ApiResponse({ status: 403, description: 'Доступ запрещен' })
   @Roles(Role.ADMIN)
   async removeStudent(
     @Param('id') id: string,
     @Param('studentId') studentId: string,
-  ) {
+  ): Promise<GroupResponseDto> {
     this.logger.log(`Удаление студента ${studentId} из группы ${id}`);
-    await this.groupsService.removeStudent(id, studentId);
-    return { message: 'Студент удален из группы' };
+    const group = await this.groupsService.removeStudent(id, studentId);
+    return this.mapToResponseDto(group);
   }
 
   @Delete(':id')
@@ -184,7 +232,7 @@ export class GroupsController {
   @ApiOperation({ summary: 'Удалить группу' })
   @ApiParam({
     name: 'id',
-    description: 'ID группы',
+    description: 'Идентификатор группы',
     example: '507f1f77bcf86cd799439011',
   })
   @ApiResponse({
@@ -192,12 +240,34 @@ export class GroupsController {
     description: 'Группа удалена',
     schema: { example: { message: 'Группа удалена' } },
   })
-  @ApiResponse({ status: 404, description: 'Группа не найдена' })
+  @ApiResponse({
+    status: 404,
+    description: 'Группа не найдена',
+    schema: {
+      example: {
+        message: 'Группа с идентификатором 507f1f77bcf86cd799439011 не найдена',
+      },
+    },
+  })
   @ApiResponse({ status: 403, description: 'Доступ запрещен' })
   @Roles(Role.ADMIN)
-  async delete(@Param('id') id: string) {
+  async delete(@Param('id') id: string): Promise<{ message: string }> {
     this.logger.log(`Удаление группы ${id}`);
     await this.groupsService.delete(id);
     return { message: 'Группа удалена' };
+  }
+
+  /**
+   * Преобразует группу в DTO ответа.
+   * @param group - Объект группы
+   * @returns GroupResponseDto
+   */
+  private mapToResponseDto(group: GroupDocument): GroupResponseDto {
+    return {
+      _id: group._id.toString(),
+      name: group.name,
+      description: group.description,
+      students: group.students.map((id) => id.toString()),
+    };
   }
 }

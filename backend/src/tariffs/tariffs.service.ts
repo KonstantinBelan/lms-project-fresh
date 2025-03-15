@@ -6,6 +6,8 @@ import { Inject } from '@nestjs/common';
 import { Cache } from 'cache-manager';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 
+const CACHE_TTL = parseInt(process.env.CACHE_TTL ?? '3600', 10);
+
 @Injectable()
 export class TariffsService {
   constructor(
@@ -65,7 +67,7 @@ export class TariffsService {
 
     const tariff = await this.tariffModel.findById(tariffId).lean().exec();
     if (tariff) {
-      await this.cacheManager.set(cacheKey, tariff, 600); // Кеш на 10 минут
+      await this.cacheManager.set(cacheKey, tariff, CACHE_TTL); // Кеш на 10 минут
     }
     return tariff;
   }
@@ -88,7 +90,7 @@ export class TariffsService {
       .lean()
       .exec();
 
-    await this.cacheManager.set(cacheKey, tariffs, 600); // Кеш на 10 минут
+    await this.cacheManager.set(cacheKey, tariffs, CACHE_TTL); // Кеш на 10 минут
     return tariffs;
   }
 }

@@ -1,12 +1,18 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsString, IsOptional } from 'class-validator';
 
-export class CreateGroupDto {
+// Интерфейс для типизации DTO создания группы
+export interface ICreateGroup {
+  name: string;
+  description?: string;
+}
+
+export class CreateGroupDto implements ICreateGroup {
   @ApiProperty({
-    example: 'Group 1',
+    example: 'Группа 1',
     description: 'Название группы',
   })
-  @IsString()
+  @IsString({ message: 'Название должно быть строкой' })
   name: string;
 
   @ApiProperty({
@@ -15,6 +21,6 @@ export class CreateGroupDto {
     required: false,
   })
   @IsOptional()
-  @IsString()
+  @IsString({ message: 'Описание должно быть строкой' })
   description?: string;
 }
