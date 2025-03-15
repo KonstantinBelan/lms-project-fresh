@@ -1,7 +1,7 @@
-// src/users/dto/user-response.dto.ts
 import { ApiProperty } from '@nestjs/swagger';
 import { UserSettingsDto } from './user-settings.dto';
 
+// DTO для ответа с данными пользователя
 export class UserResponseDto {
   @ApiProperty({
     description: 'Уникальный идентификатор пользователя',

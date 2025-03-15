@@ -36,6 +36,7 @@ import {
 import { JwtRequest } from '../common/interfaces/jwt-request.interface';
 import { mapToUserResponseDto } from './mappers/user.mapper';
 import * as bcrypt from 'bcrypt';
+import { ErrorResponseDto } from '../common/dto/error-response.dto';
 
 @ApiTags('Пользователи')
 @Controller('users')
@@ -52,10 +53,19 @@ export class UsersController {
   @ApiOperation({ summary: 'Создать нового пользователя' })
   @ApiResponse({
     status: 201,
-    description: 'Пользователь создан',
+    description: 'Пользователь успешно создан',
     type: UserResponseDto,
   })
-  @ApiResponse({ status: 400, description: 'Неверные данные' })
+  @ApiResponse({
+    status: 400,
+    description: 'Неверные данные или email уже существует',
+    type: ErrorResponseDto,
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Доступ запрещен',
+    type: ErrorResponseDto,
+  })
   @Roles(Role.ADMIN)
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @UsePipes(new ValidationPipe())
@@ -72,13 +82,22 @@ export class UsersController {
   }
 
   @Get('me')
-  @ApiOperation({ summary: 'Получить текущего пользователя' })
+  @ApiOperation({ summary: 'Получить данные текущего пользователя' })
   @ApiResponse({
     status: 200,
-    description: 'Текущий пользователь получен',
+    description: 'Данные текущего пользователя получены',
     type: UserResponseDto,
   })
-  @ApiResponse({ status: 401, description: 'Не авторизован' })
+  @ApiResponse({
+    status: 401,
+    description: 'Не авторизован',
+    type: ErrorResponseDto,
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Пользователь не найден',
+    type: ErrorResponseDto,
+  })
   @UseGuards(AuthGuard('jwt'))
   async getMe(@Req() req: JwtRequest): Promise<UserResponseDto> {
     const userId = req.user?.sub || req.user?._id;
@@ -128,7 +147,7 @@ export class UsersController {
   })
   @ApiResponse({
     status: 200,
-    description: 'Пользователи получены с пагинацией',
+    description: 'Список пользователей с пагинацией',
     schema: {
       type: 'object',
       properties: {
@@ -143,7 +162,11 @@ export class UsersController {
       },
     },
   })
-  @ApiResponse({ status: 403, description: 'Доступ запрещён' })
+  @ApiResponse({
+    status: 403,
+    description: 'Доступ запрещен',
+    type: ErrorResponseDto,
+  })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles(Role.ADMIN)
   async findAll(
@@ -159,16 +182,14 @@ export class UsersController {
     limit: number;
     totalPages: number;
   }> {
-    this.logger.log(
-      'Получение списка всех пользователей с фильтрами и пагинацией',
-    );
+    this.logger.log('Получение списка пользователей с фильтрами');
     const filters: { roles?: string[]; email?: string; groups?: string[] } = {};
     if (roles) filters.roles = roles.split(',').map((role) => role.trim());
     if (email) filters.email = email;
     if (groups) filters.groups = groups.split(',').map((group) => group.trim());
 
     const pageNum = parseInt(page, 10) || 1;
-    const limitNum = Math.min(parseInt(limit, 10) || 10, 100); // Ограничим максимум до 100
+    const limitNum = Math.min(parseInt(limit, 10) || 10, 100);
 
     const { users, total } = await this.usersService.findAll(
       filters,
@@ -198,7 +219,11 @@ export class UsersController {
     description: 'Пользователь найден',
     type: UserResponseDto,
   })
-  @ApiResponse({ status: 404, description: 'Пользователь не найден' })
+  @ApiResponse({
+    status: 404,
+    description: 'Пользователь не найден',
+    type: ErrorResponseDto,
+  })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles(Role.ADMIN)
   async findUserByEmail(
@@ -212,7 +237,7 @@ export class UsersController {
   }
 
   @Put(':id')
-  @ApiOperation({ summary: 'Обновить пользователя' })
+  @ApiOperation({ summary: 'Обновить данные пользователя' })
   @ApiParam({
     name: 'id',
     description: 'ID пользователя',
@@ -220,10 +245,19 @@ export class UsersController {
   })
   @ApiResponse({
     status: 200,
-    description: 'Пользователь обновлён',
+    description: 'Пользователь успешно обновлен',
     type: UserResponseDto,
   })
-  @ApiResponse({ status: 404, description: 'Пользователь не найден' })
+  @ApiResponse({
+    status: 404,
+    description: 'Пользователь не найден',
+    type: ErrorResponseDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Некорректный ID',
+    type: ErrorResponseDto,
+  })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles(Role.ADMIN)
   async update(
@@ -246,16 +280,20 @@ export class UsersController {
   })
   @ApiResponse({
     status: 200,
-    description: 'Пользователь удалён',
-    schema: { example: { message: 'Пользователь удалён' } },
+    description: 'Пользователь успешно удален',
+    schema: { example: { message: 'Пользователь удален' } },
   })
-  @ApiResponse({ status: 404, description: 'Пользователь не найден' })
+  @ApiResponse({
+    status: 404,
+    description: 'Пользователь не найден',
+    type: ErrorResponseDto,
+  })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles(Role.ADMIN)
   async delete(@Param('id') id: string): Promise<{ message: string }> {
     this.logger.log(`Удаление пользователя с ID: ${id}`);
     await this.usersService.deleteUser(id);
-    return { message: 'Пользователь удалён' };
+    return { message: 'Пользователь удален' };
   }
 
   @Post(':id/groups/:groupId')
@@ -278,6 +316,7 @@ export class UsersController {
   @ApiResponse({
     status: 404,
     description: 'Пользователь или группа не найдены',
+    type: ErrorResponseDto,
   })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles(Role.ADMIN)
@@ -309,12 +348,13 @@ export class UsersController {
   })
   @ApiResponse({
     status: 200,
-    description: 'Пользователь удалён из группы',
-    schema: { example: { message: 'Пользователь удалён из группы' } },
+    description: 'Пользователь удален из группы',
+    schema: { example: { message: 'Пользователь удален из группы' } },
   })
   @ApiResponse({
     status: 404,
     description: 'Пользователь или группа не найдены',
+    type: ErrorResponseDto,
   })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles(Role.ADMIN)
@@ -325,31 +365,38 @@ export class UsersController {
     this.logger.log(`Удаление пользователя ${id} из группы ${groupId}`);
     await this.groupsService.removeStudent(groupId, id);
     await this.usersService.updateUser(id, { groups: { $pull: groupId } });
-    return { message: 'Пользователь удалён из группы' };
+    return { message: 'Пользователь удален из группы' };
   }
 
   @Patch('me/telegram')
   @ApiOperation({
     summary: 'Подключить Telegram',
     description: `
-      Привязывает ID чата Telegram к профилю пользователя для получения уведомлений.
+      Привязывает ID чата Telegram к профилю пользователя для уведомлений.
 
-      **Как получить ваш Telegram chat ID:**
+      **Как получить Telegram chat ID:**
       1. Откройте Telegram и найдите бота @LMSNotificationBot.
       2. Отправьте боту команду /start.
       3. Бот ответит вам вашим chat ID (например, 123456789).
-      4. Скопируйте этот ID и используйте его в поле 'telegramId' ниже.
-      5. Отправьте PATCH-запрос с вашим chat ID на этот эндпоинт.
-
-      Пример: { "telegramId": "123456789" }
+      4. Скопируйте этот ID и используйте в поле 'telegramId'.
+      5. Отправьте PATCH-запрос с вашим chat ID.
     `,
   })
   @ApiResponse({
     status: 200,
-    description: 'Telegram подключён',
+    description: 'Telegram успешно подключен',
     type: UserResponseDto,
   })
-  @ApiResponse({ status: 401, description: 'Не авторизован' })
+  @ApiResponse({
+    status: 401,
+    description: 'Не авторизован',
+    type: ErrorResponseDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Неверный telegramId',
+    type: ErrorResponseDto,
+  })
   @UseGuards(AuthGuard('jwt'))
   @UsePipes(new ValidationPipe())
   async connectTelegram(

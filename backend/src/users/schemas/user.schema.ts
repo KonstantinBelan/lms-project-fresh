@@ -10,7 +10,7 @@ export class User {
   email: string; // Электронная почта пользователя
 
   @Prop({ required: true, select: false })
-  password: string; // Пароль (не возвращается по умолчанию)
+  password: string; // Пароль (скрыт по умолчанию)
 
   @Prop({ type: String, required: false })
   name?: string; // Имя пользователя
@@ -29,7 +29,7 @@ export class User {
   avatar?: string; // Аватар пользователя
 
   @Prop({ type: String, required: false })
-  telegramId?: string; // ID Telegram чата
+  telegramId?: string; // ID чата Telegram
 
   @Prop({
     type: {
@@ -40,7 +40,7 @@ export class User {
     },
     default: {
       notifications: true,
-      language: 'ru', // Изменил на русский по умолчанию
+      language: 'ru',
       resetToken: undefined,
       resetTokenExpires: undefined,
     },
@@ -60,6 +60,7 @@ export const UserSchema = SchemaFactory.createForClass(User);
 UserSchema.index({ roles: 1 }); // Индекс для поиска по ролям
 UserSchema.index({ name: 1 }); // Индекс для поиска по имени
 
+// Интерфейс для объекта пользователя
 export interface User {
   _id: Types.ObjectId;
   email: string;

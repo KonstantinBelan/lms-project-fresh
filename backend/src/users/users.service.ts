@@ -22,12 +22,7 @@ export class UsersService {
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
   ) {}
 
-  /**
-   * Создаёт нового пользователя.
-   * @param param0 - Данные пользователя (пароль должен быть уже хэширован)
-   * @returns Созданный пользователь
-   * @throws BadRequestException если email уже существует
-   */
+  // Создает нового пользователя
   async create({
     email,
     password,
@@ -59,12 +54,7 @@ export class UsersService {
     return savedUser.toObject();
   }
 
-  /**
-   * Находит пользователя по ID.
-   * @param id - ID пользователя
-   * @returns Пользователь или null, если не найден
-   * @throws BadRequestException если ID некорректен
-   */
+  // Находит пользователя по ID
   async findById(id: string): Promise<User | null> {
     if (!Types.ObjectId.isValid(id)) {
       this.logger.warn(`Некорректный ID: ${id}`);
@@ -88,11 +78,7 @@ export class UsersService {
     return user;
   }
 
-  /**
-   * Находит пользователя по email.
-   * @param email - Email пользователя
-   * @returns Пользователь или null, если не найден
-   */
+  // Находит пользователя по email
   async findByEmail(email: string): Promise<User | null> {
     this.logger.debug(`Поиск пользователя по email: ${email}`);
     const cacheKey = `user:email:${email}`;
@@ -116,12 +102,7 @@ export class UsersService {
     return user;
   }
 
-  /**
-   * Находит пользователей по списку ID.
-   * @param ids - Массив ID пользователей
-   * @returns Список пользователей
-   * @throws BadRequestException если хотя бы один ID некорректен
-   */
+  // Находит пользователей по списку ID
   async findManyByIds(ids: string[]): Promise<User[]> {
     const objectIds = ids.map((id) => {
       if (!Types.ObjectId.isValid(id)) {
@@ -136,13 +117,7 @@ export class UsersService {
       .exec();
   }
 
-  /**
-   * Получает пользователей с опциональными фильтрами и пагинацией.
-   * @param filters - Фильтры по ролям, email и группам
-   * @param page - Номер страницы (начиная с 1)
-   * @param limit - Количество записей на странице
-   * @returns Объект с пользователями и общим количеством
-   */
+  // Получает всех пользователей с фильтрами и пагинацией
   async findAll(
     filters: { roles?: string[]; email?: string; groups?: string[] } = {},
     page: number = 1,
@@ -160,13 +135,13 @@ export class UsersService {
     }
 
     const query: any = {};
-    if (filters.roles && filters.roles.length > 0) {
+    if (filters.roles?.length) {
       query.roles = { $in: filters.roles };
     }
     if (filters.email) {
       query.email = { $regex: filters.email, $options: 'i' };
     }
-    if (filters.groups && filters.groups.length > 0) {
+    if (filters.groups?.length) {
       const groupObjectIds = filters.groups.map((id) => {
         if (!Types.ObjectId.isValid(id)) {
           throw new BadRequestException(`Некорректный ID группы: ${id}`);
@@ -190,14 +165,7 @@ export class UsersService {
     return result;
   }
 
-  /**
-   * Обновляет данные пользователя.
-   * @param id - ID пользователя
-   * @param updateData - Данные для обновления
-   * @returns Обновленный пользователь или null, если не найден
-   * @throws BadRequestException если ID некорректен
-   * @throws NotFoundException если пользователь не найден
-   */
+  // Обновляет данные пользователя
   async updateUser(
     id: string,
     updateData: {
@@ -255,19 +223,16 @@ export class UsersService {
       throw new NotFoundException(`Пользователь с ID ${id} не найден`);
     }
 
-    await this.cacheManager.del(`user:${id}`);
-    await this.cacheManager.del(`user:email:${updatedUser.email}`);
-    await this.cacheManager.del('users:all');
+    await Promise.all([
+      this.cacheManager.del(`user:${id}`),
+      this.cacheManager.del(`user:email:${updatedUser.email}`),
+      this.cacheManager.del('users:all'),
+    ]);
     this.logger.debug(`Пользователь с ID ${id} обновлен`);
     return updatedUser;
   }
 
-  /**
-   * Удаляет пользователя.
-   * @param id - ID пользователя
-   * @throws BadRequestException если ID некорректен
-   * @throws NotFoundException если пользователь не найден
-   */
+  // Удаляет пользователя
   async deleteUser(id: string): Promise<void> {
     if (!Types.ObjectId.isValid(id)) {
       this.logger.warn(`Некорректный ID: ${id}`);
@@ -278,8 +243,10 @@ export class UsersService {
     if (!result) {
       throw new NotFoundException(`Пользователь с ID ${id} не найден`);
     }
-    await this.cacheManager.del(`user:${id}`);
-    await this.cacheManager.del(`user:email:${result.email}`);
-    await this.cacheManager.del('users:all');
+    await Promise.all([
+      this.cacheManager.del(`user:${id}`),
+      this.cacheManager.del(`user:email:${result.email}`),
+      this.cacheManager.del('users:all'),
+    ]);
   }
 }

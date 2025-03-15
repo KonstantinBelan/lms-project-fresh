@@ -1,6 +1,6 @@
-// src/users/dto/user-settings.dto.ts
 import { ApiProperty } from '@nestjs/swagger';
 
+// DTO для настроек пользователя
 export class UserSettingsDto {
   @ApiProperty({
     description: 'Включены ли уведомления',

@@ -1,14 +1,8 @@
-// src/users/mappers/user.mapper.ts
 import { Types } from 'mongoose';
 import { User } from '../schemas/user.schema';
 import { UserResponseDto } from '../dto/user-response.dto';
-import { UserSettingsDto } from '../dto/user-settings.dto';
 
-/**
- * Преобразует User в UserResponseDto.
- * @param user - Объект пользователя
- * @returns Объект UserResponseDto
- */
+// Преобразует объект User в UserResponseDto
 export function mapToUserResponseDto(user: User): UserResponseDto {
   const userObj = user as any;
   return {

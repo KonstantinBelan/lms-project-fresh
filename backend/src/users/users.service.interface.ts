@@ -1,10 +1,9 @@
 import { User } from './schemas/user.schema';
 import { Role } from '../auth/roles.enum';
 
+// Интерфейс для сервиса пользователей
 export interface IUsersService {
-  /**
-   * Создаёт нового пользователя.
-   */
+  // Создает нового пользователя
   create({
     email,
     password,
@@ -19,28 +18,20 @@ export interface IUsersService {
     phone?: string;
   }): Promise<User>;
 
-  /**
-   * Находит пользователя по email.
-   */
+  // Находит пользователя по email
   findByEmail(email: string): Promise<User | null>;
 
-  /**
-   * Находит пользователя по ID.
-   */
+  // Находит пользователя по ID
   findById(id: string): Promise<User | null>;
 
-  /**
-   * Получает пользователей с опциональными фильтрами и пагинацией.
-   */
+  // Получает всех пользователей с фильтрами и пагинацией
   findAll(
     filters?: { roles?: string[]; email?: string; groups?: string[] },
     page?: number,
     limit?: number,
   ): Promise<{ users: User[]; total: number }>;
 
-  /**
-   * Обновляет данные пользователя.
-   */
+  // Обновляет данные пользователя
   updateUser(
     id: string,
     updateData: {
@@ -59,8 +50,6 @@ export interface IUsersService {
     },
   ): Promise<User | null>;
 
-  /**
-   * Удаляет пользователя.
-   */
+  // Удаляет пользователя
   deleteUser(id: string): Promise<void>;
 }

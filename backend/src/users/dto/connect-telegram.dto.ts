@@ -1,6 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsString, Matches } from 'class-validator';
 
+// DTO для подключения Telegram
 export class ConnectTelegramDto {
   @ApiProperty({ description: 'ID чата Telegram', example: '123456789' })
   @IsString({ message: 'telegramId должен быть строкой' })

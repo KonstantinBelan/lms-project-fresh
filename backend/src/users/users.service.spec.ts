@@ -18,6 +18,7 @@ describe('UsersService', () => {
       .fn()
       .mockReturnValue({ exec: jest.fn(), lean: jest.fn().mockReturnThis() }),
     findByIdAndDelete: jest.fn().mockReturnValue({ exec: jest.fn() }),
+    countDocuments: jest.fn().mockResolvedValue(0),
   };
   const mockCacheManager = {
     get: jest.fn(),
@@ -40,7 +41,7 @@ describe('UsersService', () => {
 
   afterEach(() => jest.clearAllMocks());
 
-  it('должен быть определён', () => {
+  it('должен быть определен', () => {
     expect(service).toBeDefined();
   });
 
@@ -63,6 +64,7 @@ describe('UsersService', () => {
         password: 'hashed',
       });
       expect(result).toEqual(user);
+      expect(mockCacheManager.del).toHaveBeenCalledWith('users:all');
     });
 
     it('должен выбросить ошибку, если email уже существует', async () => {
@@ -76,8 +78,17 @@ describe('UsersService', () => {
   });
 
   describe('findById', () => {
-    it('должен найти пользователя по ID', async () => {
+    it('должен найти пользователя по ID из кэша', async () => {
       const user = { _id: '1', email: 'test@example.com' };
+      mockCacheManager.get.mockResolvedValue(user);
+      const result = await service.findById('1');
+      expect(result).toEqual(user);
+      expect(mockUserModel.findById).not.toHaveBeenCalled();
+    });
+
+    it('должен найти пользователя по ID из базы', async () => {
+      const user = { _id: '1', email: 'test@example.com' };
+      mockCacheManager.get.mockResolvedValue(null);
       mockUserModel.findById.mockReturnValue({
         lean: jest
           .fn()
@@ -85,6 +96,7 @@ describe('UsersService', () => {
       });
       const result = await service.findById('1');
       expect(result).toEqual(user);
+      expect(mockCacheManager.set).toHaveBeenCalledWith('user:1', user, 3600);
     });
 
     it('должен выбросить ошибку при некорректном ID', async () => {
@@ -104,6 +116,7 @@ describe('UsersService', () => {
       });
       const result = await service.updateUser('1', { name: 'New Name' });
       expect(result).toEqual(user);
+      expect(mockCacheManager.del).toHaveBeenCalledWith('user:1');
     });
 
     it('должен выбросить ошибку, если пользователь не найден', async () => {
@@ -115,6 +128,31 @@ describe('UsersService', () => {
       await expect(
         service.updateUser('1', { name: 'New Name' }),
       ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('findAll', () => {
+    it('должен вернуть пользователей из кэша', async () => {
+      const result = { users: [], total: 0 };
+      mockCacheManager.get.mockResolvedValue(result);
+      const response = await service.findAll();
+      expect(response).toEqual(result);
+      expect(mockUserModel.find).not.toHaveBeenCalled();
+    });
+
+    it('должен вернуть пользователей из базы', async () => {
+      const users = [{ _id: '1', email: 'test@example.com' }];
+      mockCacheManager.get.mockResolvedValue(null);
+      mockUserModel.find.mockReturnValue({
+        skip: jest.fn().mockReturnThis(),
+        limit: jest.fn().mockReturnThis(),
+        lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue(users),
+      });
+      mockUserModel.countDocuments.mockResolvedValue(1);
+      const result = await service.findAll();
+      expect(result).toEqual({ users, total: 1 });
+      expect(mockCacheManager.set).toHaveBeenCalled();
     });
   });
 });

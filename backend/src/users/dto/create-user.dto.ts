@@ -10,6 +10,7 @@ import {
 } from 'class-validator';
 import { Role } from '../../auth/roles.enum';
 
+// DTO для создания нового пользователя
 export class CreateUserDto {
   @ApiProperty({
     example: 'user@example.com',
@@ -17,7 +18,7 @@ export class CreateUserDto {
   })
   @IsEmail(
     {},
-    { message: 'email должен быть валидным адресом электронной почты' },
+    { message: 'Email должен быть валидным адресом электронной почты' },
   )
   email: string;
 
@@ -25,7 +26,7 @@ export class CreateUserDto {
     example: 'password123',
     description: 'Пароль пользователя (минимум 6 символов)',
   })
-  @IsString({ message: 'password должен быть строкой' })
+  @IsString({ message: 'Пароль должен быть строкой' })
   @MinLength(6, { message: 'Пароль должен содержать минимум 6 символов' })
   password: string;
 
@@ -35,7 +36,7 @@ export class CreateUserDto {
     required: false,
   })
   @IsOptional()
-  @IsString({ message: 'name должен быть строкой' })
+  @IsString({ message: 'Имя должно быть строкой' })
   name?: string;
 
   @ApiProperty({
