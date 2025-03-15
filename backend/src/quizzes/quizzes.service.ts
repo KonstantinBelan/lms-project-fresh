@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import { Quiz, QuizDocument, IQuiz } from './schemas/quiz.schema';
+import { QuizDocument, IQuiz, IQuizQuestion } from './schemas/quiz.schema';
 import {
   QuizSubmission,
   QuizSubmissionDocument,
@@ -45,7 +45,7 @@ export class QuizzesService {
   private readonly logger = new Logger(QuizzesService.name);
 
   constructor(
-    @InjectModel(Quiz.name) private quizModel: Model<QuizDocument>,
+    @InjectModel('Quiz') private quizModel: Model<QuizDocument>,
     @InjectModel(QuizSubmission.name)
     private quizSubmissionModel: Model<QuizSubmissionDocument>,
     @InjectModel(Lesson.name) private lessonModel: Model<LessonDocument>,
@@ -93,7 +93,14 @@ export class QuizzesService {
     const savedQuiz = await quiz.save();
     this.logger.log(`Викторина создана с ID: ${savedQuiz._id}`);
 
-    return savedQuiz.toObject();
+    // Приведение типа для совместимости с IQuiz
+    return {
+      _id: savedQuiz._id.toString(),
+      lessonId: savedQuiz.lessonId.toString(),
+      title: savedQuiz.title,
+      questions: savedQuiz.questions,
+      timeLimit: savedQuiz.timeLimit,
+    };
   }
 
   // Поиск викторины по ID с кэшированием

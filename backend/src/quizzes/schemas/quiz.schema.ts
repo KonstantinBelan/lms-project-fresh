@@ -1,63 +1,62 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
 
-// Тип для документа викторины
 export type QuizDocument = Quiz & Document;
 
-// Интерфейс для вопроса викторины
 export interface IQuizQuestion {
-  question: string; // Текст вопроса
-  options?: string[]; // Варианты ответа (опционально)
-  correctAnswers?: number[]; // Индексы правильных ответов (опционально)
-  correctTextAnswer?: string; // Текстовый правильный ответ (опционально)
-  weight: number; // Вес вопроса
-  hint?: string; // Подсказка для вопроса (опционально)
+  question: string;
+  options?: string[];
+  correctAnswers?: number[];
+  correctTextAnswer?: string;
+  weight: number;
+  hint?: string;
 }
 
-// Интерфейс для викторины
 export interface IQuiz {
-  _id?: Types.ObjectId; // Уникальный идентификатор викторины
-  lessonId: Types.ObjectId; // Ссылка на урок
-  title: string; // Название викторины
-  questions: IQuizQuestion[]; // Список вопросов
-  timeLimit?: number; // Ограничение времени в минутах (опционально)
+  _id: string | Types.ObjectId; // Обновлено для совместимости
+  lessonId: string | Types.ObjectId; // Обновлено для совместимости
+  title: string;
+  questions: IQuizQuestion[];
+  timeLimit?: number;
 }
 
 @Schema()
 export class QuizQuestion {
   @Prop({ required: true })
-  question: string; // Текст вопроса
+  question: string;
 
   @Prop({ type: [String], required: false })
-  options?: string[]; // Варианты ответа (опционально)
+  options?: string[];
 
   @Prop({ type: [Number], required: false })
-  correctAnswers?: number[]; // Индексы правильных ответов (опционально)
+  correctAnswers?: number[];
 
   @Prop({ type: String, required: false })
-  correctTextAnswer?: string; // Текстовый правильный ответ (опционально)
+  correctTextAnswer?: string;
 
   @Prop({ default: 1 })
-  weight: number; // Вес вопроса, по умолчанию 1
+  weight: number;
 
   @Prop({ type: String, required: false })
-  hint?: string; // Подсказка для вопроса (опционально)
+  hint?: string;
 }
 
-@Schema()
+@Schema({ timestamps: true })
 export class Quiz implements IQuiz {
+  _id: string | Types.ObjectId; // Добавлено для совместимости
+
   @Prop({ type: Types.ObjectId, ref: 'Lesson', required: true })
-  lessonId: Types.ObjectId; // Ссылка на урок
+  lessonId: string | Types.ObjectId;
 
   @Prop({ required: true })
-  title: string; // Название викторины
+  title: string;
 
   @Prop({ type: [QuizQuestion], required: true })
-  questions: QuizQuestion[]; // Список вопросов
+  questions: QuizQuestion[];
 
   @Prop({ type: Number, required: false })
-  timeLimit?: number; // Ограничение времени в минутах (опционально)
+  timeLimit?: number;
 }
 
 export const QuizSchema = SchemaFactory.createForClass(Quiz);
-QuizSchema.index({ lessonId: 1 }); // Индекс для ускорения поиска по уроку
+QuizSchema.index({ lessonId: 1 });
