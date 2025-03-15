@@ -46,9 +46,6 @@ export class QuizQuestion {
 
 @Schema()
 export class Quiz implements IQuiz {
-  @Prop({ type: Types.ObjectId })
-  _id?: Types.ObjectId; // Уникальный идентификатор викторины
-
   @Prop({ type: Types.ObjectId, ref: 'Lesson', required: true })
   lessonId: Types.ObjectId; // Ссылка на урок
 

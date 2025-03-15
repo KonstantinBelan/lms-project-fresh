@@ -12,7 +12,13 @@ import { StreamsService } from './streams.service';
 import { CreateStreamDto } from './dto/create-stream.dto';
 import { AddStudentToStreamDto } from './dto/add-student-to-stream.dto';
 import { StreamResponseDto } from './dto/stream-response.dto';
-import { ApiOperation, ApiResponse, ApiTags, ApiParam } from '@nestjs/swagger';
+import {
+  ApiOperation,
+  ApiResponse,
+  ApiTags,
+  ApiParam,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
 import { mapToStreamResponseDto } from './mappers/stream.mapper';
 
 @ApiTags('Потоки')
@@ -21,6 +27,7 @@ export class StreamsController {
   constructor(private readonly streamsService: StreamsService) {}
 
   @Post()
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Создать новый поток' })
   @ApiResponse({
     status: 201,
@@ -55,6 +62,7 @@ export class StreamsController {
   }
 
   @Get(':streamId')
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Получить поток по идентификатору' })
   @ApiParam({
     name: 'streamId',
@@ -88,6 +96,7 @@ export class StreamsController {
   }
 
   @Get('course/:courseId')
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Получить все потоки курса' })
   @ApiParam({
     name: 'courseId',
@@ -122,6 +131,7 @@ export class StreamsController {
   }
 
   @Post(':streamId/students')
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Добавить студента в поток' })
   @ApiParam({
     name: 'streamId',

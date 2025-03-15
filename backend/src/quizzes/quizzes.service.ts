@@ -64,23 +64,47 @@ export class QuizzesService {
   async createQuiz(
     lessonId: string,
     title: string,
-    questions: IQuizQuestionInput[],
+    questions: IQuizQuestion[],
     timeLimit?: number,
   ): Promise<IQuiz> {
     this.logger.log(`Создание викторины для урока ${lessonId}: "${title}"`);
-    const quiz = new this.quizModel({
+
+    if (!Types.ObjectId.isValid(lessonId)) {
+      this.logger.warn(`Некорректный lessonId: ${lessonId}`);
+      throw new BadRequestException(`Некорректный lessonId: ${lessonId}`);
+    }
+
+    const quizData = {
       lessonId: new Types.ObjectId(lessonId),
       title,
       questions,
       timeLimit,
-    });
+    };
+
+    this.logger.debug(
+      `Данные для создания викторины: ${JSON.stringify(quizData)}`,
+    );
+    const quiz = new this.quizModel(quizData);
+
+    this.logger.debug(
+      `Созданный документ перед сохранением: ${JSON.stringify(quiz.toObject())}`,
+    );
+
     const savedQuiz = await quiz.save();
     this.logger.log(`Викторина создана с ID: ${savedQuiz._id}`);
+
     return savedQuiz.toObject();
   }
 
   // Поиск викторины по ID с кэшированием
   async findQuizById(quizId: string): Promise<IQuiz | null> {
+    this.logger.debug(`Начало поиска викторины с ID: ${quizId}`);
+
+    if (!Types.ObjectId.isValid(quizId)) {
+      this.logger.warn(`Некорректный ID викторины: ${quizId}`);
+      throw new BadRequestException(`Некорректный ID викторины: ${quizId}`);
+    }
+
     const cacheKey = `quiz:${quizId}`;
     const cachedQuiz = await this.cacheManager.get<IQuiz>(cacheKey);
     if (cachedQuiz) {
@@ -88,11 +112,14 @@ export class QuizzesService {
       return cachedQuiz;
     }
 
+    this.logger.debug(`Поиск викторины ${quizId} в базе данных`);
     const quiz = await this.quizModel.findById(quizId).lean().exec();
     if (!quiz) {
-      this.logger.warn(`Викторина с ID ${quizId} не найдена`);
+      this.logger.warn(`Викторина с ID ${quizId} не найдена в базе`);
       return null;
     }
+
+    this.logger.debug(`Викторина ${quizId} найдена: ${JSON.stringify(quiz)}`);
     await this.cacheManager.set(cacheKey, quiz, CACHE_TTL);
     this.logger.log(`Викторина ${quizId} сохранена в кэш`);
     return quiz;

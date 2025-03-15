@@ -11,7 +11,13 @@ import {
 import { TariffsService } from './tariffs.service';
 import { CreateTariffDto } from './dto/create-tariff.dto';
 import { TariffResponseDto } from './dto/tariff-response.dto';
-import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
+import {
+  ApiOperation,
+  ApiParam,
+  ApiResponse,
+  ApiTags,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
 import { mapToTariffResponseDto } from './mappers/tariff.mapper';
 
 @ApiTags('Тарифы')
@@ -20,6 +26,7 @@ export class TariffsController {
   constructor(private readonly tariffsService: TariffsService) {}
 
   @Post()
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Создать новый тариф' })
   @ApiResponse({
     status: 201,
@@ -56,6 +63,7 @@ export class TariffsController {
   }
 
   @Get('course/:courseId')
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Получить тарифы для курса' })
   @ApiParam({
     name: 'courseId',

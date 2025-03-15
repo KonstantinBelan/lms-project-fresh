@@ -283,7 +283,7 @@ export class QuizzesController {
   }
 
   @Get(':quizId/hints')
-  @SetMetadata('roles', [Role.STUDENT])
+  @SetMetadata('roles', [Role.ADMIN, Role.STUDENT])
   @ApiOperation({ summary: 'Получить подсказки для викторины' })
   @ApiParam({ name: 'quizId', description: 'ID викторины' })
   @ApiResponse({
