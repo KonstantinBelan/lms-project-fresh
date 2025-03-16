@@ -183,10 +183,21 @@ export class UsersService {
       groups?: { $addToSet?: string; $pull?: string };
     },
   ): Promise<User | null> {
+    console.log('updateData in service:', updateData); // Для отладки
     if (!Types.ObjectId.isValid(id)) {
       this.logger.warn(`Некорректный ID: ${id}`);
       throw new BadRequestException('Некорректный ID');
     }
+
+    // Проверяем, есть ли данные для обновления
+    const hasData = Object.values(updateData).some(
+      (value) => value !== undefined,
+    );
+    if (!hasData) {
+      this.logger.warn(`Пустые данные для обновления пользователя с ID: ${id}`);
+      throw new BadRequestException('Нет данных для обновления');
+    }
+
     this.logger.log(`Обновление пользователя с ID: ${id}`);
 
     const update: { $set?: any; $addToSet?: any; $pull?: any } = {};

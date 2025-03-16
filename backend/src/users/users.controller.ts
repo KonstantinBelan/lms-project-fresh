@@ -263,14 +263,27 @@ export class UsersController {
   })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles(Role.ADMIN)
+  @UsePipes(
+    new ValidationPipe({
+      forbidNonWhitelisted: true,
+      transform: true,
+      whitelist: true,
+      validateCustomDecorators: true,
+    }),
+  )
   async update(
     @Param('id') id: string,
     @Body() editUserDto: EditUserDto,
   ): Promise<UserResponseDto> {
     this.logger.log(`Обновление пользователя с ID: ${id}`);
+    console.log('editUserDto in controller:', editUserDto); // Для отладки
 
-    // Проверяем, пустой ли объект
-    if (!editUserDto || Object.keys(editUserDto).length === 0) {
+    // Проверяем, есть ли хотя бы одно поле с реальным значением
+    const hasData = Object.values(editUserDto).some(
+      (value) => value !== undefined,
+    );
+    if (!hasData) {
+      this.logger.warn(`Пустой запрос для обновления пользователя с ID: ${id}`);
       throw new BadRequestException('Запрос не содержит данных для обновления');
     }
 

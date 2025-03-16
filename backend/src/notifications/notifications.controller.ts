@@ -23,6 +23,7 @@ import { NotificationsService } from './notifications.service';
 import { CreateNotificationDto } from './dto/create-notification.dto';
 import { UpdateNotificationDto } from './dto/update-notification.dto';
 import { SendNotificationDto } from './dto/send-notification.dto';
+import { SendBulkNotificationDto } from './dto/send-bulk-notification.dto';
 import { Role } from '../auth/roles.enum';
 import {
   ApiTags,
@@ -419,7 +420,7 @@ export class NotificationsController {
   @UsePipes(new ValidationPipe())
   async sendNotificationToUser(
     @Param('id') notificationId: string,
-    @Body() sendNotificationDto: SendNotificationDto, // Используем DTO
+    @Body() sendNotificationDto: SendNotificationDto,
   ) {
     const { userId } = sendNotificationDto; // Теперь body типизировано
     this.logger.log(
@@ -449,6 +450,25 @@ export class NotificationsController {
     description: 'Идентификатор уведомления',
     example: '507f1f77bcf86cd799439011',
   })
+  @ApiBody({
+    description: 'Массив идентификаторов получателей для массовой отправки',
+    type: SendBulkNotificationDto,
+    examples: {
+      example1: {
+        value: {
+          recipientIds: [
+            '507f1f77bcf86cd799439011',
+            '67c92217f30e0a8bcd56bf86',
+          ],
+        },
+        summary: 'Пример с указанием получателей',
+      },
+      example2: {
+        value: {},
+        summary: 'Без получателей (используются recipients из уведомления)',
+      },
+    },
+  })
   @ApiResponse({
     status: 200,
     description: 'Уведомление успешно отправлено всем получателям',
@@ -460,9 +480,9 @@ export class NotificationsController {
   @UsePipes(new ValidationPipe())
   async sendNotificationToBulk(
     @Param('id') notificationId: string,
-    @Body() body: { recipientIds?: string[] },
+    @Body() sendBulkNotificationDto: SendBulkNotificationDto,
   ) {
-    const { recipientIds } = body;
+    const { recipientIds } = sendBulkNotificationDto;
     this.logger.log(
       `Отправка массового уведомления ${notificationId} для ${recipientIds?.length || 'всех'} получателей`,
     );

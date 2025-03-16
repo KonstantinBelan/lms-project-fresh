@@ -409,12 +409,15 @@ export class NotificationsService implements INotificationsService {
       .findById(new Types.ObjectId(notificationId))
       .exec();
     if (!notification) {
+      this.logger.warn(`Уведомление ${notificationId} не найдено`);
       throw new NotFoundException(`Уведомление ${notificationId} не найдено`);
     }
 
     if (notification.isSent) {
       this.logger.warn(`Уведомление ${notificationId} уже отправлено`);
-      return notification;
+      throw new BadRequestException(
+        `Уведомление ${notificationId} уже отправлено`,
+      );
     }
 
     const recipients = recipientIds?.length
