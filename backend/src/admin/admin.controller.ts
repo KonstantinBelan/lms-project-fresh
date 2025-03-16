@@ -1,4 +1,12 @@
-import { Controller, Get, Query, UseGuards, Logger } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Query,
+  UseGuards,
+  Logger,
+  UsePipes,
+  ValidationPipe,
+} from '@nestjs/common';
 import { AdminService } from './admin.service';
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -324,6 +332,13 @@ export class AdminController {
     },
   })
   @ApiResponse({ status: 403, description: 'Доступ запрещён' })
+  @UsePipes(
+    new ValidationPipe({
+      transform: true, // Включаем преобразование типов
+      whitelist: true, // Удаляем лишние параметры
+      forbidNonWhitelisted: true, // Запрещаем неизвестные параметры
+    }),
+  )
   async getNotifications(
     @Query() query: GetNotificationsDto,
   ): Promise<INotificationResponse> {

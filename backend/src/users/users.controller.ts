@@ -276,7 +276,6 @@ export class UsersController {
     @Body() editUserDto: EditUserDto,
   ): Promise<UserResponseDto> {
     this.logger.log(`Обновление пользователя с ID: ${id}`);
-    console.log('editUserDto in controller:', editUserDto); // Для отладки
 
     // Проверяем, есть ли хотя бы одно поле с реальным значением
     const hasData = Object.values(editUserDto).some(

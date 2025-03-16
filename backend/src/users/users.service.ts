@@ -183,7 +183,6 @@ export class UsersService {
       groups?: { $addToSet?: string; $pull?: string };
     },
   ): Promise<User | null> {
-    console.log('updateData in service:', updateData); // Для отладки
     if (!Types.ObjectId.isValid(id)) {
       this.logger.warn(`Некорректный ID: ${id}`);
       throw new BadRequestException('Некорректный ID');

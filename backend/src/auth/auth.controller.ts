@@ -9,6 +9,7 @@ import {
 import { AuthService } from './auth.service';
 import { Role } from './roles.enum';
 import { LoginDto } from './dto/login.dto';
+import { SignupDto } from './dto/signup.dto';
 import { AuthResponseDto } from './dto/auth-response.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
@@ -70,22 +71,16 @@ export class AuthController {
   })
   @UsePipes(new ValidationPipe())
   async signup(
-    @Body()
-    body: {
-      email: string;
-      password: string;
-      roles?: Role[];
-      name?: string;
-    },
+    @Body() signupDto: SignupDto,
   ): Promise<{ message: string; userId: string }> {
-    this.logger.log(`Регистрация пользователя с email: ${body.email}`);
+    this.logger.log(`Регистрация пользователя с email: ${signupDto.email}`);
     const user = await this.authService.signUp(
-      body.email,
-      body.password,
-      body.roles || [Role.STUDENT],
-      body.name,
+      signupDto.email,
+      signupDto.password,
+      signupDto.roles || [Role.STUDENT],
+      signupDto.name,
     );
-    this.logger.log(`Пользователь ${body.email} успешно зарегистрирован`);
+    this.logger.log(`Пользователь ${signupDto.email} успешно зарегистрирован`);
     return {
       message: 'Пользователь зарегистрирован',
       userId: user._id.toString(),
