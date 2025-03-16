@@ -7,6 +7,7 @@ import {
   Max,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
 import { Course } from '../../courses/schemas/course.schema';
 
 // DTO для фильтрации курсов с пагинацией
@@ -21,22 +22,14 @@ export class GetCoursesDto {
   title?: string;
 
   @ApiProperty({
-    description: 'ID преподавателя для фильтрации курсов',
-    required: false,
-    example: '507f1f77bcf86cd799439012',
-  })
-  @IsOptional()
-  @IsMongoId()
-  teacherId?: string;
-
-  @ApiProperty({
     description: 'Номер страницы (начиная с 1)',
     required: false,
     example: 1,
   })
   @IsOptional()
-  @IsInt()
-  @Min(1)
+  @Type(() => Number) // Преобразует строку в число
+  @IsInt({ message: 'page должен быть целым числом' })
+  @Min(1, { message: 'page должен быть не меньше 1' })
   page?: number = 1;
 
   @ApiProperty({
@@ -45,9 +38,10 @@ export class GetCoursesDto {
     example: 10,
   })
   @IsOptional()
-  @IsInt()
-  @Min(1)
-  @Max(100)
+  @Type(() => Number) // Преобразует строку в число
+  @IsInt({ message: 'limit должен быть целым числом' })
+  @Min(1, { message: 'limit должен быть не меньше 1' })
+  @Max(100, { message: 'limit не должен превышать 100' })
   limit?: number = 10;
 }
 

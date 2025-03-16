@@ -18,6 +18,7 @@ import { UpdateCourseDto } from './dto/update-course.dto';
 import { CreateModuleDto } from './dto/create-module.dto';
 import { CreateLessonDto } from './dto/create-lesson.dto';
 import { BatchCourseDto } from './dto/batch-course.dto';
+import { CourseStructureDto } from './dto/course-structure.dto';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 import { createObjectCsvWriter } from 'csv-writer';
@@ -395,44 +396,59 @@ export class CoursesService implements ICoursesService {
   }
 
   // Получение структуры курса
-  async getCourseStructure(courseId: string): Promise<any> {
+  async getCourseStructure(courseId: string): Promise<CourseStructureDto> {
     if (!Types.ObjectId.isValid(courseId)) {
       throw new BadRequestException('Неверный ID курса');
     }
-    const cacheKey = `course:structure:${courseId}`;
-    const cachedStructure = await this.cacheManager.get<any>(cacheKey);
-    if (cachedStructure) {
-      this.logger.debug('Структура курса найдена в кэше:', cachedStructure);
-      return cachedStructure;
-    }
 
-    const course = await this.courseModel
-      .findById(courseId)
-      .populate({
-        path: 'modules',
-        populate: { path: 'lessons' },
-      })
-      .lean()
-      .exec();
+    const course = await this.courseModel.findById(courseId).lean().exec();
+
     if (!course) {
       throw new NotFoundException(`Курс с ID ${courseId} не найден`);
     }
 
-    const structure = {
-      courseId: course._id,
+    const modules = await this.moduleModel
+      .find({ _id: { $in: course.modules } })
+      .select('title lessons') // Явно указать, какие поля выбрать для modules
+      .lean()
+      .exec();
+
+    // Выполним отдельный запрос для каждого модуля, чтобы получить данные уроков
+    const populatedModules = await Promise.all(
+      modules.map(async (module) => {
+        const lessons = await this.lessonModel
+          .find({ _id: { $in: module.lessons } })
+          .select('title content')
+          .lean()
+          .exec();
+
+        return {
+          ...module,
+          lessons: lessons.map((lesson) => ({
+            lessonId: lesson._id.toString(),
+            title: lesson.title,
+            content: lesson.content,
+          })),
+        };
+      }),
+    );
+
+    this.logger.log('Course after populate:', JSON.stringify(course, null, 2));
+    this.logger.log(
+      'Modules after populate:',
+      JSON.stringify(populatedModules, null, 2),
+    );
+
+    const structure: CourseStructureDto = {
+      courseId: course._id.toString(),
       title: course.title,
-      modules: course.modules.map((module: any) => ({
-        moduleId: module._id,
+      modules: populatedModules.map((module: any) => ({
+        moduleId: module._id.toString(),
         title: module.title,
-        lessons: module.lessons.map((lesson: any) => ({
-          lessonId: lesson._id,
-          title: lesson.title,
-          content: lesson.content,
-        })),
+        lessons: module.lessons,
       })),
     };
 
-    await this.cacheManager.set(cacheKey, structure, CACHE_TTL);
     this.logger.debug('Структура курса рассчитана:', structure);
     return structure;
   }

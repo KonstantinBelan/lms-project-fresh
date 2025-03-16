@@ -11,15 +11,9 @@ import {
   Notification,
   NotificationDocument,
 } from '../notifications/schemas/notification.schema';
-import {
-  GetEnrollmentsDto,
-  IEnrollmentResponse,
-} from './dto/get-enrollments.dto';
-import {
-  GetNotificationsDto,
-  INotificationResponse,
-} from './dto/get-notifications.dto';
-import { GetActivityDto, IActivityResponse } from './dto/get-activity.dto';
+import { GetEnrollmentsDto } from './dto/get-enrollments.dto';
+import { GetNotificationsDto } from './dto/get-notifications.dto';
+import { GetActivityDto } from './dto/get-activity.dto';
 import { GetCoursesDto, ICourseResponse } from './dto/get-courses.dto';
 
 // Интерфейс для ответа метода getUsers
@@ -29,10 +23,32 @@ interface IUserResponse {
 }
 
 // Интерфейс для ответа метода getEnrollments
-// interface IEnrollmentResponse {
-//   enrollments: Enrollment[];
-//   total: number;
-// }
+interface IEnrollmentResponse {
+  data: Enrollment[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+// Интерфейс для типизации ответа с уведомлениями
+interface INotificationResponse {
+  data: Notification[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+// Интерфейс для типизации ответа с активностью
+interface IActivityResponse {
+  totalUsers: number;
+  totalCourses: number;
+  totalEnrollments: number;
+  totalNotifications: number;
+  recentEnrollments: Enrollment[];
+  recentNotifications: Notification[];
+}
 
 @Injectable()
 export class AdminService {
@@ -92,12 +108,12 @@ export class AdminService {
     );
     const query: any = {};
     if (filters.title) query.title = { $regex: filters.title, $options: 'i' };
-    if (filters.teacherId) {
-      if (!Types.ObjectId.isValid(filters.teacherId)) {
-        throw new BadRequestException('Некорректный ID преподавателя');
-      }
-      query.teacherId = new Types.ObjectId(filters.teacherId);
-    }
+    // if (filters.teacherId) {
+    //   if (!Types.ObjectId.isValid(filters.teacherId)) {
+    //     throw new BadRequestException('Некорректный ID преподавателя');
+    //   }
+    //   query.teacherId = new Types.ObjectId(filters.teacherId);
+    // }
 
     const page = filters.page ?? 1;
     const limit = Math.min(filters.limit ?? 10, 100);
@@ -107,7 +123,7 @@ export class AdminService {
         .find(query)
         .skip(skip)
         .limit(limit)
-        .select('title description teacherId')
+        .select('title description')
         .lean()
         .exec(),
       this.courseModel.countDocuments(query).exec(),
@@ -151,7 +167,7 @@ export class AdminService {
         .find(query)
         .skip(skip)
         .limit(limit)
-        .select('studentId courseId createdAt')
+        // .select('studentId courseId createdAt')
         .lean()
         .exec(),
       this.enrollmentModel.countDocuments(query).exec(),
@@ -201,7 +217,7 @@ export class AdminService {
         .skip(skip)
         .limit(limit)
         .sort({ createdAt: -1 })
-        .select('message userId courseId createdAt')
+        // .select('message userId courseId createdAt')
         .lean()
         .exec(),
       this.notificationModel.countDocuments(query).exec(),
@@ -216,7 +232,9 @@ export class AdminService {
 
   // Получение сводки по активности платформы
   async getActivity(filters: GetActivityDto): Promise<IActivityResponse> {
-    this.logger.log('Получение сводки по активности');
+    this.logger.log(
+      'Получение сводки по активности: страница ${filters.page}, лимит ${filters.limit}',
+    );
     try {
       const dateQuery: any = {};
       if (filters.startDate) dateQuery.$gte = new Date(filters.startDate);
@@ -241,19 +259,23 @@ export class AdminService {
           .exec(),
       ]);
 
+      const page = filters.page ?? 1;
+      const limit = Math.min(filters.limit ?? 10, 100);
+      const skip = (page - 1) * limit;
+
       const recentEnrollments = await this.enrollmentModel
         .find(dateQuery.createdAt ? { createdAt: dateQuery } : {})
         .sort({ createdAt: -1 })
-        .limit(5)
-        .select('userId courseId createdAt')
+        .skip(skip)
+        .limit(limit)
         .lean()
         .exec();
 
       const recentNotifications = await this.notificationModel
         .find(dateQuery.createdAt ? { createdAt: dateQuery } : {})
         .sort({ createdAt: -1 })
-        .limit(5)
-        .select('message userId courseId createdAt')
+        .skip(skip)
+        .limit(limit)
         .lean()
         .exec();
 

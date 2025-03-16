@@ -18,9 +18,12 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { EnrollmentsService } from './enrollments.service';
+import { EnrollmentResponseDto } from './dto/enrollment-response.dto';
 import { CreateEnrollmentDto } from './dto/create-enrollment.dto';
 import { UpdateProgressDto } from './dto/update-progress.dto';
 import { CompleteCourseDto } from './dto/complete-course.dto';
+import { StudentProgress } from './dto/progress.dto';
+import { DetailedStudentProgress } from './dto/detailed-student-progress.dto';
 import { AlreadyEnrolledException } from './exceptions/already-enrolled.exception';
 import { BatchEnrollmentDto } from './dto/batch-enrollment.dto';
 import { Response } from 'express';
@@ -38,59 +41,6 @@ import {
 import { EnrollmentDocument } from './schemas/enrollment.schema';
 import { Types } from 'mongoose';
 import { Logger } from '@nestjs/common';
-
-// DTO для ответа с данными о зачислении
-class EnrollmentResponseDto {
-  @ApiProperty({
-    example: '507f1f77bcf86cd799439011',
-    description: 'Идентификатор зачисления',
-  })
-  id: string;
-
-  @ApiProperty({
-    example: '507f1f77bcf86cd799439012',
-    description: 'Идентификатор студента',
-  })
-  studentId: string;
-
-  @ApiProperty({
-    example: '507f1f77bcf86cd799439013',
-    description: 'Идентификатор курса',
-  })
-  courseId: string;
-
-  @ApiProperty({
-    example: ['507f1f77bcf86cd799439014'],
-    description: 'Список завершенных модулей',
-  })
-  completedModules: string[];
-
-  @ApiProperty({
-    example: ['507f1f77bcf86cd799439015'],
-    description: 'Список завершенных уроков',
-  })
-  completedLessons: string[];
-
-  @ApiProperty({ example: false, description: 'Завершен ли курс' })
-  isCompleted: boolean;
-
-  @ApiProperty({
-    example: 85,
-    description: 'Оценка за курс (опционально)',
-    required: false,
-  })
-  grade?: number;
-
-  @ApiProperty({
-    example: '2025-03-15T00:00:00Z',
-    description: 'Дедлайн (опционально)',
-    required: false,
-  })
-  deadline?: string;
-
-  @ApiProperty({ example: 50, description: 'Количество баллов' })
-  points: number;
-}
 
 // Маппер для преобразования EnrollmentDocument в EnrollmentResponseDto
 function mapToEnrollmentResponse(
@@ -230,13 +180,13 @@ export class EnrollmentsController {
   @ApiResponse({
     status: 200,
     description: 'Прогресс успешно получен',
-    type: 'StudentProgress', // Предполагается, что StudentProgress определен в другом месте
+    type: [StudentProgress], // Предполагается, что StudentProgress определен в другом месте
   })
   @ApiResponse({ status: 400, description: 'Некорректные параметры' })
   async getStudentProgress(
     @Param('studentId') studentId: string,
     @Param('courseId') courseId: string,
-  ) {
+  ): Promise<StudentProgress> {
     if (
       !Types.ObjectId.isValid(studentId) ||
       !Types.ObjectId.isValid(courseId)
@@ -260,7 +210,7 @@ export class EnrollmentsController {
   @ApiResponse({
     status: 200,
     description: 'Детальный прогресс успешно получен',
-    type: 'DetailedStudentProgress', // Предполагается, что определен в интерфейсе
+    type: [DetailedStudentProgress],
   })
   @ApiResponse({ status: 400, description: 'Некорректный studentId' })
   async getDetailedStudentProgress(@Param('studentId') studentId: string) {

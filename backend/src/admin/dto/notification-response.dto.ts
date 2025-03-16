@@ -1,12 +1,12 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { Enrollment } from '../../enrollments/schemas/enrollment.schema';
+import { Notification } from '../../notifications/schemas/notification.schema';
 
-export class EnrollmentResponseDto {
+export class NotificationResponseDto {
   @ApiProperty({
-    type: [Enrollment],
+    type: [Notification],
     description: 'Массив записей о зачислении',
   })
-  data: Enrollment[];
+  data: Notification[];
 
   @ApiProperty({
     type: Number,

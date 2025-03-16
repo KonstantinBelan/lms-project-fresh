@@ -18,23 +18,14 @@ import {
   ApiResponse,
   ApiBearerAuth,
   ApiQuery,
-  getSchemaPath,
 } from '@nestjs/swagger';
-import { User } from '../users/schemas/user.schema';
-import { Course } from '../courses/schemas/course.schema';
-import { Enrollment } from '../enrollments/schemas/enrollment.schema';
-import { Notification } from '../notifications/schemas/notification.schema';
-import {
-  GetEnrollmentsDto,
-  IEnrollmentResponse,
-} from './dto/get-enrollments.dto';
-import { EnrollmentDto } from '../enrollments/dto/enrollment.dto';
+import { NotificationResponseDto } from './dto/notification-response.dto';
+import { GetEnrollmentsDto } from './dto/get-enrollments.dto';
 import { EnrollmentResponseDto } from './dto/enrollment-response.dto';
-import {
-  GetNotificationsDto,
-  INotificationResponse,
-} from './dto/get-notifications.dto';
+import { GetNotificationsDto } from './dto/get-notifications.dto';
+import { ActivitySummaryDto } from './dto/activity-summary.dto';
 import { GetCoursesDto, ICourseResponse } from './dto/get-courses.dto';
+import { CourseResponseDto } from './dto/course-response.dto';
 import { GetActivityDto, IActivityResponse } from './dto/get-activity.dto';
 import { UserResponseDto } from '../users/dto/user-response.dto';
 import { mapToUserResponseDto } from '../users/mappers/user.mapper';
@@ -59,7 +50,7 @@ export class AdminController {
     description: 'Фильтр по ролям пользователей (перечисление через запятую)',
     required: false,
     type: String,
-    example: 'STUDENT,TEACHER',
+    example: 'student,teacher',
   })
   @ApiQuery({
     name: 'email',
@@ -160,13 +151,6 @@ export class AdminController {
     example: 'Математика',
   })
   @ApiQuery({
-    name: 'teacherId',
-    description: 'ID преподавателя для фильтрации курсов (MongoDB ObjectId)',
-    required: false,
-    type: String,
-    example: '507f1f77bcf86cd799439012',
-  })
-  @ApiQuery({
     name: 'page',
     description: 'Номер страницы для пагинации (начинается с 1)',
     required: false,
@@ -183,27 +167,14 @@ export class AdminController {
   @ApiResponse({
     status: 200,
     description: 'Список курсов успешно получен',
-    schema: {
-      type: 'object',
-      properties: {
-        data: {
-          type: 'array',
-          items: { $ref: '#/components/schemas/Course' },
-        },
-        total: { type: 'number', example: 20 },
-        page: { type: 'number', example: 1 },
-        limit: { type: 'number', example: 10 },
-        totalPages: { type: 'number', example: 2 },
-      },
-    },
+    type: CourseResponseDto,
   })
   @ApiResponse({ status: 403, description: 'Доступ запрещён' })
-  async getCourses(@Query() query: GetCoursesDto): Promise<ICourseResponse> {
+  async getCourses(@Query() query: GetCoursesDto): Promise<CourseResponseDto> {
     this.logger.log(
       `Запрос курсов: страница ${query.page}, лимит ${query.limit}`,
     );
-    const result = await this.adminService.getCourses(query);
-    return result;
+    return await this.adminService.getCourses(query);
   }
 
   // Получение записей о зачислении с фильтрами и пагинацией
@@ -255,7 +226,7 @@ export class AdminController {
   )
   async getEnrollments(
     @Query() query: GetEnrollmentsDto,
-  ): Promise<IEnrollmentResponse> {
+  ): Promise<EnrollmentResponseDto> {
     this.logger.log(
       `Запрос записей о зачислении: страница ${query.page}, лимит ${query.limit}`,
     );
@@ -300,19 +271,7 @@ export class AdminController {
   @ApiResponse({
     status: 200,
     description: 'Уведомления успешно получены',
-    schema: {
-      type: 'object',
-      properties: {
-        data: {
-          type: 'array',
-          items: { $ref: '#/components/schemas/Notification' },
-        },
-        total: { type: 'number', example: 50 },
-        page: { type: 'number', example: 1 },
-        limit: { type: 'number', example: 10 },
-        totalPages: { type: 'number', example: 5 },
-      },
-    },
+    type: NotificationResponseDto,
   })
   @ApiResponse({ status: 403, description: 'Доступ запрещён' })
   @UsePipes(
@@ -324,7 +283,7 @@ export class AdminController {
   )
   async getNotifications(
     @Query() query: GetNotificationsDto,
-  ): Promise<INotificationResponse> {
+  ): Promise<NotificationResponseDto> {
     this.logger.log(
       `Запрос уведомлений: страница ${query.page}, лимит ${query.limit}`,
     );
@@ -352,31 +311,29 @@ export class AdminController {
     type: String,
     example: '2025-12-31T23:59:59Z',
   })
+  @ApiQuery({
+    name: 'page',
+    description: 'Номер страницы для пагинации (начинается с 1)',
+    required: false,
+    type: Number,
+    example: 1,
+  })
+  @ApiQuery({
+    name: 'limit',
+    description: 'Количество записей на странице (максимум 100)',
+    required: false,
+    type: Number,
+    example: 10,
+  })
   @ApiResponse({
     status: 200,
     description: 'Сводка по активности успешно получена',
-    schema: {
-      type: 'object',
-      properties: {
-        totalUsers: { type: 'number', example: 100 },
-        totalCourses: { type: 'number', example: 20 },
-        totalEnrollments: { type: 'number', example: 50 },
-        totalNotifications: { type: 'number', example: 200 },
-        recentEnrollments: {
-          type: 'array',
-          items: { $ref: '#/components/schemas/Enrollment' },
-        },
-        recentNotifications: {
-          type: 'array',
-          items: { $ref: '#/components/schemas/Notification' },
-        },
-      },
-    },
+    type: ActivitySummaryDto,
   })
   @ApiResponse({ status: 403, description: 'Доступ запрещён' })
   async getActivity(
     @Query() query: GetActivityDto,
-  ): Promise<IActivityResponse> {
+  ): Promise<ActivitySummaryDto> {
     this.logger.log('Запрос сводки по активности');
     return this.adminService.getActivity(query);
   }

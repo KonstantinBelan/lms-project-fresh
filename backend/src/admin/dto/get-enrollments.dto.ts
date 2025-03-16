@@ -1,6 +1,6 @@
 import { IsOptional, IsMongoId, IsInt, Min, Max } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
-import { Type } from 'class-transformer'; // Добавляем Type для преобразования типов
+import { Type } from 'class-transformer';
 import { Enrollment } from '../../enrollments/schemas/enrollment.schema';
 
 // DTO для фильтрации записей о зачислении с пагинацией
@@ -45,13 +45,4 @@ export class GetEnrollmentsDto {
   @Min(1, { message: 'limit должен быть не меньше 1' })
   @Max(100, { message: 'limit не должен превышать 100' })
   limit?: number = 10;
-}
-
-// Интерфейс для типизации ответа с записями о зачислении
-export interface IEnrollmentResponse {
-  data: Enrollment[];
-  total: number;
-  page: number;
-  limit: number;
-  totalPages: number;
 }

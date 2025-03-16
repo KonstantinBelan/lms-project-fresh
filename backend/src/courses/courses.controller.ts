@@ -28,6 +28,7 @@ import { CreateModuleDto } from './dto/create-module.dto';
 import { CreateLessonDto } from './dto/create-lesson.dto';
 import { BatchCourseDto } from './dto/batch-course.dto';
 import { LeaderboardEntry } from './dto/leaderboard-entry.dto';
+import { CourseStructureDto } from './dto/course-structure.dto';
 import { JwtRequest } from '../common/interfaces/jwt-request.interface';
 import { Role } from '../auth/roles.enum';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -199,7 +200,9 @@ export class CoursesController {
   })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles(Role.ADMIN, Role.TEACHER, Role.MANAGER, Role.STUDENT, Role.ASSISTANT)
-  async courseStructure(@Param('courseId') courseId: string): Promise<any> {
+  async courseStructure(
+    @Param('courseId') courseId: string,
+  ): Promise<CourseStructureDto> {
     if (!Types.ObjectId.isValid(courseId)) {
       this.logger.warn(`Неверный ID курса: ${courseId}`);
       throw new BadRequestException('Неверный ID курса');
