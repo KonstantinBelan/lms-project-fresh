@@ -1,6 +1,8 @@
 import { IsOptional, IsMongoId, IsInt, Min, Max } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import { Type } from 'class-transformer'; // Добавляем Type для преобразования типов
 import { Enrollment } from '../../enrollments/schemas/enrollment.schema';
+
 // DTO для фильтрации записей о зачислении с пагинацией
 export class GetEnrollmentsDto {
   @ApiProperty({
@@ -27,8 +29,9 @@ export class GetEnrollmentsDto {
     example: 1,
   })
   @IsOptional()
-  @IsInt()
-  @Min(1)
+  @Type(() => Number) // Преобразует строку в число
+  @IsInt({ message: 'page должен быть целым числом' })
+  @Min(1, { message: 'page должен быть не меньше 1' })
   page?: number = 1;
 
   @ApiProperty({
@@ -37,9 +40,10 @@ export class GetEnrollmentsDto {
     example: 10,
   })
   @IsOptional()
-  @IsInt()
-  @Min(1)
-  @Max(100)
+  @Type(() => Number) // Преобразует строку в число
+  @IsInt({ message: 'limit должен быть целым числом' })
+  @Min(1, { message: 'limit должен быть не меньше 1' })
+  @Max(100, { message: 'limit не должен превышать 100' })
   limit?: number = 10;
 }
 

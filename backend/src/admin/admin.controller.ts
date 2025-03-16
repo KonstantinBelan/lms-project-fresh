@@ -252,6 +252,13 @@ export class AdminController {
     },
   })
   @ApiResponse({ status: 403, description: 'Доступ запрещён' })
+  @UsePipes(
+    new ValidationPipe({
+      transform: true, // Включаем преобразование типов
+      whitelist: true, // Удаляем лишние параметры
+      forbidNonWhitelisted: true, // Запрещаем неизвестные параметры
+    }),
+  )
   async getEnrollments(@Query() query: GetEnrollmentsDto): Promise<{
     data: Enrollment[];
     total: number;
