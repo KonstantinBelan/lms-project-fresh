@@ -217,7 +217,7 @@ export class AdminController {
     example: '507f1f77bcf86cd799439011',
   })
   @ApiQuery({
-    name: 'userId',
+    name: 'studentId',
     description: 'ID пользователя для фильтрации записей (MongoDB ObjectId)',
     required: false,
     type: String,

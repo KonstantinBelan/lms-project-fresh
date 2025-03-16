@@ -132,11 +132,11 @@ export class AdminService {
       }
       query.courseId = new Types.ObjectId(filters.courseId);
     }
-    if (filters.userId) {
-      if (!Types.ObjectId.isValid(filters.userId)) {
+    if (filters.studentId) {
+      if (!Types.ObjectId.isValid(filters.studentId)) {
         throw new BadRequestException('Некорректный ID пользователя');
       }
-      query.userId = new Types.ObjectId(filters.userId);
+      query.studentId = new Types.ObjectId(filters.studentId);
     }
 
     // Лог для отладки запроса
@@ -151,7 +151,7 @@ export class AdminService {
         .find(query)
         .skip(skip)
         .limit(limit)
-        .select('userId courseId createdAt')
+        .select('studentId courseId createdAt')
         .lean()
         .exec(),
       this.enrollmentModel.countDocuments(query).exec(),

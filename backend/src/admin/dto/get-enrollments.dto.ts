@@ -21,7 +21,7 @@ export class GetEnrollmentsDto {
   })
   @IsOptional()
   @IsMongoId()
-  userId?: string;
+  studentId?: string;
 
   @ApiProperty({
     description: 'Номер страницы (начиная с 1)',
