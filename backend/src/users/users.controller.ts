@@ -20,12 +20,14 @@ import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
+import { EditUserDto } from './dto/edit-user.dto';
 import { ConnectTelegramDto } from './dto/connect-telegram.dto';
 import { UserResponseDto } from './dto/user-response.dto';
 import { Role } from '../auth/roles.enum';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { GroupsService } from '../groups/groups.service';
 import {
+  ApiBody,
   ApiTags,
   ApiParam,
   ApiOperation,
@@ -238,6 +240,7 @@ export class UsersController {
 
   @Put(':id')
   @ApiOperation({ summary: 'Обновить данные пользователя' })
+  @ApiBody({ type: EditUserDto })
   @ApiParam({
     name: 'id',
     description: 'ID пользователя',
@@ -255,19 +258,26 @@ export class UsersController {
   })
   @ApiResponse({
     status: 400,
-    description: 'Некорректный ID',
+    description: 'Некорректный ID или пустой запрос',
     type: ErrorResponseDto,
   })
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles(Role.ADMIN)
   async update(
     @Param('id') id: string,
-    @Body() body: { name?: string; phone?: string; roles?: Role[] },
+    @Body() editUserDto: EditUserDto,
   ): Promise<UserResponseDto> {
     this.logger.log(`Обновление пользователя с ID: ${id}`);
-    const updatedUser = await this.usersService.updateUser(id, body);
-    if (!updatedUser)
+
+    // Проверяем, пустой ли объект
+    if (!editUserDto || Object.keys(editUserDto).length === 0) {
+      throw new BadRequestException('Запрос не содержит данных для обновления');
+    }
+
+    const updatedUser = await this.usersService.updateUser(id, editUserDto);
+    if (!updatedUser) {
       throw new NotFoundException(`Пользователь с ID ${id} не найден`);
+    }
     return mapToUserResponseDto(updatedUser);
   }
 
