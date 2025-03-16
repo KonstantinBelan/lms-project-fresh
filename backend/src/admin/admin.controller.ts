@@ -18,6 +18,7 @@ import {
   ApiResponse,
   ApiBearerAuth,
   ApiQuery,
+  getSchemaPath,
 } from '@nestjs/swagger';
 import { User } from '../users/schemas/user.schema';
 import { Course } from '../courses/schemas/course.schema';
@@ -27,6 +28,8 @@ import {
   GetEnrollmentsDto,
   IEnrollmentResponse,
 } from './dto/get-enrollments.dto';
+import { EnrollmentDto } from '../enrollments/dto/enrollment.dto';
+import { EnrollmentResponseDto } from './dto/enrollment-response.dto';
 import {
   GetNotificationsDto,
   INotificationResponse,
@@ -240,19 +243,7 @@ export class AdminController {
   @ApiResponse({
     status: 200,
     description: 'Записи о зачислении успешно получены',
-    schema: {
-      type: 'object',
-      properties: {
-        data: {
-          type: 'array',
-          items: { $ref: '#/components/schemas/Enrollment' },
-        },
-        total: { type: 'number', example: 50 },
-        page: { type: 'number', example: 1 },
-        limit: { type: 'number', example: 10 },
-        totalPages: { type: 'number', example: 5 },
-      },
-    },
+    type: EnrollmentResponseDto,
   })
   @ApiResponse({ status: 403, description: 'Доступ запрещён' })
   @UsePipes(
