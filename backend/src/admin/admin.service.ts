@@ -11,7 +11,10 @@ import {
   Notification,
   NotificationDocument,
 } from '../notifications/schemas/notification.schema';
-import { GetEnrollmentsDto } from './dto/get-enrollments.dto';
+import {
+  GetEnrollmentsDto,
+  IEnrollmentResponse,
+} from './dto/get-enrollments.dto';
 import {
   GetNotificationsDto,
   INotificationResponse,
@@ -26,10 +29,10 @@ interface IUserResponse {
 }
 
 // Интерфейс для ответа метода getEnrollments
-interface IEnrollmentResponse {
-  enrollments: Enrollment[];
-  total: number;
-}
+// interface IEnrollmentResponse {
+//   enrollments: Enrollment[];
+//   total: number;
+// }
 
 @Injectable()
 export class AdminService {
@@ -136,9 +139,13 @@ export class AdminService {
       query.userId = new Types.ObjectId(filters.userId);
     }
 
-    const page = filters.page ?? 1;
-    const limit = Math.min(filters.limit ?? 10, 100);
+    // Лог для отладки запроса
+    this.logger.debug(`Сформированный запрос: ${JSON.stringify(query)}`);
+
+    const page = filters.page!; // Указываем, что page не undefined
+    const limit = filters.limit!; // Указываем, что limit не undefined
     const skip = (page - 1) * limit;
+
     const [enrollments, total] = await Promise.all([
       this.enrollmentModel
         .find(query)
@@ -153,7 +160,15 @@ export class AdminService {
     this.logger.debug(
       `Найдено ${enrollments.length} записей о зачислении из ${total}`,
     );
-    return { enrollments, total };
+    this.logger.debug(`Результат: ${JSON.stringify(enrollments)}`);
+
+    return {
+      data: enrollments,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
   }
 
   // Получение уведомлений с фильтрами и пагинацией

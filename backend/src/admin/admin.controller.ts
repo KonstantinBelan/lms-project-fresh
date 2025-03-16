@@ -23,7 +23,10 @@ import { User } from '../users/schemas/user.schema';
 import { Course } from '../courses/schemas/course.schema';
 import { Enrollment } from '../enrollments/schemas/enrollment.schema';
 import { Notification } from '../notifications/schemas/notification.schema';
-import { GetEnrollmentsDto } from './dto/get-enrollments.dto';
+import {
+  GetEnrollmentsDto,
+  IEnrollmentResponse,
+} from './dto/get-enrollments.dto';
 import {
   GetNotificationsDto,
   INotificationResponse,
@@ -254,37 +257,19 @@ export class AdminController {
   @ApiResponse({ status: 403, description: 'Доступ запрещён' })
   @UsePipes(
     new ValidationPipe({
-      transform: true, // Включаем преобразование типов
-      whitelist: true, // Удаляем лишние параметры
-      forbidNonWhitelisted: true, // Запрещаем неизвестные параметры
+      transform: true,
+      whitelist: true,
+      forbidNonWhitelisted: true,
     }),
   )
-  async getEnrollments(@Query() query: GetEnrollmentsDto): Promise<{
-    data: Enrollment[];
-    total: number;
-    page: number;
-    limit: number;
-    totalPages: number;
-  }> {
+  async getEnrollments(
+    @Query() query: GetEnrollmentsDto,
+  ): Promise<IEnrollmentResponse> {
     this.logger.log(
       `Запрос записей о зачислении: страница ${query.page}, лимит ${query.limit}`,
     );
-    const pageNum = query.page ?? 1;
-    const limitNum = Math.min(query.limit ?? 10, 100);
-    const { enrollments, total } = await this.adminService.getEnrollments({
-      ...query,
-      page: pageNum,
-      limit: limitNum,
-    });
-    const totalPages = Math.ceil(total / limitNum);
-
-    return {
-      data: enrollments,
-      total,
-      page: pageNum,
-      limit: limitNum,
-      totalPages,
-    };
+    const result = await this.adminService.getEnrollments(query);
+    return result;
   }
 
   // Получение уведомлений с фильтрами и пагинацией
