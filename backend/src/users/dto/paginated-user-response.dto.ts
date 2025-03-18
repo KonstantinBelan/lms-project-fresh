@@ -2,7 +2,7 @@ import { ApiProperty } from '@nestjs/swagger';
 import { UserResponseDto } from './user-response.dto';
 import { User } from '../../users/schemas/user.schema';
 
-export class PaginatedUserResponseDto {
+export class PaginatedUserResponseDto { 
   @ApiProperty({
     description: 'Список пользователей',
     type: [UserResponseDto],

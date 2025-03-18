@@ -1,9 +1,9 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { Course } from '../../courses/schemas/course.schema';
+import { CourseResponseDto } from '../../courses/dto/course-response.dto';
 
-export class CourseResponseDto {
-  @ApiProperty({ description: 'Список курсов', type: [Course] })
-  data: Course[];
+export class PaginatedCourseResponseDto {
+  @ApiProperty({ description: 'Список курсов', type: [CourseResponseDto] })
+  data: CourseResponseDto[];
 
   @ApiProperty({ description: 'Общее количество курсов', example: 20 })
   total: number;

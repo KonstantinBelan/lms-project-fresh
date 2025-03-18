@@ -6,7 +6,7 @@ export type EnrollmentDocument = Enrollment &
   Document & { _id: Types.ObjectId };
 
 // Схема зачисления
-@Schema()
+@Schema({ timestamps: true })
 export class Enrollment extends Document {
   @Prop({ required: true, type: Types.ObjectId, ref: 'User' })
   studentId: string; // Идентификатор студента
@@ -16,6 +16,9 @@ export class Enrollment extends Document {
 
   @Prop({ type: Types.ObjectId, ref: 'Stream', required: false })
   streamId?: Types.ObjectId; // Идентификатор потока (опционально)
+
+  @Prop({ type: Types.ObjectId, ref: 'Tariff', required: false })
+  tariffId?: Types.ObjectId; // Идентификатор тарифа (опционально)
 
   @Prop({ type: [String], default: [] })
   completedModules: string[]; // Список завершенных модулей
@@ -34,9 +37,6 @@ export class Enrollment extends Document {
 
   @Prop({ type: Number, default: 0 })
   points: number; // Количество набранных баллов
-
-  @Prop({ type: Types.ObjectId, ref: 'Tariff', required: false })
-  tariffId?: Types.ObjectId; // Идентификатор тарифа (опционально)
 
   @Prop({ default: 0 })
   __v: number; // Версия документа Mongoose

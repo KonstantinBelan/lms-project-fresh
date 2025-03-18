@@ -13,45 +13,18 @@ import {
 } from '../notifications/schemas/notification.schema';
 import { GetEnrollmentsDto } from './dto/get-enrollments.dto';
 import { GetNotificationsDto } from './dto/get-notifications.dto';
+import { ActivitySummaryDto } from './dto/activity-summary.dto';
 import { GetActivityDto } from './dto/get-activity.dto';
-import { GetCoursesDto, ICourseResponse } from './dto/get-courses.dto';
+import { GetCoursesDto } from './dto/get-courses.dto';
+import { CourseResponseDto } from '../courses/dto/course-response.dto';
+import { EnrollmentResponseDto } from '../enrollments/dto/enrollment-response.dto';
+import { PaginatedCourseResponseDto } from './dto/paginated-course-response.dto';
 import { PaginatedUserResponseDto } from '../users/dto/paginated-user-response.dto';
 import { UserResponseDto } from '../users/dto/user-response.dto';
 import { GetUsersDto } from './dto/get-users.dto';
-
-// Интерфейс для ответа метода getUsers
-interface IUserResponse {
-  users: User[];
-  total: number;
-}
-
-// Интерфейс для ответа метода getEnrollments
-interface IEnrollmentResponse {
-  data: Enrollment[];
-  total: number;
-  page: number;
-  limit: number;
-  totalPages: number;
-}
-
-// Интерфейс для типизации ответа с уведомлениями
-interface INotificationResponse {
-  data: Notification[];
-  total: number;
-  page: number;
-  limit: number;
-  totalPages: number;
-}
-
-// Интерфейс для типизации ответа с активностью
-interface IActivityResponse {
-  totalUsers: number;
-  totalCourses: number;
-  totalEnrollments: number;
-  totalNotifications: number;
-  recentEnrollments: Enrollment[];
-  recentNotifications: Notification[];
-}
+import { NotificationResponseDto } from '../notifications/dto/notification-response.dto';
+import { PaginatedNotificationDto } from './dto/paginated-notification-response.dto';
+import { PaginatedEnrollmentDto } from './dto/paginated-enrollment-response.dto';
 
 @Injectable()
 export class AdminService {
@@ -111,11 +84,15 @@ export class AdminService {
       this.userModel.countDocuments(query).exec(),
     ]);
 
+    if (users.length <= 0) {
+      throw new BadRequestException('Пользователи не найдены');
+    }
+
     this.logger.debug(`Найдено ${users.length} пользователей из ${total}`);
 
     // Формирование ответа
     return {
-      data: users.map((user) => new UserResponseDto(user as any)),
+      data: users.map((user) => new UserResponseDto(user as User)),
       total,
       page,
       limit,
@@ -124,42 +101,44 @@ export class AdminService {
   }
 
   // Получение списка курсов с фильтрами и пагинацией
-  async getCourses(filters: GetCoursesDto = {}): Promise<ICourseResponse> {
+  async getCourses(filters): Promise<PaginatedCourseResponseDto> {
     this.logger.log(
       `Получение курсов: страница ${filters.page}, лимит ${filters.limit}`,
     );
     const query: any = {};
     if (filters.title) query.title = { $regex: filters.title, $options: 'i' };
-    // if (filters.teacherId) {
-    //   if (!Types.ObjectId.isValid(filters.teacherId)) {
-    //     throw new BadRequestException('Некорректный ID преподавателя');
-    //   }
-    //   query.teacherId = new Types.ObjectId(filters.teacherId);
-    // }
+    if (filters.description)
+      query.description = { $regex: filters.description, $options: 'i' };
 
     const page = filters.page ?? 1;
     const limit = Math.min(filters.limit ?? 10, 100);
     const skip = (page - 1) * limit;
     const [courses, total] = await Promise.all([
-      this.courseModel
-        .find(query)
-        .skip(skip)
-        .limit(limit)
-        .select('title description')
-        .lean()
-        .exec(),
+      this.courseModel.find(query).skip(skip).limit(limit).lean().exec(),
       this.courseModel.countDocuments(query).exec(),
     ]);
 
     const totalPages = Math.ceil(total / limit);
+
+    if (courses.length <= 0) {
+      throw new BadRequestException('Курсы не найдены');
+    }
+
     this.logger.debug(`Найдено ${courses.length} курсов из ${total}`);
-    return { data: courses, total, page, limit, totalPages };
+
+    return {
+      data: courses.map((course) => new CourseResponseDto(course as Course)),
+      total,
+      page,
+      limit,
+      totalPages,
+    };
   }
 
   // Получение записей о зачислении с фильтрами и пагинацией
   async getEnrollments(
     filters: GetEnrollmentsDto,
-  ): Promise<IEnrollmentResponse> {
+  ): Promise<PaginatedEnrollmentDto> {
     this.logger.log(
       `Получение записей о зачислении: страница ${filters.page}, лимит ${filters.limit}`,
     );
@@ -195,6 +174,9 @@ export class AdminService {
       this.enrollmentModel.countDocuments(query).exec(),
     ]);
 
+    if (enrollments.length <= 0) {
+      throw new BadRequestException('Записей о зачислениях не найдено');
+    }
     this.logger.debug(
       `Найдено ${enrollments.length} записей о зачислении из ${total}`,
     );
@@ -212,7 +194,7 @@ export class AdminService {
   // Получение уведомлений с фильтрами и пагинацией
   async getNotifications(
     filters: GetNotificationsDto,
-  ): Promise<INotificationResponse> {
+  ): Promise<PaginatedNotificationDto> {
     this.logger.log(
       `Получение уведомлений: страница ${filters.page}, лимит ${filters.limit}`,
     );
@@ -246,6 +228,11 @@ export class AdminService {
     ]);
 
     const totalPages = Math.ceil(total / limit);
+
+    if (notifications.length <= 0) {
+      throw new BadRequestException('Уведомлений не найдено');
+    }
+
     this.logger.debug(
       `Найдено ${notifications.length} уведомлений из ${total}`,
     );
@@ -253,61 +240,93 @@ export class AdminService {
   }
 
   // Получение сводки по активности платформы
-  async getActivity(filters: GetActivityDto): Promise<IActivityResponse> {
+  async getActivity(filters: GetActivityDto): Promise<ActivitySummaryDto> {
     this.logger.log(
-      'Получение сводки по активности: страница ${filters.page}, лимит ${filters.limit}',
+      `Получение сводки по активности: страница ${filters.page}, лимит ${filters.limit}`,
     );
+
     try {
-      const dateQuery: any = {};
+      // Формируем фильтр по createdAt
+      const dateQuery: { $gte?: Date; $lte?: Date } = {};
       if (filters.startDate) dateQuery.$gte = new Date(filters.startDate);
       if (filters.endDate) dateQuery.$lte = new Date(filters.endDate);
 
-      const [users, courses, enrollments, notifications] = await Promise.all([
-        this.userModel
-          .countDocuments(dateQuery.createdAt ? { createdAt: dateQuery } : {})
-          .lean()
-          .exec(),
-        this.courseModel
-          .countDocuments(dateQuery.createdAt ? { createdAt: dateQuery } : {})
-          .lean()
-          .exec(),
-        this.enrollmentModel
-          .countDocuments(dateQuery.createdAt ? { createdAt: dateQuery } : {})
-          .lean()
-          .exec(),
-        this.notificationModel
-          .countDocuments(dateQuery.createdAt ? { createdAt: dateQuery } : {})
-          .lean()
-          .exec(),
-      ]);
+      // Если есть фильтры по датам, применяем их к полю createdAt
+      const query = Object.keys(dateQuery).length
+        ? { createdAt: dateQuery }
+        : {};
 
       const page = filters.page ?? 1;
       const limit = Math.min(filters.limit ?? 10, 100);
       const skip = (page - 1) * limit;
 
-      const recentEnrollments = await this.enrollmentModel
-        .find(dateQuery.createdAt ? { createdAt: dateQuery } : {})
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(limit)
-        .lean()
-        .exec();
+      // Подсчет общего количества
+      const [
+        totalUsers,
+        totalCourses,
+        totalEnrollments,
+        totalNotifications,
+        enrollmentsCount,
+        notificationsCount,
+      ] = await Promise.all([
+        this.userModel.countDocuments(query).exec(),
+        this.courseModel.countDocuments(query).exec(),
+        this.enrollmentModel.countDocuments(query).exec(),
+        this.notificationModel.countDocuments(query).exec(),
+        this.enrollmentModel.countDocuments(query).exec(), // Общее количество записей enrollments
+        this.notificationModel.countDocuments(query).exec(), // Общее количество уведомлений
+      ]);
 
-      const recentNotifications = await this.notificationModel
-        .find(dateQuery.createdAt ? { createdAt: dateQuery } : {})
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(limit)
-        .lean()
-        .exec();
+      // Получение пагинированных списков
+      const [recentEnrollments, recentNotifications] = await Promise.all([
+        this.enrollmentModel
+          .find(query)
+          .sort({ createdAt: -1 })
+          .skip(skip)
+          .limit(limit)
+          .lean()
+          .exec(),
+        this.notificationModel
+          .find(query)
+          .sort({ createdAt: -1 })
+          .skip(skip)
+          .limit(limit)
+          .lean()
+          .exec(),
+      ]);
+
+      this.logger.debug('recentEnrollments:', recentEnrollments);
+      this.logger.debug('recentNotifications:', recentNotifications);
+
+      this.logger.debug('recentEnrollments length:', recentEnrollments.length);
+      this.logger.debug(
+        'recentNotifications length:',
+        recentNotifications.length,
+      );
 
       return {
-        totalUsers: users,
-        totalCourses: courses,
-        totalEnrollments: enrollments,
-        totalNotifications: notifications,
-        recentEnrollments,
-        recentNotifications,
+        totalUsers,
+        totalCourses,
+        totalEnrollments,
+        totalNotifications,
+        recentEnrollments: {
+          data: recentEnrollments.map(
+            (enrollment) => new EnrollmentResponseDto(enrollment),
+          ),
+          total: enrollmentsCount,
+          page,
+          limit,
+          totalPages: Math.ceil(enrollmentsCount / limit),
+        },
+        recentNotifications: {
+          data: recentNotifications.map(
+            (notification) => new NotificationResponseDto(notification),
+          ),
+          total: notificationsCount,
+          page,
+          limit,
+          totalPages: Math.ceil(notificationsCount / limit),
+        },
       };
     } catch (error) {
       this.logger.error(

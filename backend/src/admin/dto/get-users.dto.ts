@@ -1,8 +1,8 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsOptional, IsString, IsInt, Min, Max } from 'class-validator';
-import { Type } from 'class-transformer';
+import { IsOptional, IsString } from 'class-validator';
+import { PaginatedFilterDto } from '../../common/dto/paginated-filter.dto';
 
-export class GetUsersDto {
+export class GetUsersDto extends PaginatedFilterDto {
   @ApiProperty({
     description: 'Фильтр по ролям пользователей (перечисление через запятую)',
     example: 'student,teacher',
@@ -30,27 +30,4 @@ export class GetUsersDto {
   @IsOptional()
   @IsString()
   groups?: string;
-
-  @ApiProperty({
-    description: 'Номер страницы для пагинации (начинается с 1)',
-    example: 1,
-    required: false,
-  })
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  page?: number = 1;
-
-  @ApiProperty({
-    description: 'Количество записей на странице (максимум 100)',
-    example: 10,
-    required: false,
-  })
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  @Max(100)
-  limit?: number = 10;
 }

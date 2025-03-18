@@ -1,11 +1,12 @@
-import { IsOptional, IsDateString, IsInt, Min, Max } from 'class-validator';
+import { IsOptional, IsDateString } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
-import { Enrollment } from '../../enrollments/schemas/enrollment.schema';
-import { Notification } from '../../notifications/schemas/notification.schema';
+import { PaginatedFilterDto } from '../../common/dto/paginated-filter.dto';
+import { IsDateBefore } from '../../common/decorators/is-date-before.decorator';
 import { Type } from 'class-transformer';
+import { BadRequestException } from '@nestjs/common';
 
 // DTO для фильтрации активности по датам
-export class GetActivityDto {
+export class GetActivityDto extends PaginatedFilterDto {
   @ApiProperty({
     description: 'Начальная дата для фильтрации активности (ISO 8601)',
     required: false,
@@ -13,6 +14,9 @@ export class GetActivityDto {
   })
   @IsOptional()
   @IsDateString()
+  @IsDateBefore('endDate', {
+    message: 'Начальная дата должна быть раньше даты окончания 2',
+  })
   startDate?: string;
 
   @ApiProperty({
@@ -24,36 +28,15 @@ export class GetActivityDto {
   @IsDateString()
   endDate?: string;
 
-  @ApiProperty({
-    description: 'Номер страницы (начиная с 1)',
-    required: false,
-    example: 1,
-  })
-  @IsOptional()
-  @Type(() => Number) // Преобразует строку в число
-  @IsInt({ message: 'page должен быть целым числом' })
-  @Min(1, { message: 'page должен быть не меньше 1' })
-  page?: number = 1;
-
-  @ApiProperty({
-    description: 'Количество записей на странице (максимум 100)',
-    required: false,
-    example: 10,
-  })
-  @IsOptional()
-  @Type(() => Number) // Преобразует строку в число
-  @IsInt({ message: 'limit должен быть целым числом' })
-  @Min(1, { message: 'limit должен быть не меньше 1' })
-  @Max(100, { message: 'limit не должен превышать 100' })
-  limit?: number = 10;
-}
-
-// Интерфейс для типизации ответа с активностью
-export interface IActivityResponse {
-  totalUsers: number;
-  totalCourses: number;
-  totalEnrollments: number;
-  totalNotifications: number;
-  recentEnrollments: Enrollment[];
-  recentNotifications: Notification[];
+  // validateDates() {
+  //   if (
+  //     this.startDate &&
+  //     this.endDate &&
+  //     new Date(this.startDate) > new Date(this.endDate)
+  //   ) {
+  //     throw new BadRequestException(
+  //       'Начальная дата должна быть раньше даты окончания',
+  //     );
+  //   }
+  // }
 }
