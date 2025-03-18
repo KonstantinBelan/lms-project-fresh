@@ -1,8 +1,6 @@
 import { IsOptional, IsMongoId, IsInt, Min, Max } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { Notification } from '../../notifications/schemas/notification.schema';
-import { NotificationResponseDto } from '../dto/notification-response.dto';
 
 // DTO для фильтрации уведомлений с пагинацией
 export class GetNotificationsDto {

@@ -23,6 +23,7 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { EditUserDto } from './dto/edit-user.dto';
 import { ConnectTelegramDto } from './dto/connect-telegram.dto';
 import { UserResponseDto } from './dto/user-response.dto';
+import { PaginatedUserResponseDto } from './dto/paginated-user-response.dto';
 import { Role } from '../auth/roles.enum';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { GroupsService } from '../groups/groups.service';
@@ -150,19 +151,7 @@ export class UsersController {
   @ApiResponse({
     status: 200,
     description: 'Список пользователей с пагинацией',
-    schema: {
-      type: 'object',
-      properties: {
-        data: {
-          type: 'array',
-          items: { $ref: '#/components/schemas/UserResponseDto' },
-        },
-        total: { type: 'number', example: 50 },
-        page: { type: 'number', example: 1 },
-        limit: { type: 'number', example: 10 },
-        totalPages: { type: 'number', example: 5 },
-      },
-    },
+    type: PaginatedUserResponseDto,
   })
   @ApiResponse({
     status: 403,
@@ -177,13 +166,7 @@ export class UsersController {
     @Query('groups') groups?: string,
     @Query('page') page: string = '1',
     @Query('limit') limit: string = '10',
-  ): Promise<{
-    data: UserResponseDto[];
-    total: number;
-    page: number;
-    limit: number;
-    totalPages: number;
-  }> {
+  ): Promise<PaginatedUserResponseDto> {
     this.logger.log('Получение списка пользователей с фильтрами');
     const filters: { roles?: string[]; email?: string; groups?: string[] } = {};
     if (roles) filters.roles = roles.split(',').map((role) => role.trim());

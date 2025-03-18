@@ -24,10 +24,11 @@ import { GetEnrollmentsDto } from './dto/get-enrollments.dto';
 import { EnrollmentResponseDto } from './dto/enrollment-response.dto';
 import { GetNotificationsDto } from './dto/get-notifications.dto';
 import { ActivitySummaryDto } from './dto/activity-summary.dto';
-import { GetCoursesDto, ICourseResponse } from './dto/get-courses.dto';
+import { GetCoursesDto } from './dto/get-courses.dto';
 import { CourseResponseDto } from './dto/course-response.dto';
-import { GetActivityDto, IActivityResponse } from './dto/get-activity.dto';
-import { UserResponseDto } from '../users/dto/user-response.dto';
+import { GetActivityDto } from './dto/get-activity.dto';
+import { GetUsersDto } from './dto/get-users.dto';
+import { PaginatedUserResponseDto } from '../users/dto/paginated-user-response.dto';
 import { mapToUserResponseDto } from '../users/mappers/user.mapper';
 
 @ApiTags('Админ')
@@ -42,100 +43,20 @@ export class AdminController {
   // Получение списка пользователей с фильтрами и пагинацией
   @Get('users')
   @Roles(Role.ADMIN)
+  @UsePipes(new ValidationPipe({ transform: true }))
   @ApiOperation({
     summary: 'Получить список пользователей с фильтрами и пагинацией',
-  })
-  @ApiQuery({
-    name: 'roles',
-    description: 'Фильтр по ролям пользователей (перечисление через запятую)',
-    required: false,
-    type: String,
-    example: 'student,teacher',
-  })
-  @ApiQuery({
-    name: 'email',
-    description:
-      'Фильтр по email (поддерживает частичное совпадение, нечувствителен к регистру)',
-    required: false,
-    type: String,
-    example: 'user@example.com',
-  })
-  @ApiQuery({
-    name: 'groups',
-    description:
-      'Фильтр по ID групп (перечисление через запятую, ожидается MongoDB ObjectId)',
-    required: false,
-    type: String,
-    example: '507f1f77bcf86cd799439011,507f1f77bcf86cd799439012',
-  })
-  @ApiQuery({
-    name: 'page',
-    description: 'Номер страницы для пагинации (начинается с 1)',
-    required: false,
-    type: Number,
-    example: 1,
-  })
-  @ApiQuery({
-    name: 'limit',
-    description: 'Количество записей на странице (максимум 100)',
-    required: false,
-    type: Number,
-    example: 10,
   })
   @ApiResponse({
     status: 200,
     description: 'Список пользователей успешно получен',
-    schema: {
-      type: 'object',
-      properties: {
-        data: {
-          type: 'array',
-          items: { $ref: '#/components/schemas/UserResponseDto' },
-        },
-        total: { type: 'number', example: 50 },
-        page: { type: 'number', example: 1 },
-        limit: { type: 'number', example: 10 },
-        totalPages: { type: 'number', example: 5 },
-      },
-    },
+    type: PaginatedUserResponseDto,
   })
   @ApiResponse({ status: 403, description: 'Доступ запрещён' })
   async getUsers(
-    @Query('roles') roles?: string,
-    @Query('email') email?: string,
-    @Query('groups') groups?: string,
-    @Query('page') page: string = '1',
-    @Query('limit') limit: string = '10',
-  ): Promise<{
-    data: UserResponseDto[];
-    total: number;
-    page: number;
-    limit: number;
-    totalPages: number;
-  }> {
-    this.logger.log(`Запрос пользователей: страница ${page}, лимит ${limit}`);
-    const filters: { roles?: string[]; email?: string; groups?: string[] } = {};
-    if (roles) filters.roles = roles.split(',').map((role) => role.trim());
-    if (email) filters.email = email;
-    if (groups) filters.groups = groups.split(',').map((group) => group.trim());
-
-    const pageNum = parseInt(page, 10) || 1;
-    const limitNum = Math.min(parseInt(limit, 10) || 10, 100);
-
-    const { users, total } = await this.adminService.getUsers(
-      filters,
-      pageNum,
-      limitNum,
-    );
-    const totalPages = Math.ceil(total / limitNum);
-
-    return {
-      data: users.map(mapToUserResponseDto),
-      total,
-      page: pageNum,
-      limit: limitNum,
-      totalPages,
-    };
+    @Query() filters: GetUsersDto,
+  ): Promise<PaginatedUserResponseDto> {
+    return this.adminService.getUsers(filters);
   }
 
   // Получение списка курсов с фильтрами и пагинацией

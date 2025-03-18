@@ -15,6 +15,9 @@ import { GetEnrollmentsDto } from './dto/get-enrollments.dto';
 import { GetNotificationsDto } from './dto/get-notifications.dto';
 import { GetActivityDto } from './dto/get-activity.dto';
 import { GetCoursesDto, ICourseResponse } from './dto/get-courses.dto';
+import { PaginatedUserResponseDto } from '../users/dto/paginated-user-response.dto';
+import { UserResponseDto } from '../users/dto/user-response.dto';
+import { GetUsersDto } from './dto/get-users.dto';
 
 // Интерфейс для ответа метода getUsers
 interface IUserResponse {
@@ -64,19 +67,25 @@ export class AdminService {
   ) {}
 
   // Получение списка пользователей с фильтрами и пагинацией
-  async getUsers(
-    filters: { roles?: string[]; email?: string; groups?: string[] } = {},
-    page: number = 1,
-    limit: number = 10,
-  ): Promise<IUserResponse> {
+  async getUsers(filters: GetUsersDto): Promise<PaginatedUserResponseDto> {
     this.logger.log(
-      `Получение пользователей: страница ${page}, лимит ${limit}`,
+      `Получение пользователей: страница ${filters.page}, лимит ${filters.limit}`,
     );
+
     const query: any = {};
-    if (filters.roles?.length) query.roles = { $in: filters.roles };
-    if (filters.email) query.email = { $regex: filters.email, $options: 'i' };
-    if (filters.groups?.length) {
-      const groupObjectIds = filters.groups.map((id) => {
+
+    // Обработка фильтров
+    if (filters.roles) {
+      query.roles = {
+        $in: filters.roles.split(',').map((role) => role.trim()),
+      };
+    }
+    if (filters.email) {
+      query.email = { $regex: filters.email, $options: 'i' };
+    }
+    if (filters.groups) {
+      const groupIds = filters.groups.split(',').map((id) => id.trim());
+      const groupObjectIds = groupIds.map((id) => {
         if (!Types.ObjectId.isValid(id)) {
           throw new BadRequestException(`Некорректный ID группы: ${id}`);
         }
@@ -85,7 +94,12 @@ export class AdminService {
       query.groups = { $in: groupObjectIds };
     }
 
+    // Пагинация
+    const page = filters.page || 1;
+    const limit = Math.min(filters.limit || 10, 100);
     const skip = (page - 1) * limit;
+
+    // Выполнение запросов
     const [users, total] = await Promise.all([
       this.userModel
         .find(query)
@@ -98,7 +112,15 @@ export class AdminService {
     ]);
 
     this.logger.debug(`Найдено ${users.length} пользователей из ${total}`);
-    return { users, total };
+
+    // Формирование ответа
+    return {
+      data: users.map((user) => new UserResponseDto(user as any)),
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
   }
 
   // Получение списка курсов с фильтрами и пагинацией

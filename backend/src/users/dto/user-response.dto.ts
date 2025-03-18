@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { UserSettingsDto } from './user-settings.dto';
+import { User } from '../schemas/user.schema';
 
 // DTO для ответа с данными пользователя
 export class UserResponseDto {
@@ -64,4 +65,16 @@ export class UserResponseDto {
     isArray: true,
   })
   groups?: string[];
+
+  constructor(user: User) {
+    this._id = user._id.toString();
+    this.email = user.email;
+    this.name = user.name;
+    this.roles = user.roles;
+    this.phone = user.phone;
+    this.avatar = user.avatar;
+    this.telegramId = user.telegramId;
+    this.settings = user.settings;
+    this.groups = user.groups?.map((group) => group.toString());
+  }
 }
